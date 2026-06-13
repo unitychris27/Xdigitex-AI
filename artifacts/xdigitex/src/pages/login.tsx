@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,6 +33,28 @@ export default function Login() {
   const { login } = useAuth();
 
   const [showPw, setShowPw] = useState(false);
+
+  // Handle Google OAuth callback: /login?oauth_success=...&dest=...
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const oauthSuccess = params.get("oauth_success");
+    const oauthError = params.get("error");
+    if (oauthSuccess) {
+      try {
+        const { user, token } = JSON.parse(decodeURIComponent(oauthSuccess));
+        login(user, token);
+        toast.success(`Welcome, ${user.name}!`);
+        const dest = params.get("dest") ?? "/dashboard";
+        window.history.replaceState({}, "", "/login");
+        setLocation(dest);
+      } catch {
+        toast.error("Google sign-in failed. Please try again.");
+      }
+    } else if (oauthError) {
+      toast.error(`Google sign-in error: ${decodeURIComponent(oauthError)}`);
+      window.history.replaceState({}, "", "/login");
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPw, setLoginPw] = useState("");
   const [regName, setRegName] = useState("");
@@ -73,7 +95,8 @@ export default function Login() {
   };
 
   const handleGoogle = () => {
-    toast.info("Google OAuth integration coming soon", { description: "Use email/password for now" });
+    // Redirect to server-side Google OAuth flow
+    window.location.href = `${window.location.origin}/api/auth/google`;
   };
 
   return (

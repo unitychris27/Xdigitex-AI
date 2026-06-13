@@ -1,0 +1,1354 @@
+XD
+XDIGITEX AI
+Dashboard
+Projects
+AI Workspace
+My Automations
+Deployments
+Servers
+Secrets Vault
+Files
+Agents
+Marketplace
+Platform
+Analytics
+Billing
+Referrals
+Settings
+Admin
+Search resources... (Cmd+K)
+
+
+
+🌐
+
+HTML / CSS / JS
+Describe what to build with HTML / CSS / JS…
+Generate
+Files
+Preview
+Terminal
+Logs
+Deployments
+Explorer
+No files yet.
+Generate a project above.
+No project generated yet
+
+Select a stack, describe your project, and click Generate
+
+Build a CRM SaaS
+Create a REST API
+Telegram order bot
+Landing page with auth
+AI Agent
+Live
+AI Agent
+Hi! I'm your AI development assistant.
+
+Describe what you want to build — I'll generate the full project code for you. You can also ask me questions, review code, or request changes.
+
+You
+If you're using an AI website/app builder, you can use this prompt:
+
+> **Create a modern food ordering platform for a restaurant.**
+>
+> Features:
+>
+> * Home page with restaurant branding and featured meals.
+> * Food menu with categories (Breakfast, Lunch, Dinner, Drinks, Desserts).
+> * Food item cards showing image, name, description, and price.
+> * Shopping cart that allows customers to add, remove, and update quantities.
+> * Customer checkout form with name, phone number, delivery address, and order notes.
+> * "Order via WhatsApp" checkout button.
+> * When the customer clicks checkout, send the order details to WhatsApp number **+254110236146**.
+> * Generate a formatted WhatsApp message including customer details, ordered items, quantities, total amount, and delivery address.
+> * Mobile-friendly responsive design.
+> * Admin dashboard to add, edit, and remove menu items and prices.
+> * Display restaurant contact information and operating hours.
+> * Use a clean, professional food-delivery design with high-quality food images and easy navigation.
+
+**WhatsApp Checkout Message Format**
+
+> New Food Order
+>
+> Customer Name: {name}
+>
+> Phone: {phone}
+>
+> Delivery Address: {address}
+>
+> Order:
+> {items}
+>
+> Total: {total}
+>
+> Notes: {notes}
+>
+> Please confirm this order.
+
+This prompt should work well with AI website builders such as Lovable, Bolt, Replit, or other no-code platform generators.
+
+AI Agent
+I'll create a complete food ordering platform with all the requested features. This is a full-stack single-page application with an admin dashboard.
+
+Complete Food Ordering Platform
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delicious Bites - Online Food Ordering</title>
+    <style>
+        /* CSS Reset & Base Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #FF6B35;
+            --secondary: #004E89;
+            --dark: #1a1a2e;
+            --light: #fff8f0;
+            --gray: #6c757d;
+            --success: #28a745;
+            --shadow: 0 4px 6px rgba(0,0,0,0.1);
+            --transition: all 0.3s ease;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--light);
+            color: var(--dark);
+            line-height: 1.6;
+        }
+
+        /* Navigation */
+        .navbar {
+            background: white;
+            box-shadow: var(--shadow);
+            padding: 1rem 5%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: var(--primary);
+            text-decoration: none;
+        }
+
+        .logo span {
+            color: var(--secondary);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+            align-items: center;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--dark);
+            font-weight: 500;
+            transition: var(--transition);
+        }
+
+        .nav-links a:hover {
+            color: var(--primary);
+        }
+
+        .cart-btn {
+            background: var(--primary);
+            color: white !important;
+            padding: 0.5rem 1.5rem;
+            border-radius: 25px;
+            position: relative;
+        }
+
+        .cart-count {
+            background: var(--secondary);
+            color: white;
+            border-radius: 50%;
+            padding: 0.2rem 0.5rem;
+            font-size: 0.8rem;
+            position: absolute;
+            top: -10px;
+            right: -10px;
+        }
+
+        /* Hero Section */
+        .hero {
+            background: linear-gradient(135deg, var(--secondary), var(--dark));
+            color: white;
+            padding: 8rem 5% 4rem;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            margin-bottom: 2rem;
+        }
+
+        .hero-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: var(--transition);
+        }
+
+        .hero-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255,107,53,0.4);
+        }
+
+        /* Featured Meals */
+        .featured {
+            padding: 4rem 5%;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 2rem;
+            margin-bottom: 3rem;
+            color: var(--secondary);
+        }
+
+        .featured-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+        }
+
+        .featured-card {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+            transition: var(--transition);
+        }
+
+        .featured-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+        }
+
+        .featured-card img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+
+        .featured-card-content {
+            padding: 1.5rem;
+        }
+
+        .featured-card h3 {
+            margin-bottom: 0.5rem;
+            color: var(--secondary);
+        }
+
+        .featured-card .price {
+            color: var(--primary);
+            font-size: 1.3rem;
+            font-weight: bold;
+        }
+
+        /* Menu Section */
+        .menu {
+            padding: 4rem 5%;
+            background: white;
+        }
+
+        .category-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 3rem;
+            flex-wrap: wrap;
+        }
+
+        .tab-btn {
+            background: none;
+            border: 2px solid var(--secondary);
+            color: var(--secondary);
+            padding: 0.8rem 1.5rem;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: var(--transition);
+        }
+
+        .tab-btn.active {
+            background: var(--secondary);
+            color: white;
+        }
+
+        .tab-btn:hover {
+            background: var(--secondary);
+            color: white;
+        }
+
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .menu-item {
+            background: white;
+            border: 1px solid #eee;
+            border-radius: 15px;
+            overflow: hidden;
+            transition: var(--transition);
+        }
+
+        .menu-item:hover {
+            box-shadow: var(--shadow);
+        }
+
+        .menu-item img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+
+        .menu-item-content {
+            padding: 1.5rem;
+        }
+
+        .menu-item h3 {
+            color: var(--secondary);
+            margin-bottom: 0.5rem;
+        }
+
+        .menu-item p {
+            color: var(--gray);
+            margin-bottom: 1rem;
+            font-size: 0.9rem;
+        }
+
+        .menu-item-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .price {
+            font-size: 1.4rem;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .add-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: var(--transition);
+        }
+
+        .add-btn:hover {
+            background: #e55a2b;
+        }
+
+        /* Cart Modal */
+        .cart-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .cart-modal.active {
+            display: flex;
+        }
+
+        .cart-content {
+            background: white;
+            border-radius: 20px;
+            padding: 2rem;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .cart-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .cart-header h2 {
+            color: var(--secondary);
+        }
+
+        .close-cart {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+        }
+
+        .cart-items {
+            list-style: none;
+        }
+
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .cart-item-info h4 {
+            color: var(--secondary);
+        }
+
+        .cart-item-controls {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .qty-btn {
+            background: #f0f0f0;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .qty-btn:hover {
+            background: #ddd;
+        }
+
+        .remove-item {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 0.3rem 0.8rem;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .cart-total {
+            margin: 1.5rem 0;
+            text-align: right;
+            font-size: 1.3rem;
+            font-weight: bold;
+            color: var(--secondary);
+        }
+
+        /* Checkout Form */
+        .checkout-form {
+            margin-top: 1rem;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.3rem;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.8rem;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            font-size: 1rem;
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .checkout-btn {
+            background: #25D366;
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 1rem;
+            font-size: 1.1rem;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: var(--transition);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .checkout-btn:hover {
+            background: #1da851;
+        }
+
+        /* Contact & Info Section */
+        .contact {
+            background: var(--secondary);
+            color: white;
+            padding: 4rem 5%;
+        }
+
+        .contact-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+        }
+
+        .contact-info h3 {
+            margin-bottom: 1rem;
+        }
+
+        .contact-info p {
+            margin-bottom: 0.5rem;
+            opacity: 0.9;
+        }
+
+        /* Admin Dashboard */
+        .admin-panel {
+            display: none;
+            padding: 2rem 5%;
+        }
+
+        .admin-panel.active {
+            display: block;
+        }
+
+        .admin-header {
+            margin-bottom: 2rem;
+        }
+
+        .admin-form {
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: var(--shadow);
+            margin-bottom: 2rem;
+        }
+
+        .admin-form h3 {
+            margin-bottom: 1.5rem;
+            color: var(--secondary);
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .admin-btn {
+            background: var(--secondary);
+            color: white;
+            border: none;
+            padding: 0.8rem 1.5rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: var(--transition);
+        }
+
+        .admin-btn:hover {
+            background: #003d6b;
+        }
+
+        .admin-btn.danger {
+            background: #dc3545;
+        }
+
+        .admin-btn.danger:hover {
+            background: #c82333;
+        }
+
+        .admin-list {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+
+        .admin-list-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid #eee;
+        }
+
+        .admin-list-item:last-child {
+            border-bottom: none;
+        }
+
+        .admin-actions {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .navbar {
+                flex-direction: column;
+                gap: 1rem;
+                padding: 1rem;
+            }
+
+            .nav-links {
+                gap: 1rem;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .hero h1 {
+                font-size: 2rem;
+            }
+
+            .category-tabs {
+                gap: 0.5rem;
+            }
+
+            .tab-btn {
+                padding: 0.5rem 1rem;
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Navigation -->
+<nav class="navbar">
+    <a href="#" class="logo">Delicious<span>Bites</span></a>
+    <ul class="nav-links">
+        <li><a href="#home">Home</a></li>
+        <li><a href="#menu">Menu</a></li>
+        <li><a href="#contact">Contact</a></li>
+        <li><a href="#" onclick="toggleAdmin()">Admin</a></li>
+        <li><a href="#" class="cart-btn" onclick="openCart()">
+            🛒 Cart <span class="cart-count" id="cartCount">0</span>
+        </a></li>
+    </ul>
+</nav>
+
+<!-- Hero Section -->
+<section class="hero" id="home">
+    <h1>Fresh & Delicious Food</h1>
+    <p>Order your favorite meals online and enjoy fast delivery to your doorstep</p>
+    <button class="hero-btn" onclick="document.getElementById('menu').scrollIntoView({behavior: 'smooth'})">
+        View Our Menu
+    </button>
+</section>
+
+<!-- Featured Meals -->
+<section class="featured">
+    <h2 class="section-title">Featured Meals</h2>
+    <div class="featured-grid" id="featuredGrid">
+        <!-- Dynamically populated -->
+    </div>
+</section>
+
+<!-- Menu Section -->
+<section class="menu" id="menu">
+    <h2 class="section-title">Our Menu</h2>
+    
+    <div class="category-tabs" id="categoryTabs">
+        <!-- Dynamically populated -->
+    </div>
+
+    <div class="menu-grid" id="menuGrid">
+        <!-- Dynamically populated -->
+    </div>
+</section>
+
+<!-- Cart Modal -->
+<div class="cart-modal" id="cartModal">
+    <div class="cart-content">
+        <div class="cart-header">
+            <h2>Your Cart</h2>
+            <button class="close-cart" onclick="closeCart()">×</button>
+        </div>
+        
+        <ul class="cart-items" id="cartItems">
+            <!-- Dynamically populated -->
+        </ul>
+        
+        <div class="cart-total" id="cartTotal">Total: KES 0</div>
+        
+        <form class="checkout-form" id="checkoutForm" onsubmit="placeOrder(event)">
+            <div class="form-group">
+                <label for="customerName">Full Name</label>
+                <input type="text" id="customerName" required placeholder="John Doe">
+            </div>
+            
+            <div class="form-group">
+                <label for="customerPhone">Phone Number</label>
+                <input type="tel" id="customerPhone" required placeholder="+254 7XX XXX XXX">
+            </div>
+            
+            <div class="form-group">
+                <label for="deliveryAddress">Delivery Address</label>
+                <textarea id="deliveryAddress" required placeholder="Enter your delivery address"></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="orderNotes">Order Notes (Optional)</label>
+                <textarea id="orderNotes" placeholder="Any special instructions?"></textarea>
+            </div>
+            
+            <button type="submit" class="checkout-btn">
+                📱 Order via WhatsApp
+            </button>
+        </form>
+    </div>
+</div>
+
+<!-- Contact Section -->
+<section class="contact" id="contact">
+    <h2 class="section-title" style="color: white;">Contact Us</h2>
+    <div class="contact-grid">
+        <div class="contact-info">
+            <h3>📍 Location</h3>
+            <p>123 Food Street, Nairobi</p>
+            <p>Kenya</p>
+        </div>
+        
+        <div class="contact-info">
+            <h3>🕐 Operating Hours</h3>
+            <p>Monday - Friday: 7:00 AM - 10:00 PM</p>
+            <p>Saturday - Sunday: 8:00 AM - 11:00 PM</p>
+        </div>
+        
+        <div class="contact-info">
+            <h3>📞 Contact</h3>
+            <p>Phone: +254 110 236 146</p>
+            <p>Email: info@deliciousbites
+You
+deploy now or give me zip
+
+AI Agent
+I'll provide you with a complete, deployable version of the food ordering platform. Since I can't create actual zip files, I'll give you everything you need to deploy immediately.
+
+Complete Deployable Code
+1. Main HTML File (index.html)
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Delicious Bites - Online Food Ordering</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --primary: #FF6B35;
+            --secondary: #004E89;
+            --dark: #1a1a2e;
+            --light: #fff8f0;
+            --gray: #6c757d;
+            --shadow: 0 4px 6px rgba(0,0,0,0.1);
+            --transition: all 0.3s ease;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: var(--light);
+            color: var(--dark);
+        }
+
+        .navbar {
+            background: white;
+            box-shadow: var(--shadow);
+            padding: 1rem 5%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: fixed;
+            width: 100%;
+            top: 0;
+            z-index: 1000;
+        }
+
+        .logo {
+            font-size: 1.8rem;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .logo span {
+            color: var(--secondary);
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 2rem;
+            list-style: none;
+            align-items: center;
+        }
+
+        .nav-links a {
+            text-decoration: none;
+            color: var(--dark);
+            font-weight: 500;
+        }
+
+        .nav-links a:hover {
+            color: var(--primary);
+        }
+
+        .cart-btn {
+            background: var(--primary);
+            color: white !important;
+            padding: 0.5rem 1.5rem;
+            border-radius: 25px;
+            position: relative;
+        }
+
+        .cart-count {
+            background: var(--secondary);
+            color: white;
+            border-radius: 50%;
+            padding: 0.2rem 0.5rem;
+            font-size: 0.8rem;
+            position: absolute;
+            top: -10px;
+            right: -10px;
+        }
+
+        .hero {
+            background: linear-gradient(135deg, #004E89, #1a1a2e);
+            color: white;
+            padding: 8rem 5% 4rem;
+            text-align: center;
+        }
+
+        .hero h1 {
+            font-size: 3rem;
+            margin-bottom: 1rem;
+        }
+
+        .hero p {
+            font-size: 1.2rem;
+            margin-bottom: 2rem;
+        }
+
+        .hero-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 1rem 2rem;
+            font-size: 1.1rem;
+            border-radius: 30px;
+            cursor: pointer;
+        }
+
+        .featured {
+            padding: 4rem 5%;
+        }
+
+        .section-title {
+            text-align: center;
+            font-size: 2rem;
+            margin-bottom: 3rem;
+            color: var(--secondary);
+        }
+
+        .featured-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+        }
+
+        .featured-card {
+            background: white;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+
+        .featured-card img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+
+        .featured-card-content {
+            padding: 1.5rem;
+        }
+
+        .menu {
+            padding: 4rem 5%;
+            background: white;
+        }
+
+        .category-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+            margin-bottom: 3rem;
+            flex-wrap: wrap;
+        }
+
+        .tab-btn {
+            background: none;
+            border: 2px solid var(--secondary);
+            color: var(--secondary);
+            padding: 0.8rem 1.5rem;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .tab-btn.active {
+            background: var(--secondary);
+            color: white;
+        }
+
+        .menu-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 2rem;
+        }
+
+        .menu-item {
+            background: white;
+            border: 1px solid #eee;
+            border-radius: 15px;
+            overflow: hidden;
+            transition: var(--transition);
+        }
+
+        .menu-item:hover {
+            box-shadow: var(--shadow);
+        }
+
+        .menu-item img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+
+        .menu-item-content {
+            padding: 1.5rem;
+        }
+
+        .price {
+            font-size: 1.4rem;
+            font-weight: bold;
+            color: var(--primary);
+        }
+
+        .add-btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 0.6rem 1.2rem;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .cart-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 2000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .cart-modal.active {
+            display: flex;
+        }
+
+        .cart-content {
+            background: white;
+            border-radius: 20px;
+            padding: 2rem;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .cart-items {
+            list-style: none;
+        }
+
+        .cart-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem 0;
+            border-bottom: 1px solid #eee;
+        }
+
+        .qty-btn {
+            background: #f0f0f0;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .remove-item {
+            background: #dc3545;
+            color: white;
+            border: none;
+            padding: 0.3rem 0.8rem;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .cart-total {
+            margin: 1.5rem 0;
+            text-align: right;
+            font-size: 1.3rem;
+            font-weight: bold;
+        }
+
+        .form-group {
+            margin-bottom: 1rem;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 0.3rem;
+        }
+
+        .form-group input,
+        .form-group textarea {
+            width: 100%;
+            padding: 0.8rem;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+
+        .checkout-btn {
+            background: #25D366;
+            color: white;
+            border: none;
+            width: 100%;
+            padding: 1rem;
+            font-size: 1.1rem;
+            border-radius: 30px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .contact {
+            background: var(--secondary);
+            color: white;
+            padding: 4rem 5%;
+        }
+
+        .contact-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 2rem;
+        }
+
+        .admin-panel {
+            display: none;
+            padding: 2rem 5%;
+        }
+
+        .admin-panel.active {
+            display: block;
+        }
+
+        .admin-form {
+            background: white;
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: var(--shadow);
+            margin-bottom: 2rem;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        @media (max-width: 768px) {
+            .navbar {
+                flex-direction: column;
+                gap: 1rem;
+                padding: 1rem;
+            }
+
+            .nav-links {
+                gap: 1rem;
+                flex-wrap: wrap;
+                justify-content: center;
+            }
+
+            .hero h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<!-- Navigation -->
+<nav class="navbar">
+    <a href="#" class="logo">Delicious<span>Bites</span></a>
+    <ul class="nav-links">
+        <li><a href="#home">Home</a></li>
+        <li><a href="#menu">Menu</a></li>
+        <li><a href="#contact">Contact</a></li>
+        <li><a href="#" onclick="toggleAdmin()">Admin</a></li>
+        <li><a href="#" class="cart-btn" onclick="openCart()">
+            🛒 Cart <span class="cart-count" id="cartCount">0</span>
+        </a></li>
+    </ul>
+</nav>
+
+<!-- Hero Section -->
+<section class="hero" id="home">
+    <h1>Fresh & Delicious Food</h1>
+    <p>Order your favorite meals online and enjoy fast delivery to your doorstep</p>
+    <button class="hero-btn" onclick="document.getElementById('menu').scrollIntoView({behavior: 'smooth'})">
+        View Our Menu
+    </button>
+</section>
+
+<!-- Featured Meals -->
+<section class="featured">
+    <h2 class="section-title">Featured Meals</h2>
+    <div class="featured-grid" id="featuredGrid"></div>
+</section>
+
+<!-- Menu Section -->
+<section class="menu" id="menu">
+    <h2 class="section-title">Our Menu</h2>
+    <div class="category-tabs" id="categoryTabs"></div>
+    <div class="menu-grid" id="menuGrid"></div>
+</section>
+
+<!-- Cart Modal -->
+<div class="cart-modal" id="cartModal">
+    <div class="cart-content">
+        <div class="cart-header" style="display:flex;justify-content:space-between;margin-bottom:1.5rem;">
+            <h2>Your Cart</h2>
+            <button onclick="closeCart()" style="background:none;border:none;font-size:1.5rem;cursor:pointer;">×</button>
+        </div>
+        
+        <ul class="cart-items" id="cartItems"></ul>
+        <div class="cart-total" id="cartTotal">Total: KES 0</div>
+        
+        <form id="checkoutForm" onsubmit="placeOrder(event)">
+            <div class="form-group">
+                <label>Full Name</label>
+                <input type="text" id="customerName" required placeholder="John Doe">
+            </div>
+            <div class="form-group">
+                <label>Phone Number</label>
+                <input type="tel" id="customerPhone" required placeholder="+254 7XX XXX XXX">
+            </div>
+            <div class="form-group">
+                <label>Delivery Address</label>
+                <textarea id="deliveryAddress" required placeholder="Enter your delivery address"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Order Notes (Optional)</label>
+                <textarea id="orderNotes" placeholder="Any special instructions?"></textarea>
+            </div>
+            <button type="submit" class="checkout-btn">📱 Order via WhatsApp</button>
+        </form>
+    </div>
+</div>
+
+<!-- Contact Section -->
+<section class="contact" id="contact">
+    <h2 class="section-title" style="color:white;">Contact Us</h2>
+    <div class="contact-grid">
+        <div class="contact-info">
+            <h3>📍 Location</h3>
+            <p>123 Food Street, Nairobi</p>
+            <p>Kenya</p>
+        </div>
+        <div class="contact-info">
+            <h3>🕐 Operating Hours</h3>
+            <p>Mon-Fri: 7:00 AM - 10:00 PM</p>
+            <p>Sat-Sun: 8:00 AM - 11:00 PM</p>
+        </div>
+        <div class="contact-info">
+            <h3>📞 Contact</h3>
+            <p>Phone: +254 110 236 146</p>
+            <p>Email: info@deliciousbites.com</p>
+        </div>
+    </div>
+</section>
+
+<!-- Admin Panel -->
+<section class="admin-panel" id="adminPanel">
+    <h2 style="color:var(--secondary);margin-bottom:2rem;">Admin Dashboard</h2>
+    
+    <div class="admin-form">
+        <h3>Add New Menu Item</h3>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Item Name</label>
+                <input type="text" id="itemName" required>
+            </div>
+            <div class="form-group">
+                <label>Category</label>
+                <select id="itemCategory">
+                    <option>Breakfast</option>
+                    <option>Lunch</option>
+                    <option>Dinner</option>
+                    <option>Drinks</option>
+                    <option>Desserts</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Price (KES)</label>
+                <input type="number" id="itemPrice" required>
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Description</label>
+            <textarea id="itemDescription" required placeholder="Describe the item..."></textarea>
+        </div>
+        <div class="form-group">
+            <label>Image URL (optional)</label>
+            <input type="url" id="itemImage" placeholder="https://example.com/image.jpg">
+        </div>
+        <button class="admin-btn" onclick="addMenuItem()">Add Item</button>
+    </div>
+
+    <div class="admin-list" id="adminList">
+        <!-- Admin items list -->
+    </div>
+</section>
+
+<script>
+    // ==================== DATA ====================
+    let menuItems = [
+        {
+            id: 1,
+            name: "Classic Pancakes",
+            category: "Breakfast",
+            price: 450,
+            description: "Fluffy pancakes with maple syrup and fresh berries",
+            image: "https://images.unsplash.com/photo-1567620905732-2d1ec7ab7445?w=400",
+            featured: true
+        },
+        {
+            id: 2,
+            name: "Grilled Chicken Salad",
+            category: "Lunch",
+            price: 650,
+            description: "Fresh garden salad with grilled chicken breast",
+            image: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400",
+            featured: true
+        },
+        {
+            id: 3,
+            name: "Beef Burger",
+            category: "Dinner",
+            price: 550,
+            description: "Juicy beef patty with cheese and fresh vegetables",
+            image: "https://images.unsplash.com/photo-1568901346375-23c9450c58cd?w=400",
+            featured: true
+        },
+        {
+            id: 4,
+            name: "Fresh Juice",
+            category: "Drinks",
+            price: 250,
+            description: "Freshly squeezed orange juice",
+            image: "https://images.unsplash.com/photo-1622597467836-f3285f2131b8?w=400",
+            featured: false
+        },
+        {
+            id: 5,
+            name: "Chocolate Cake",
+            category: "Desserts",
+            price: 350,
+            description: "Rich chocolate cake with vanilla ice cream",
+            image: "https://images.unsplash.com/photo-1578985545062-69928b1d9587?w=400",
+            featured: true
+        },
+        {
+            id: 6,
+            name: "Full English Breakfast",
+            category: "Breakfast",
+            price: 750,
+            description: "Eggs, bacon, sausages, beans, and toast",
+            image: "https://images.unsplash.com/photo-1608039829572-9b5b8f4e6b8d?w=400",
+            featured: false
+        }
+    ];
+
+    let cart = [];
+    let nextId = 7;
+
+    // ==================== RENDER FUNCTIONS ====================
+    function renderFeatured() {
+        const grid = document.getElementById('featuredGrid');
+        const featured = menuItems.filter(item => item.featured);
+        grid.innerHTML = featured.map(item => `
+            <div class="featured-card">
+                <img src="${item.image || 'https://via.placeholder.com/400x200?text=Food+Item'}" alt="${item.name}">
+                <div class="featured-card-content">
+                    <h3>${item.name}</h3>
+                    <p style="color:var
+Ask anything or describe what to build…
+
+Enter to send · Shift+Enter for new line
+

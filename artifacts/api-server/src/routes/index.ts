@@ -18,11 +18,13 @@ import teamRouter from "./team";
 import apikeysRouter from "./apikeys";
 import adminRouter from "./admin";
 import generateRouter from "./generate";
+import googleAuthRouter from "./google-auth";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use("/auth", authRouter);
+router.use("/auth", googleAuthRouter);
 router.use("/dashboard", dashboardRouter);
 router.use("/projects", projectsRouter);
 router.use("/agents", agentsRouter);
