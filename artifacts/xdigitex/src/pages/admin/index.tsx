@@ -56,35 +56,50 @@ const PIE_COLORS = ["#7c3aed", "#2563eb", "#059669", "#d97706", "#dc2626", "#089
 
 // ---------- sub-panels ----------
 
+function timeAgo(ts: string | Date) {
+  const diff = Date.now() - new Date(ts).getTime();
+  const s = Math.floor(diff / 1000);
+  if (s < 60) return `${s}s ago`;
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+
+function fmtNum(n: number) {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(2)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return String(n);
+}
+
 function DashboardPanel({ health, costs }: { health: any; costs: any }) {
+  const { data: auditLogs } = useAdminGetAuditLogs({ limit: "8" } as any);
+
+  const s = costs?.stats ?? {};
   const stats = [
-    { label: "Total Users", value: "2,847", delta: "+12%", icon: Users, color: "text-violet-400" },
-    { label: "Active Agents", value: "23", delta: "+3", icon: Bot, color: "text-blue-400" },
-    { label: "Revenue Today", value: "$1,248", delta: "+8%", icon: DollarSign, color: "text-green-400" },
-    { label: "Token Usage", value: "2.84M", delta: "+15%", icon: Zap, color: "text-yellow-400" },
-    { label: "API Requests", value: "48,200", delta: "+5%", icon: Activity, color: "text-pink-400" },
-    { label: "Deployments", value: "142", delta: "+2", icon: Rocket, color: "text-cyan-400" },
-  ];
-  const userGrowth = genSeries(30, 100, 300);
-  const revenueGrowth = genSeries(30, 800, 2000);
-  const providerUsage = [
-    { name: "OpenAI", value: 45 },
-    { name: "Anthropic", value: 30 },
-    { name: "DeepSeek", value: 15 },
-    { name: "Google AI", value: 10 },
-  ];
-  const liveFeed = [
-    { msg: "User maria@acme.com registered", time: "2s ago", type: "user" },
-    { msg: "ShopBot Pro deployed to production", time: "18s ago", type: "bot" },
-    { msg: "Payment $149.00 received from james@startup.io", time: "1m ago", type: "payment" },
-    { msg: "Security Auditor agent failed — retrying", time: "3m ago", type: "error" },
-    { msg: "API key rotated for Anthropic provider", time: "5m ago", type: "key" },
-    { msg: "Deployment #47 started by Alex Chen", time: "8m ago", type: "deploy" },
+    { label: "Total Users",   value: fmtNum(s.totalUsers ?? 0),        icon: Users,    color: "text-violet-400" },
+    { label: "Active Agents", value: String(s.activeAgents ?? 0),       icon: Bot,      color: "text-blue-400"   },
+    { label: "Cost Today",    value: `$${Number(s.revenueToday ?? 0).toFixed(2)}`,  icon: DollarSign, color: "text-green-400" },
+    { label: "Token Usage",   value: fmtNum(s.tokenUsage30d ?? 0),      icon: Zap,      color: "text-yellow-400" },
+    { label: "API Requests",  value: fmtNum(s.apiRequests30d ?? 0),     icon: Activity, color: "text-pink-400"   },
+    { label: "Deployments",   value: fmtNum(s.totalDeployments ?? 0),   icon: Rocket,   color: "text-cyan-400"   },
   ];
 
-  const getHealth = (s: string) => s === "healthy"
+  const userGrowth: any[] = costs?.charts?.userGrowth ?? [];
+  const revenueChart: any[] = costs?.charts?.revenue ?? [];
+
+  // Provider share: convert cost amounts to percentages
+  const rawProviders: { provider: string; cost: number }[] = costs?.providerCosts ?? [];
+  const totalCost = rawProviders.reduce((acc, p) => acc + p.cost, 0);
+  const providerUsage = rawProviders.map(p => ({
+    name: p.provider,
+    value: totalCost > 0 ? Math.round((p.cost / totalCost) * 100) : 0,
+  }));
+
+  const getHealth = (st: string) => st === "healthy"
     ? <span className="flex items-center gap-1 text-green-400"><CheckCircle className="w-3.5 h-3.5" /> Healthy</span>
-    : s === "warning"
+    : st === "warning"
     ? <span className="flex items-center gap-1 text-yellow-400"><AlertTriangle className="w-3.5 h-3.5" /> Warning</span>
     : <span className="flex items-center gap-1 text-red-400"><XCircle className="w-3.5 h-3.5" /> Critical</span>;
 
@@ -92,15 +107,15 @@ function DashboardPanel({ health, costs }: { health: any; costs: any }) {
     <div className="space-y-6">
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        {stats.map(s => (
-          <Card key={s.label} className="bg-card/60">
+        {stats.map(st => (
+          <Card key={st.label} className="bg-card/60">
             <CardContent className="p-4">
               <div className="flex items-center gap-2 mb-2">
-                <s.icon className={`w-4 h-4 ${s.color}`} />
-                <span className="text-[11px] text-muted-foreground uppercase tracking-wide">{s.label}</span>
+                <st.icon className={`w-4 h-4 ${st.color}`} />
+                <span className="text-[11px] text-muted-foreground uppercase tracking-wide">{st.label}</span>
               </div>
-              <div className="text-xl font-bold font-mono">{s.value}</div>
-              <div className="text-[11px] text-green-400 mt-0.5">{s.delta} vs last period</div>
+              <div className="text-xl font-bold font-mono">{st.value}</div>
+              <div className="text-[11px] text-muted-foreground/50 mt-0.5">live from database</div>
             </CardContent>
           </Card>
         ))}
@@ -109,88 +124,107 @@ function DashboardPanel({ health, costs }: { health: any; costs: any }) {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* User Growth */}
         <Card className="md:col-span-2">
-          <CardHeader className="pb-2"><CardTitle className="text-sm">User Growth (30d)</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">New Users (30d)</CardTitle></CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={160}>
-              <AreaChart data={userGrowth}>
-                <defs>
-                  <linearGradient id="uGrad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#7c3aed" stopOpacity={0}/>
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="date" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
-                <YAxis hide />
-                <Tooltip contentStyle={{ fontSize: 12, background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }} />
-                <Area type="monotone" dataKey="value" stroke="#7c3aed" fill="url(#uGrad)" strokeWidth={2} />
-              </AreaChart>
-            </ResponsiveContainer>
+            {userGrowth.length === 0
+              ? <div className="h-[160px] flex items-center justify-center text-sm text-muted-foreground">No registrations yet in this period</div>
+              : (
+                <ResponsiveContainer width="100%" height={160}>
+                  <AreaChart data={userGrowth}>
+                    <defs>
+                      <linearGradient id="uGrad" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="#7c3aed" stopOpacity={0.3}/>
+                        <stop offset="95%" stopColor="#7c3aed" stopOpacity={0}/>
+                      </linearGradient>
+                    </defs>
+                    <XAxis dataKey="date" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+                    <YAxis hide />
+                    <Tooltip contentStyle={{ fontSize: 12, background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }} />
+                    <Area type="monotone" dataKey="value" stroke="#7c3aed" fill="url(#uGrad)" strokeWidth={2} />
+                  </AreaChart>
+                </ResponsiveContainer>
+              )}
           </CardContent>
         </Card>
 
         {/* Provider usage pie */}
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm">Provider Share</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">Provider Cost Share</CardTitle></CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={160}>
-              <PieChart>
-                <Pie data={providerUsage} cx="50%" cy="50%" innerRadius={40} outerRadius={65} dataKey="value" paddingAngle={3}>
-                  {providerUsage.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
-                </Pie>
-                <Tooltip contentStyle={{ fontSize: 12, background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }} />
-              </PieChart>
-            </ResponsiveContainer>
-            <div className="space-y-1 mt-1">
-              {providerUsage.map((p, i) => (
-                <div key={p.name} className="flex items-center justify-between text-[11px]">
-                  <div className="flex items-center gap-1.5">
-                    <div className="w-2 h-2 rounded-full" style={{ background: PIE_COLORS[i] }} />
-                    <span className="text-muted-foreground">{p.name}</span>
+            {providerUsage.length === 0
+              ? <div className="h-[160px] flex items-center justify-center text-sm text-muted-foreground">No AI usage yet</div>
+              : (
+                <>
+                  <ResponsiveContainer width="100%" height={160}>
+                    <PieChart>
+                      <Pie data={providerUsage} cx="50%" cy="50%" innerRadius={40} outerRadius={65} dataKey="value" paddingAngle={3}>
+                        {providerUsage.map((_, i) => <Cell key={i} fill={PIE_COLORS[i % PIE_COLORS.length]} />)}
+                      </Pie>
+                      <Tooltip contentStyle={{ fontSize: 12, background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                  <div className="space-y-1 mt-1">
+                    {providerUsage.map((p, i) => (
+                      <div key={p.name} className="flex items-center justify-between text-[11px]">
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-2 h-2 rounded-full" style={{ background: PIE_COLORS[i] }} />
+                          <span className="text-muted-foreground capitalize">{p.name}</span>
+                        </div>
+                        <span className="font-medium">{p.value}%</span>
+                      </div>
+                    ))}
                   </div>
-                  <span className="font-medium">{p.value}%</span>
-                </div>
-              ))}
-            </div>
+                </>
+              )}
           </CardContent>
         </Card>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Revenue */}
+        {/* Revenue / AI Cost */}
         <Card>
-          <CardHeader className="pb-2"><CardTitle className="text-sm">Revenue (30d)</CardTitle></CardHeader>
+          <CardHeader className="pb-2"><CardTitle className="text-sm">AI Spend (30d)</CardTitle></CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={140}>
-              <BarChart data={revenueGrowth.slice(-14)}>
-                <XAxis dataKey="date" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
-                <YAxis hide />
-                <Tooltip contentStyle={{ fontSize: 12, background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }} formatter={(v: any) => [`$${v}`, "Revenue"]} />
-                <Bar dataKey="value" fill="#7c3aed" radius={[3, 3, 0, 0]} />
-              </BarChart>
-            </ResponsiveContainer>
+            {revenueChart.length === 0
+              ? <div className="h-[140px] flex items-center justify-center text-sm text-muted-foreground">No AI spend yet</div>
+              : (
+                <ResponsiveContainer width="100%" height={140}>
+                  <BarChart data={revenueChart}>
+                    <XAxis dataKey="date" tick={{ fontSize: 10 }} tickLine={false} axisLine={false} />
+                    <YAxis hide />
+                    <Tooltip contentStyle={{ fontSize: 12, background: "hsl(var(--card))", border: "1px solid hsl(var(--border))" }} formatter={(v: any) => [`$${Number(v).toFixed(4)}`, "Cost"]} />
+                    <Bar dataKey="value" fill="#7c3aed" radius={[3, 3, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              )}
           </CardContent>
         </Card>
 
-        {/* Live feed */}
+        {/* Live Audit Feed */}
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse" />
-              Live Feed
+              Recent Activity
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              {liveFeed.map((f, i) => (
-                <div key={i} className="flex items-start gap-2 text-[12px]">
-                  <span className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${
-                    f.type === "error" ? "bg-red-500" : f.type === "payment" ? "bg-green-500" : "bg-primary"
-                  }`} />
-                  <span className="text-muted-foreground flex-1">{f.msg}</span>
-                  <span className="text-muted-foreground/50 shrink-0">{f.time}</span>
+            {!auditLogs || (auditLogs as any[]).length === 0
+              ? <div className="h-24 flex items-center justify-center text-sm text-muted-foreground">No activity yet</div>
+              : (
+                <div className="space-y-2">
+                  {(auditLogs as any[]).slice(0, 6).map((log: any) => (
+                    <div key={log.id} className="flex items-start gap-2 text-[12px]">
+                      <span className="w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 bg-primary" />
+                      <span className="text-muted-foreground flex-1 truncate">
+                        <span className="text-foreground font-medium">{log.user}</span>
+                        {" — "}{log.action} {log.resource}
+                      </span>
+                      <span className="text-muted-foreground/50 shrink-0">{timeAgo(log.timestamp)}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              )}
           </CardContent>
         </Card>
       </div>
@@ -210,7 +244,7 @@ function DashboardPanel({ health, costs }: { health: any; costs: any }) {
               <div key={svc.key} className="p-3 rounded-lg border bg-card/50 text-center">
                 <div className="text-[11px] text-muted-foreground mb-1">{svc.name}</div>
                 <div className="text-xs font-medium">{getHealth(health?.[svc.key]?.status ?? "healthy")}</div>
-                {health?.[svc.key]?.latency && (
+                {health?.[svc.key]?.latency != null && (
                   <div className="text-[10px] text-muted-foreground/60 mt-0.5">{health[svc.key].latency}ms</div>
                 )}
               </div>
