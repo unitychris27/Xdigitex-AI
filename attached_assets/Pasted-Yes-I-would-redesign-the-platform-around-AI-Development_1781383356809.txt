@@ -1,0 +1,704 @@
+Yes. I would redesign the platform around **AI Development + Automation**, not around "bots."
+
+The current workspace feels too limited because it assumes the AI only generates HTML and shows a preview panel. Your platform should be able to build:
+
+* Full-stack applications
+* APIs
+* Mobile apps
+* Telegram automations
+* Backend services
+* Python scripts
+* Node.js apps
+* Laravel projects
+* Django projects
+* Next.js apps
+* React apps
+* Flutter apps
+* Docker projects
+* Server automations
+* SSH tasks
+* AI agents
+* Cron jobs
+* Workflows
+
+So I'd rewrite the specification like this:
+
+---
+
+# Core Product Vision
+
+Build a platform called:
+
+```text
+AI Development & Automation Platform
+```
+
+Users can:
+
+* Build software using AI
+* Create automations
+* Connect Telegram
+* Connect servers
+* Deploy applications
+* Run workflows
+* Manage agents
+* Execute SSH operations
+* Build APIs
+* Build SaaS products
+* Build mobile apps
+* Create custom automations
+
+The platform is NOT a bot builder.
+
+The platform is an AI engineering and automation operating system.
+
+---
+
+# Rename Module
+
+Remove:
+
+```text
+Telegram Bots
+Bot Builder
+Bot Management
+```
+
+Replace with:
+
+```text
+My Automations
+Automation Builder
+Automation Deployments
+```
+
+---
+
+# New Sidebar
+
+```text
+Dashboard
+
+Projects
+
+AI Workspace
+
+My Automations
+
+Deployments
+
+Servers
+
+Secrets Vault
+
+Files
+
+Agents
+
+Marketplace
+
+Analytics
+
+Billing
+
+Referrals
+
+Settings
+
+Admin
+```
+
+---
+
+# AI Workspace
+
+This becomes the most important screen.
+
+---
+
+## Layout
+
+```text
+┌───────────────────────────────────────────┐
+│ Project Name                              │
+├───────────────────────────────────────────┤
+│ Files | Preview | Terminal | Logs         │
+├───────────────────────────────────────────┤
+│                                           │
+│           Active Workspace                │
+│                                           │
+└───────────────────────────────────────────┘
+```
+
+---
+
+## IMPORTANT CHANGE
+
+Do NOT place preview beside editor.
+
+Bad:
+
+```text
+Editor | Preview
+```
+
+This wastes space.
+
+Use tabs:
+
+```text
+Files
+Preview
+Terminal
+Logs
+Deployments
+```
+
+Example:
+
+```text
+[ Files ] [ Preview ] [ Terminal ] [ Logs ]
+```
+
+When user clicks Preview:
+
+Show generated application.
+
+When user clicks Terminal:
+
+Show terminal.
+
+When user clicks Logs:
+
+Show logs.
+
+Workspace remains clean.
+
+---
+
+# AI Chat Panel
+
+Right side:
+
+```text
+Describe what you want to build...
+```
+
+Examples:
+
+```text
+Build a CRM SaaS
+
+Create a Telegram ordering automation
+
+Create a Laravel API
+
+Build a Next.js ecommerce site
+
+Create a Django backend
+
+Build a WhatsApp automation
+
+Deploy to my VPS
+```
+
+---
+
+# Supported Languages
+
+AI should generate:
+
+```text
+HTML
+CSS
+JavaScript
+
+TypeScript
+
+React
+Next.js
+
+Vue
+Nuxt
+
+Angular
+
+Node.js
+Express
+
+NestJS
+
+Python
+
+Django
+
+FastAPI
+
+Flask
+
+PHP
+
+Laravel
+
+CodeIgniter
+
+Go
+
+Rust
+
+Java
+
+Spring Boot
+
+C#
+
+.NET
+
+Flutter
+
+React Native
+
+Kotlin
+
+Swift
+
+SQL
+
+Docker
+
+Terraform
+
+Bash
+```
+
+Not only:
+
+```text
+index.html
+```
+
+The platform must support complete projects.
+
+---
+
+# Files Tab
+
+Example:
+
+```text
+frontend/
+backend/
+
+src/
+
+api/
+
+database/
+
+docker/
+
+README.md
+```
+
+Like VS Code explorer.
+
+---
+
+# Preview Tab
+
+Preview application.
+
+Examples:
+
+```text
+Websites
+
+Dashboards
+
+Admin Panels
+
+Landing Pages
+```
+
+Preview runs inside sandbox.
+
+---
+
+# Terminal Tab
+
+Real terminal.
+
+Examples:
+
+```bash
+npm install
+
+npm run build
+
+python manage.py runserver
+
+docker compose up
+```
+
+AI can use terminal.
+
+User can use terminal.
+
+---
+
+# Logs Tab
+
+Display:
+
+```text
+Build Logs
+
+Deployment Logs
+
+Automation Logs
+
+Agent Logs
+```
+
+---
+
+# My Automations
+
+This replaces Telegram Bots.
+
+---
+
+## Automation Concept
+
+User connects:
+
+```text
+Telegram
+
+WhatsApp
+
+Discord
+
+Slack
+
+Email
+
+Webhook
+
+API
+
+Server
+```
+
+Then AI builds automations.
+
+---
+
+## Telegram Automation Flow
+
+User enters:
+
+```text
+Bot Token
+
+Godfather Token
+
+Chat ID
+```
+
+or
+
+```text
+Connect Telegram
+```
+
+through guided setup.
+
+After connection:
+
+```text
+Build an automation that:
+
+Responds to orders
+
+Stores data
+
+Calls APIs
+
+Creates invoices
+
+Sends notifications
+```
+
+AI generates workflow.
+
+---
+
+# Automation Builder
+
+Visual builder.
+
+Blocks:
+
+```text
+Trigger
+
+Condition
+
+AI Action
+
+Database
+
+Webhook
+
+Telegram
+
+Email
+
+Delay
+
+Loop
+```
+
+Like:
+
+```text
+Telegram Message
+      ↓
+AI Process
+      ↓
+Database Save
+      ↓
+Send Reply
+```
+
+---
+
+# SSH & Server Automation
+
+Users can connect servers.
+
+Example:
+
+```text
+Production VPS
+
+Ubuntu Server
+
+AWS EC2
+
+DigitalOcean
+
+Hetzner
+
+Contabo
+```
+
+---
+
+## SSH Connection
+
+Store:
+
+```text
+Host
+
+Port
+
+Username
+
+SSH Key
+```
+
+inside Secrets Vault.
+
+Never in chat.
+
+---
+
+## AI Can Execute
+
+Examples:
+
+```bash
+Deploy application
+
+Restart PM2
+
+Restart Docker
+
+Pull Git Repo
+
+Run migrations
+
+Check logs
+
+Install packages
+```
+
+After approval.
+
+---
+
+# Automation Examples
+
+Users can build:
+
+### Telegram Store
+
+```text
+Receive Order
+↓
+Save to Database
+↓
+Send Confirmation
+```
+
+---
+
+### AI Customer Support
+
+```text
+Telegram Message
+↓
+GPT
+↓
+Reply
+```
+
+---
+
+### Server Monitoring
+
+```text
+Check CPU
+↓
+If Above 80%
+↓
+Send Telegram Alert
+```
+
+---
+
+### Auto Deployment
+
+```text
+GitHub Push
+↓
+SSH Server
+↓
+Pull Changes
+↓
+Restart App
+```
+
+---
+
+### Invoice Generator
+
+```text
+Telegram Command
+↓
+Generate Invoice
+↓
+Send PDF
+```
+
+---
+
+# Agent System
+
+Agents should work on:
+
+```text
+Code Generation
+
+Automation Building
+
+Server Operations
+
+Deployment
+
+Testing
+
+Security
+
+Research
+```
+
+Not only coding.
+
+---
+
+# Project Types
+
+When creating a project:
+
+```text
+Web Application
+
+Mobile Application
+
+Backend API
+
+Automation
+
+AI Agent
+
+Telegram Automation
+
+Server Automation
+
+Workflow
+
+Custom Project
+```
+
+---
+
+# Deployment Targets
+
+```text
+Local Sandbox
+
+Docker
+
+VPS
+
+AWS
+
+Google Cloud
+
+Azure
+
+Railway
+
+Render
+
+Kubernetes
+```
+
+---
+
+# Updated Product Positioning
+
+Instead of:
+
+```text
+AI Website Builder
+```
+
+Position it as:
+
+```text
+AI Development & Automation Platform
+
+Build software.
+Create automations.
+Deploy anywhere.
+Control servers.
+Connect AI.
+Manage workflows.
+```
+
+This positioning is much stronger because it targets developers, agencies, startups, operations teams, and businesses—not just people who want a simple website builder.

@@ -8,9 +8,10 @@ const router = Router();
 const hostedSites = new Map<string, { html: string; name: string; createdAt: Date }>();
 
 const generateSiteSchema = z.object({
-  prompt: z.string().min(1).max(2000),
+  prompt: z.string().min(1).max(4000),
   provider: z.enum(["deepseek", "openrouter"]).default("deepseek"),
   model: z.string().optional(),
+  systemOverride: z.string().max(3000).optional(),
 });
 
 const chatSchema = z.object({
@@ -35,7 +36,7 @@ router.post("/site", async (req, res) => {
     return res.status(400).json({ error: "Invalid input", details: parsed.error.issues });
   }
 
-  const { prompt, provider, model } = parsed.data;
+  const { prompt, provider, model, systemOverride } = parsed.data;
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -51,13 +52,18 @@ router.post("/site", async (req, res) => {
     const client = getAIClient(provider as AIProvider);
     const chosenModel = model ?? getDefaultModel(provider as AIProvider);
 
-    send("status", "Generating your site...");
+    send("status", "Generating your project...");
+
+    const systemPrompt = systemOverride ?? SITE_GENERATION_SYSTEM_PROMPT;
+    const userMsg = systemOverride
+      ? `Generate the following project:\n\n${prompt}`
+      : `Generate a complete, beautiful website for: ${prompt}`;
 
     const stream = await client.chat.completions.create({
       model: chosenModel,
       messages: [
-        { role: "system", content: SITE_GENERATION_SYSTEM_PROMPT },
-        { role: "user", content: `Generate a complete, beautiful website for: ${prompt}` },
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userMsg },
       ],
       stream: true,
       max_tokens: 8000,

@@ -3,42 +3,39 @@ import { cn } from "@/lib/utils";
 import {
   LayoutDashboard,
   FolderKanban,
-  TerminalSquare,
-  Bot,
+  Cpu,
+  Zap,
   Rocket,
   Server,
   KeyRound,
   CreditCard,
   Gift,
-  Megaphone,
   Store,
   BarChart3,
-  Bell,
   Settings,
-  Users,
   ShieldCheck,
-  Send,
+  Bot,
+  FolderOpen,
+  Globe,
 } from "lucide-react";
 
 const mainNav = [
   { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { title: "Projects", href: "/projects", icon: FolderKanban },
-  { title: "Workspace", href: "/workspace", icon: TerminalSquare },
-  { title: "Agents", href: "/agents", icon: Bot },
-  { title: "Bots", href: "/bots", icon: Send },
+  { title: "AI Workspace", href: "/workspace", icon: Cpu },
+  { title: "My Automations", href: "/automations", icon: Zap },
   { title: "Deployments", href: "/deployments", icon: Rocket },
   { title: "Servers", href: "/servers", icon: Server },
-  { title: "Secrets", href: "/secrets", icon: KeyRound },
+  { title: "Secrets Vault", href: "/secrets", icon: KeyRound },
+  { title: "Files", href: "/files", icon: FolderOpen },
+  { title: "Agents", href: "/agents", icon: Bot },
+  { title: "Marketplace", href: "/marketplace", icon: Globe },
 ];
 
-const secondaryNav = [
+const filteredSecondary = [
+  { title: "Analytics", href: "/analytics", icon: BarChart3 },
   { title: "Billing", href: "/billing", icon: CreditCard },
   { title: "Referrals", href: "/referrals", icon: Gift },
-  { title: "Promotions", href: "/promotions", icon: Megaphone },
-  { title: "Marketplace", href: "/marketplace", icon: Store },
-  { title: "Analytics", href: "/analytics", icon: BarChart3 },
-  { title: "Notifications", href: "/notifications", icon: Bell },
-  { title: "Team", href: "/team", icon: Users },
   { title: "Settings", href: "/settings", icon: Settings },
   { title: "Admin", href: "/admin", icon: ShieldCheck },
 ];
@@ -65,28 +62,28 @@ export function Sidebar() {
   const [location] = useLocation();
 
   return (
-    <div className="flex h-full w-64 flex-col bg-sidebar border-r border-sidebar-border text-sidebar-foreground shrink-0">
-      <div className="p-4 flex items-center gap-2 font-bold text-xl tracking-tight text-primary border-b border-sidebar-border">
+    <div className="flex h-full w-60 flex-col bg-sidebar border-r border-sidebar-border text-sidebar-foreground shrink-0">
+      <div className="p-4 flex items-center gap-2 font-bold text-xl tracking-tight text-primary border-b border-sidebar-border shrink-0">
         <div className="w-8 h-8 rounded bg-primary text-primary-foreground flex items-center justify-center text-xs font-black">
           XD
         </div>
         XDIGITEX AI
       </div>
 
-      <div className="flex-1 overflow-y-auto py-4 scrollbar-thin">
+      <div className="flex-1 overflow-y-auto py-3 scrollbar-thin">
         <nav className="space-y-0.5 px-2">
           {mainNav.map((item) => (
-            <NavItem key={item.title} item={item} location={location} />
+            <NavItem key={item.href} item={item} location={location} />
           ))}
         </nav>
 
-        <div className="mt-6 mb-2 px-4 text-[10px] font-semibold text-sidebar-foreground/40 uppercase tracking-widest">
+        <div className="mt-5 mb-2 px-4 text-[10px] font-semibold text-sidebar-foreground/40 uppercase tracking-widest">
           Platform
         </div>
 
         <nav className="space-y-0.5 px-2">
-          {secondaryNav.map((item) => (
-            <NavItem key={item.title} item={item} location={location} />
+          {filteredSecondary.map((item) => (
+            <NavItem key={item.href} item={item} location={location} />
           ))}
         </nav>
       </div>

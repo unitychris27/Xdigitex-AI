@@ -15,9 +15,8 @@ import Projects from "@/pages/projects";
 import ProjectDetail from "@/pages/projects/[id]";
 import Workspace from "@/pages/workspace";
 import AgentsList from "@/pages/agents";
-import BotsList from "@/pages/bots";
-import NewBot from "@/pages/bots/new";
-import BotDetail from "@/pages/bots/[id]";
+import Automations from "@/pages/automations";
+import FilesPage from "@/pages/files";
 import DeploymentsList from "@/pages/deployments";
 import DeploymentDetail from "@/pages/deployments/[id]";
 import ServersList from "@/pages/servers";
@@ -62,16 +61,12 @@ function Router() {
       <Route path="/" component={() => <Redirect to="/dashboard" />} />
       <Route path="/login" component={Login} />
 
-      {/* Admin routes — separate shell with own sidebar */}
+      {/* Admin routes — separate shell */}
       <Route path="/admin">
-        <AdminGuard>
-          <AdminShell><Admin /></AdminShell>
-        </AdminGuard>
+        <AdminGuard><AdminShell><Admin /></AdminShell></AdminGuard>
       </Route>
       <Route path="/admin/:rest*">
-        <AdminGuard>
-          <AdminShell><Admin /></AdminShell>
-        </AdminGuard>
+        <AdminGuard><AdminShell><Admin /></AdminShell></AdminGuard>
       </Route>
 
       {/* App routes */}
@@ -83,9 +78,15 @@ function Router() {
             <Route path="/projects/:id" component={ProjectDetail} />
             <Route path="/workspace" component={Workspace} />
             <Route path="/agents" component={AgentsList} />
-            <Route path="/bots" component={BotsList} />
-            <Route path="/bots/new" component={NewBot} />
-            <Route path="/bots/:id" component={BotDetail} />
+            {/* Automations (replaces Bots) */}
+            <Route path="/automations" component={Automations} />
+            <Route path="/automations/:rest*" component={Automations} />
+            {/* Legacy bot routes redirect */}
+            <Route path="/bots"><Redirect to="/automations" /></Route>
+            <Route path="/bots/:rest*"><Redirect to="/automations" /></Route>
+            {/* Files */}
+            <Route path="/files" component={FilesPage} />
+            {/* Rest */}
             <Route path="/deployments" component={DeploymentsList} />
             <Route path="/deployments/:id" component={DeploymentDetail} />
             <Route path="/servers" component={ServersList} />
