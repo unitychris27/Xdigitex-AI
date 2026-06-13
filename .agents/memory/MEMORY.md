@@ -1,0 +1,2 @@
+- [XDIGITEX stack decisions](xdigitex-stack.md) — zod/v4 subpath fails esbuild bundling; use "zod" bare import in api-server routes
+- [XDIGITEX DB schema](xdigitex-db.md) — 16 tables in lib/db/src/schema/; all seeded with realistic data; push via `pnpm --filter @workspace/db run push`

@@ -1,8 +1,42 @@
 import { Router, type IRouter } from "express";
 import healthRouter from "./health";
+import authRouter from "./auth";
+import dashboardRouter from "./dashboard";
+import projectsRouter from "./projects";
+import agentsRouter from "./agents";
+import botsRouter from "./bots";
+import deploymentsRouter from "./deployments";
+import serversRouter from "./servers";
+import secretsRouter from "./secrets";
+import billingRouter from "./billing";
+import referralsRouter from "./referrals";
+import promotionsRouter from "./promotions";
+import marketplaceRouter from "./marketplace";
+import analyticsRouter from "./analytics";
+import notificationsRouter from "./notifications";
+import teamRouter from "./team";
+import apikeysRouter from "./apikeys";
+import adminRouter from "./admin";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
+router.use("/auth", authRouter);
+router.use("/dashboard", dashboardRouter);
+router.use("/projects", projectsRouter);
+router.use("/agents", agentsRouter);
+router.use("/bots", botsRouter);
+router.use("/deployments", deploymentsRouter);
+router.use("/servers", serversRouter);
+router.use("/secrets", secretsRouter);
+router.use("/billing", billingRouter);
+router.use("/referrals", referralsRouter);
+router.use("/promotions", promotionsRouter);
+router.use("/marketplace", marketplaceRouter);
+router.use("/analytics", analyticsRouter);
+router.use("/notifications", notificationsRouter);
+router.use("/team", teamRouter);
+router.use("/apikeys", apikeysRouter);
+router.use("/admin", adminRouter);
 
 export default router;

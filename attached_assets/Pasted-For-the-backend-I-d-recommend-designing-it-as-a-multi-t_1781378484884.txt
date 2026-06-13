@@ -1,0 +1,938 @@
+For the backend, I'd recommend designing it as a **multi-tenant AI orchestration platform** rather than hard-coding OpenAI, Anthropic, DeepSeek, etc. The admin should be able to add, remove, rotate, and route models without redeploying the application.
+
+# Backend System Prompt
+
+Build a production-grade backend for an AI Multi-Agent Development Platform.
+
+The platform allows users to:
+
+* Create AI coding projects
+* Run multiple AI agents simultaneously
+* Deploy Telegram bots
+* Manage secrets
+* Connect SSH servers
+* Deploy applications
+* Track billing and usage
+* Earn referral commissions
+* Use marketplace templates
+* Manage teams and permissions
+
+The backend must support:
+
+* Multi-tenancy
+* RBAC permissions
+* Real-time events
+* AI model orchestration
+* Agent execution
+* Billing
+* Auditing
+* API key management
+
+---
+
+# Technology Stack
+
+Recommended:
+
+```text
+NestJS
+TypeScript
+PostgreSQL
+Redis
+BullMQ
+Prisma ORM
+
+Socket.IO
+
+JWT Authentication
+
+Docker
+
+MinIO / S3
+
+PesaPal API
+
+Telegram Bot API
+```
+
+Architecture:
+
+```text
+API Gateway
+
+├ Users Service
+├ Auth Service
+├ Projects Service
+├ Agents Service
+├ AI Provider Service
+├ Billing Service
+├ Deployments Service
+├ Secrets Service
+├ Telegram Service
+├ Referral Service
+├ Marketplace Service
+├ Analytics Service
+└ Admin Service
+```
+
+---
+
+# Authentication
+
+Support:
+
+```text
+Email + Password
+
+Google OAuth
+
+GitHub OAuth
+
+Microsoft OAuth
+
+2FA
+```
+
+JWT:
+
+```text
+Access Token
+Refresh Token
+```
+
+Session tracking:
+
+```text
+IP
+Device
+Location
+Last Active
+```
+
+---
+
+# User Roles
+
+System Roles:
+
+```text
+Super Admin
+Admin
+Moderator
+Support
+User
+```
+
+Workspace Roles:
+
+```text
+Owner
+Admin
+Developer
+Billing Manager
+Viewer
+```
+
+RBAC middleware required.
+
+---
+
+# Database Models
+
+## Users
+
+```text
+id
+name
+email
+password_hash
+status
+role
+created_at
+updated_at
+```
+
+---
+
+## Workspaces
+
+```text
+id
+name
+owner_id
+plan
+created_at
+```
+
+---
+
+## Projects
+
+```text
+id
+workspace_id
+name
+description
+status
+repository_url
+created_at
+```
+
+---
+
+## Agents
+
+```text
+id
+project_id
+agent_type
+provider_id
+model_id
+status
+task
+created_at
+```
+
+---
+
+## AI Providers
+
+Dynamic provider registry.
+
+```text
+id
+name
+provider_type
+status
+created_at
+```
+
+Examples:
+
+```text
+OpenAI
+Anthropic
+DeepSeek
+Google
+Mistral
+Groq
+Cohere
+OpenRouter
+xAI
+```
+
+---
+
+## Provider API Keys
+
+Admin-managed.
+
+```text
+id
+provider_id
+name
+encrypted_key
+status
+rate_limit
+created_at
+```
+
+Keys must be encrypted.
+
+Never expose them to users.
+
+---
+
+## Models
+
+```text
+id
+provider_id
+name
+context_window
+input_cost
+output_cost
+status
+```
+
+Examples:
+
+```text
+gpt-5
+gpt-5-mini
+claude-opus
+claude-sonnet
+deepseek-chat
+gemini-2.5-pro
+grok
+```
+
+---
+
+# AI Provider Layer
+
+Create abstraction:
+
+```ts
+interface AIProvider {
+  generate();
+  stream();
+  embeddings();
+}
+```
+
+Implement adapters:
+
+```text
+OpenAIAdapter
+AnthropicAdapter
+DeepSeekAdapter
+GoogleAdapter
+GroqAdapter
+OpenRouterAdapter
+```
+
+Agents never call providers directly.
+
+They use:
+
+```text
+AI Orchestrator
+```
+
+---
+
+# Agent System
+
+Agent Types:
+
+```text
+Planner
+
+Architect
+
+Frontend
+
+Backend
+
+DevOps
+
+QA
+
+Security
+
+Reviewer
+
+Research
+
+TelegramBotBuilder
+```
+
+Each agent has:
+
+```text
+instructions
+tools
+model
+permissions
+```
+
+---
+
+# Agent Execution Engine
+
+Workflow:
+
+```text
+User Request
+
+↓
+
+Planner
+
+↓
+
+Task Breakdown
+
+↓
+
+Task Queue
+
+↓
+
+Specialized Agents
+
+↓
+
+Reviewer
+
+↓
+
+Result
+```
+
+Use:
+
+```text
+BullMQ
+Redis
+```
+
+for queues.
+
+---
+
+# Model Routing
+
+Admin-configurable.
+
+Example:
+
+```text
+Planner → GPT-5
+
+Architect → Claude Opus
+
+Frontend → Claude Sonnet
+
+Backend → GPT-5
+
+QA → DeepSeek
+
+Security → GPT-5
+
+Reviewer → Claude Opus
+```
+
+Stored in database.
+
+Can be changed from Admin UI.
+
+No code changes required.
+
+---
+
+# Secrets Management
+
+Encrypted storage.
+
+Supported:
+
+```text
+API Keys
+
+SSH Keys
+
+Database URLs
+
+JWT Secrets
+
+Certificates
+```
+
+Encryption:
+
+```text
+AES-256-GCM
+```
+
+Features:
+
+```text
+Create
+Update
+Rotate
+Delete
+Audit
+```
+
+Agent receives:
+
+```text
+secret reference
+```
+
+not raw secret.
+
+---
+
+# SSH Server Management
+
+Store:
+
+```text
+host
+username
+private_key
+port
+environment
+```
+
+Encrypted.
+
+Agent can:
+
+```text
+connect
+deploy
+restart
+view logs
+```
+
+Permission approval required.
+
+---
+
+# Telegram Bot System
+
+Support:
+
+```text
+Bot Creation
+
+Webhook Setup
+
+Polling
+
+Analytics
+
+Commands
+
+AI Conversations
+```
+
+Database:
+
+```text
+bots
+bot_messages
+bot_users
+bot_sessions
+```
+
+Features:
+
+```text
+multi-bot support
+```
+
+per workspace.
+
+---
+
+# Billing System
+
+Use:
+
+[PesaPal Developer Portal](https://developer.pesapal.com?utm_source=chatgpt.com)
+
+Billing provider:
+
+```text
+PesaPal
+```
+
+---
+
+## Plans
+
+```text
+Free
+
+Starter
+
+Pro
+
+Business
+
+Enterprise
+```
+
+---
+
+## Subscriptions
+
+```text
+id
+workspace_id
+plan
+status
+renewal_date
+```
+
+---
+
+## Payments
+
+```text
+id
+workspace_id
+amount
+currency
+status
+provider
+transaction_id
+```
+
+---
+
+## PesaPal Integration
+
+Features:
+
+```text
+Create Order
+
+Generate Payment URL
+
+Verify Payment
+
+Webhook Processing
+
+Refund Support
+```
+
+Webhook endpoint:
+
+```text
+/api/billing/pesapal/webhook
+```
+
+Verify signatures.
+
+Store transaction logs.
+
+---
+
+# Usage Tracking
+
+Track:
+
+```text
+provider
+model
+input_tokens
+output_tokens
+cost
+agent
+user
+workspace
+```
+
+Generate monthly invoices.
+
+---
+
+# Referral System
+
+Tables:
+
+```text
+referrals
+
+commissions
+
+affiliate_links
+```
+
+Features:
+
+```text
+referral codes
+tracking
+commission payouts
+```
+
+---
+
+# Promotions
+
+Support:
+
+```text
+Coupons
+
+Discounts
+
+Bonus Credits
+
+Lifetime Offers
+```
+
+Rules engine required.
+
+---
+
+# Marketplace
+
+Tables:
+
+```text
+templates
+
+purchases
+
+downloads
+
+ratings
+```
+
+Template publishing workflow:
+
+```text
+draft
+
+review
+
+approved
+
+rejected
+```
+
+---
+
+# Deployments
+
+Support:
+
+```text
+Docker
+
+VPS
+
+Railway
+
+Render
+
+Kubernetes
+
+AWS
+```
+
+Deployment records:
+
+```text
+logs
+status
+metrics
+versions
+```
+
+---
+
+# Notifications
+
+Channels:
+
+```text
+In-App
+
+Email
+
+Telegram
+```
+
+Events:
+
+```text
+billing
+
+deployment
+
+agent
+
+security
+
+referral
+```
+
+---
+
+# Analytics
+
+Track:
+
+```text
+daily users
+
+active projects
+
+token usage
+
+deployment count
+
+revenue
+
+profit
+```
+
+Store aggregated metrics.
+
+---
+
+# Audit Logging
+
+Every sensitive action:
+
+```text
+secret access
+
+billing changes
+
+admin actions
+
+deployments
+
+api key updates
+```
+
+must create audit records.
+
+---
+
+# Admin Module
+
+Only:
+
+```text
+Super Admin
+Admin
+```
+
+access.
+
+---
+
+## Provider Management
+
+Admin can:
+
+```text
+Add Provider
+
+Disable Provider
+
+Rotate Keys
+
+Add Models
+
+Edit Pricing
+
+Set Limits
+```
+
+Example:
+
+```text
+OpenAI
+ ├ Key 1
+ ├ Key 2
+
+Anthropic
+ ├ Key 1
+
+DeepSeek
+ ├ Key 1
+```
+
+---
+
+## Agent Routing
+
+Admin dashboard:
+
+```text
+Planner → GPT-5
+
+Architect → Claude Opus
+
+Frontend → Claude Sonnet
+
+Backend → GPT-5
+
+QA → DeepSeek
+
+Reviewer → Claude Opus
+```
+
+Editable live.
+
+---
+
+## Cost Control
+
+Limits:
+
+```text
+daily budget
+
+monthly budget
+
+provider budget
+
+workspace budget
+```
+
+Automatic shutdown if exceeded.
+
+---
+
+## System Monitoring
+
+View:
+
+```text
+queues
+
+workers
+
+providers
+
+database
+
+redis
+
+webhooks
+```
+
+Health checks required.
+
+---
+
+## Security Requirements
+
+Mandatory:
+
+```text
+JWT
+
+RBAC
+
+Rate Limiting
+
+Encryption
+
+Audit Logs
+
+Webhook Verification
+
+2FA
+
+CSRF Protection
+
+Input Validation
+```
+
+Never store:
+
+```text
+API Keys
+SSH Keys
+Secrets
+```
+
+unencrypted.
+
+---
+
+One architectural improvement I'd make: treat **AI providers as plugins**. Then when your admin wants to add a new provider such as [OpenAI](https://platform.openai.com?utm_source=chatgpt.com), [Anthropic](https://www.anthropic.com?utm_source=chatgpt.com), [DeepSeek](https://www.deepseek.com?utm_source=chatgpt.com), [Google AI Studio](https://aistudio.google.com?utm_source=chatgpt.com), or future providers, they simply add credentials and model definitions through the admin panel. The agent system continues to work without backend code changes because it talks only to the AI Orchestrator layer. This will save a huge amount of maintenance as the model ecosystem evolves.

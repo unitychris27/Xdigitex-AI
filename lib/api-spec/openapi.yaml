@@ -3,20 +3,53 @@ info:
   # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: XDIGITEX AI Platform API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
     description: Health operations
+  - name: auth
+    description: Authentication
+  - name: dashboard
+    description: Dashboard stats and overview
+  - name: projects
+    description: Project management
+  - name: agents
+    description: AI agent management
+  - name: bots
+    description: Telegram bot management
+  - name: deployments
+    description: Deployment management
+  - name: servers
+    description: SSH server management
+  - name: secrets
+    description: Secrets vault
+  - name: billing
+    description: Billing and subscriptions
+  - name: referrals
+    description: Referral system
+  - name: promotions
+    description: Promotions and coupons
+  - name: marketplace
+    description: Template marketplace
+  - name: analytics
+    description: Analytics
+  - name: notifications
+    description: Notification center
+  - name: team
+    description: Team management
+  - name: admin
+    description: Admin operations
+  - name: apikeys
+    description: API key management
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
       summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,6 +57,1398 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  # AUTH
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      summary: Register a new user
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      summary: Login
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      summary: Get current user
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Logout
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # DASHBOARD
+  /dashboard/stats:
+    get:
+      operationId: getDashboardStats
+      tags: [dashboard]
+      summary: Get dashboard statistics
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DashboardStats"
+
+  /dashboard/activity:
+    get:
+      operationId: getDashboardActivity
+      tags: [dashboard]
+      summary: Get recent activity feed
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ActivityItem"
+
+  /dashboard/agents:
+    get:
+      operationId: getDashboardAgents
+      tags: [dashboard]
+      summary: Get running agents overview
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AgentOverview"
+
+  # PROJECTS
+  /projects:
+    get:
+      operationId: listProjects
+      tags: [projects]
+      summary: List projects
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+        - name: sort
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Project"
+    post:
+      operationId: createProject
+      tags: [projects]
+      summary: Create a project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+
+  /projects/{id}:
+    get:
+      operationId: getProject
+      tags: [projects]
+      summary: Get a project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+    patch:
+      operationId: updateProject
+      tags: [projects]
+      summary: Update a project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProjectUpdate"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Project"
+    delete:
+      operationId: deleteProject
+      tags: [projects]
+      summary: Delete a project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /projects/{id}/logs:
+    get:
+      operationId: getProjectLogs
+      tags: [projects]
+      summary: Get project logs
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LogEntry"
+
+  # AGENTS
+  /agents:
+    get:
+      operationId: listAgents
+      tags: [agents]
+      summary: List agents
+      parameters:
+        - name: projectId
+          in: query
+          schema:
+            type: integer
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Agent"
+    post:
+      operationId: createAgent
+      tags: [agents]
+      summary: Create/spawn an agent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agent"
+
+  /agents/{id}:
+    get:
+      operationId: getAgent
+      tags: [agents]
+      summary: Get an agent
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Agent"
+    delete:
+      operationId: deleteAgent
+      tags: [agents]
+      summary: Stop and delete an agent
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /agents/{id}/timeline:
+    get:
+      operationId: getAgentTimeline
+      tags: [agents]
+      summary: Get agent timeline events
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TimelineEvent"
+
+  /agents/routing:
+    get:
+      operationId: getAgentRouting
+      tags: [agents]
+      summary: Get agent model routing config
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AgentRoute"
+
+  # TELEGRAM BOTS
+  /bots:
+    get:
+      operationId: listBots
+      tags: [bots]
+      summary: List Telegram bots
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TelegramBot"
+    post:
+      operationId: createBot
+      tags: [bots]
+      summary: Create a Telegram bot
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BotInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TelegramBot"
+
+  /bots/{id}:
+    get:
+      operationId: getBot
+      tags: [bots]
+      summary: Get a Telegram bot
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TelegramBot"
+    patch:
+      operationId: updateBot
+      tags: [bots]
+      summary: Update a Telegram bot
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BotUpdate"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TelegramBot"
+    delete:
+      operationId: deleteBot
+      tags: [bots]
+      summary: Delete a Telegram bot
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /bots/{id}/deploy:
+    post:
+      operationId: deployBot
+      tags: [bots]
+      summary: Deploy a Telegram bot
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /bots/{id}/analytics:
+    get:
+      operationId: getBotAnalytics
+      tags: [bots]
+      summary: Get bot analytics
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotAnalytics"
+
+  # DEPLOYMENTS
+  /deployments:
+    get:
+      operationId: listDeployments
+      tags: [deployments]
+      summary: List deployments
+      parameters:
+        - name: projectId
+          in: query
+          schema:
+            type: integer
+        - name: environment
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Deployment"
+    post:
+      operationId: createDeployment
+      tags: [deployments]
+      summary: Create a deployment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DeploymentInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Deployment"
+
+  /deployments/{id}:
+    get:
+      operationId: getDeployment
+      tags: [deployments]
+      summary: Get a deployment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Deployment"
+    delete:
+      operationId: deleteDeployment
+      tags: [deployments]
+      summary: Delete a deployment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /deployments/{id}/logs:
+    get:
+      operationId: getDeploymentLogs
+      tags: [deployments]
+      summary: Get deployment logs
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/LogEntry"
+
+  # SERVERS
+  /servers:
+    get:
+      operationId: listServers
+      tags: [servers]
+      summary: List SSH servers
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Server"
+    post:
+      operationId: createServer
+      tags: [servers]
+      summary: Add an SSH server
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServerInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Server"
+
+  /servers/{id}:
+    get:
+      operationId: getServer
+      tags: [servers]
+      summary: Get a server
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Server"
+    patch:
+      operationId: updateServer
+      tags: [servers]
+      summary: Update a server
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ServerUpdate"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Server"
+    delete:
+      operationId: deleteServer
+      tags: [servers]
+      summary: Delete a server
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /servers/{id}/metrics:
+    get:
+      operationId: getServerMetrics
+      tags: [servers]
+      summary: Get server metrics
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ServerMetrics"
+
+  # SECRETS
+  /secrets:
+    get:
+      operationId: listSecrets
+      tags: [secrets]
+      summary: List secrets (metadata only, never values)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Secret"
+    post:
+      operationId: createSecret
+      tags: [secrets]
+      summary: Create a secret
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SecretInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Secret"
+
+  /secrets/{id}:
+    delete:
+      operationId: deleteSecret
+      tags: [secrets]
+      summary: Delete a secret
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /secrets/{id}/rotate:
+    post:
+      operationId: rotateSecret
+      tags: [secrets]
+      summary: Rotate a secret
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SecretRotateInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Secret"
+
+  # BILLING
+  /billing/overview:
+    get:
+      operationId: getBillingOverview
+      tags: [billing]
+      summary: Get billing overview
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BillingOverview"
+
+  /billing/invoices:
+    get:
+      operationId: listInvoices
+      tags: [billing]
+      summary: List invoices
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Invoice"
+
+  /billing/plans:
+    get:
+      operationId: listPlans
+      tags: [billing]
+      summary: List available plans
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Plan"
+
+  /billing/usage:
+    get:
+      operationId: getBillingUsage
+      tags: [billing]
+      summary: Get usage breakdown
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [24h, 7d, 30d, 90d, 1y]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UsageData"
+
+  # REFERRALS
+  /referrals:
+    get:
+      operationId: getReferrals
+      tags: [referrals]
+      summary: Get referral dashboard
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReferralDashboard"
+
+  /referrals/list:
+    get:
+      operationId: listReferrals
+      tags: [referrals]
+      summary: List referred users
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Referral"
+
+  # PROMOTIONS
+  /promotions:
+    get:
+      operationId: listPromotions
+      tags: [promotions]
+      summary: List promotions/campaigns
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Promotion"
+    post:
+      operationId: createPromotion
+      tags: [promotions]
+      summary: Create a promotion
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PromotionInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Promotion"
+
+  /promotions/{id}:
+    delete:
+      operationId: deletePromotion
+      tags: [promotions]
+      summary: Delete a promotion
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # MARKETPLACE
+  /marketplace/templates:
+    get:
+      operationId: listTemplates
+      tags: [marketplace]
+      summary: List marketplace templates
+      parameters:
+        - name: category
+          in: query
+          schema:
+            type: string
+        - name: search
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Template"
+
+  /marketplace/templates/{id}:
+    get:
+      operationId: getTemplate
+      tags: [marketplace]
+      summary: Get a marketplace template
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Template"
+
+  /marketplace/templates/{id}/install:
+    post:
+      operationId: installTemplate
+      tags: [marketplace]
+      summary: Install a template
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # ANALYTICS
+  /analytics:
+    get:
+      operationId: getAnalytics
+      tags: [analytics]
+      summary: Get platform analytics
+      parameters:
+        - name: period
+          in: query
+          schema:
+            type: string
+            enum: [24h, 7d, 30d, 90d, 1y]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AnalyticsData"
+
+  # NOTIFICATIONS
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [notifications]
+      summary: List notifications
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Notification"
+
+  /notifications/{id}/read:
+    post:
+      operationId: markNotificationRead
+      tags: [notifications]
+      summary: Mark notification as read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /notifications/read-all:
+    post:
+      operationId: markAllNotificationsRead
+      tags: [notifications]
+      summary: Mark all notifications as read
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # TEAM
+  /team/members:
+    get:
+      operationId: listTeamMembers
+      tags: [team]
+      summary: List team members
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TeamMember"
+    post:
+      operationId: inviteTeamMember
+      tags: [team]
+      summary: Invite a team member
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeamInviteInput"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /team/members/{id}:
+    patch:
+      operationId: updateTeamMember
+      tags: [team]
+      summary: Update team member role
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TeamMemberUpdate"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamMember"
+    delete:
+      operationId: removeTeamMember
+      tags: [team]
+      summary: Remove a team member
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # API KEYS
+  /apikeys:
+    get:
+      operationId: listApiKeys
+      tags: [apikeys]
+      summary: List API keys
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ApiKey"
+    post:
+      operationId: createApiKey
+      tags: [apikeys]
+      summary: Create an API key
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ApiKeyInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyCreated"
+
+  /apikeys/{id}:
+    delete:
+      operationId: deleteApiKey
+      tags: [apikeys]
+      summary: Delete an API key
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  # ADMIN
+  /admin/users:
+    get:
+      operationId: adminListUsers
+      tags: [admin]
+      summary: Admin - list all users
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: status
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminUser"
+
+  /admin/users/{id}/status:
+    patch:
+      operationId: adminUpdateUserStatus
+      tags: [admin]
+      summary: Admin - update user status
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UserStatusUpdate"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUser"
+
+  /admin/agents:
+    get:
+      operationId: adminListAgents
+      tags: [admin]
+      summary: Admin - list all running agents
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminAgent"
+
+  /admin/providers:
+    get:
+      operationId: adminListProviders
+      tags: [admin]
+      summary: Admin - list AI providers
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AiProvider"
+    post:
+      operationId: adminCreateProvider
+      tags: [admin]
+      summary: Admin - add AI provider
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiProviderInput"
+      responses:
+        "201":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiProvider"
+
+  /admin/providers/{id}:
+    patch:
+      operationId: adminUpdateProvider
+      tags: [admin]
+      summary: Admin - update AI provider
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AiProviderUpdate"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AiProvider"
+    delete:
+      operationId: adminDeleteProvider
+      tags: [admin]
+      summary: Admin - delete AI provider
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MessageResponse"
+
+  /admin/routing:
+    get:
+      operationId: adminGetRouting
+      tags: [admin]
+      summary: Admin - get model routing rules
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AgentRoute"
+    put:
+      operationId: adminUpdateRouting
+      tags: [admin]
+      summary: Admin - update model routing rules
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentRoutingUpdate"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AgentRoute"
+
+  /admin/costs:
+    get:
+      operationId: adminGetCosts
+      tags: [admin]
+      summary: Admin - get cost monitoring
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CostOverview"
+
+  /admin/audit-logs:
+    get:
+      operationId: adminGetAuditLogs
+      tags: [admin]
+      summary: Admin - get audit logs
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+        - name: limit
+          in: query
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditLog"
+
+  /admin/system-health:
+    get:
+      operationId: adminGetSystemHealth
+      tags: [admin]
+      summary: Admin - get system health
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SystemHealth"
+
 components:
   schemas:
     HealthStatus:
@@ -34,3 +1459,1001 @@ components:
       required:
         - status
 
+    MessageResponse:
+      type: object
+      properties:
+        message:
+          type: string
+      required:
+        - message
+
+    # AUTH SCHEMAS
+    RegisterInput:
+      type: object
+      required: [name, email, password]
+      properties:
+        name:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+
+    LoginInput:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+
+    AuthResponse:
+      type: object
+      required: [user, token]
+      properties:
+        user:
+          $ref: "#/components/schemas/User"
+        token:
+          type: string
+
+    User:
+      type: object
+      required: [id, name, email, role, status, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [super_admin, admin, moderator, support, user]
+        status:
+          type: string
+          enum: [active, suspended, banned]
+        avatarUrl:
+          type: ["string", "null"]
+        plan:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    # DASHBOARD
+    DashboardStats:
+      type: object
+      required: [projects, activeAgents, botsDeployed, monthlyUsage, revenue, activeUsers]
+      properties:
+        projects:
+          type: integer
+        activeAgents:
+          type: integer
+        botsDeployed:
+          type: integer
+        monthlyUsage:
+          type: number
+        revenue:
+          type: number
+        activeUsers:
+          type: integer
+        projectsChange:
+          type: number
+        agentsChange:
+          type: number
+        botsChange:
+          type: number
+        revenueChange:
+          type: number
+
+    ActivityItem:
+      type: object
+      required: [id, type, description, createdAt]
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [project_created, bot_deployed, agent_completed, server_connected, deployment_success, secret_created]
+        description:
+          type: string
+        user:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    AgentOverview:
+      type: object
+      required: [id, name, type, status, progress, currentTask]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+          enum: [idle, running, completed, failed, paused]
+        progress:
+          type: integer
+        currentTask:
+          type: string
+        model:
+          type: ["string", "null"]
+        runtime:
+          type: integer
+
+    # PROJECTS
+    Project:
+      type: object
+      required: [id, name, description, status, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [active, paused, completed, archived]
+        repositoryUrl:
+          type: ["string", "null"]
+        deploymentStatus:
+          type: string
+          enum: [deployed, deploying, failed, not_deployed]
+        lastActivity:
+          type: string
+          format: date-time
+        agentCount:
+          type: integer
+        deploymentCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    ProjectInput:
+      type: object
+      required: [name, description]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        repositoryUrl:
+          type: string
+
+    ProjectUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+        repositoryUrl:
+          type: string
+
+    LogEntry:
+      type: object
+      required: [id, message, level, timestamp]
+      properties:
+        id:
+          type: integer
+        message:
+          type: string
+        level:
+          type: string
+          enum: [info, warn, error, debug]
+        timestamp:
+          type: string
+          format: date-time
+
+    # AGENTS
+    Agent:
+      type: object
+      required: [id, name, type, status, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        type:
+          type: string
+          enum: [planner, architect, frontend, backend, devops, qa, security, reviewer, research, telegram_bot_builder]
+        status:
+          type: string
+          enum: [idle, running, completed, failed, paused]
+        projectId:
+          type: ["integer", "null"]
+        model:
+          type: ["string", "null"]
+        provider:
+          type: ["string", "null"]
+        task:
+          type: ["string", "null"]
+        progress:
+          type: integer
+        runtime:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    AgentInput:
+      type: object
+      required: [name, type]
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        projectId:
+          type: integer
+        task:
+          type: string
+        model:
+          type: string
+
+    TimelineEvent:
+      type: object
+      required: [id, agentId, action, description, timestamp]
+      properties:
+        id:
+          type: integer
+        agentId:
+          type: integer
+        action:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [success, failed, in_progress]
+        timestamp:
+          type: string
+          format: date-time
+
+    AgentRoute:
+      type: object
+      required: [agentType, provider, model]
+      properties:
+        agentType:
+          type: string
+        provider:
+          type: string
+        model:
+          type: string
+
+    AgentRoutingUpdate:
+      type: object
+      required: [routes]
+      properties:
+        routes:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentRoute"
+
+    # BOTS
+    TelegramBot:
+      type: object
+      required: [id, name, status, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [active, inactive, deploying, error]
+        users:
+          type: integer
+        messages:
+          type: integer
+        deployments:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    BotInput:
+      type: object
+      required: [name, token]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        token:
+          type: string
+        purpose:
+          type: string
+
+    BotUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+
+    BotAnalytics:
+      type: object
+      required: [totalUsers, totalMessages, activeUsers, dailyMessages]
+      properties:
+        totalUsers:
+          type: integer
+        totalMessages:
+          type: integer
+        activeUsers:
+          type: integer
+        dailyMessages:
+          type: array
+          items:
+            $ref: "#/components/schemas/DataPoint"
+
+    DataPoint:
+      type: object
+      required: [date, value]
+      properties:
+        date:
+          type: string
+        value:
+          type: number
+
+    # DEPLOYMENTS
+    Deployment:
+      type: object
+      required: [id, environment, status, provider, version, createdAt]
+      properties:
+        id:
+          type: integer
+        projectId:
+          type: ["integer", "null"]
+        environment:
+          type: string
+          enum: [production, staging, development]
+        status:
+          type: string
+          enum: [success, failed, deploying, pending]
+        provider:
+          type: string
+        version:
+          type: string
+        url:
+          type: ["string", "null"]
+        createdAt:
+          type: string
+          format: date-time
+
+    DeploymentInput:
+      type: object
+      required: [projectId, environment, provider]
+      properties:
+        projectId:
+          type: integer
+        environment:
+          type: string
+        provider:
+          type: string
+        version:
+          type: string
+
+    # SERVERS
+    Server:
+      type: object
+      required: [id, name, provider, status, location, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        provider:
+          type: string
+        status:
+          type: string
+          enum: [online, offline, error, connecting]
+        location:
+          type: string
+        host:
+          type: string
+        port:
+          type: integer
+        username:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    ServerInput:
+      type: object
+      required: [name, host, username, privateKey]
+      properties:
+        name:
+          type: string
+        host:
+          type: string
+        port:
+          type: integer
+        username:
+          type: string
+        privateKey:
+          type: string
+        provider:
+          type: string
+        location:
+          type: string
+
+    ServerUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        location:
+          type: string
+        status:
+          type: string
+
+    ServerMetrics:
+      type: object
+      required: [cpu, ram, storage, network]
+      properties:
+        cpu:
+          type: number
+        ram:
+          type: number
+        storage:
+          type: number
+        network:
+          type: number
+        uptime:
+          type: integer
+
+    # SECRETS
+    Secret:
+      type: object
+      required: [id, name, type, environment, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: ["string", "null"]
+        type:
+          type: string
+          enum: [api_key, ssh_key, database_credential, token, certificate]
+        environment:
+          type: string
+          enum: [production, staging, development, all]
+        lastUsed:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    SecretInput:
+      type: object
+      required: [name, type, value, environment]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        type:
+          type: string
+        value:
+          type: string
+        environment:
+          type: string
+
+    SecretRotateInput:
+      type: object
+      required: [newValue]
+      properties:
+        newValue:
+          type: string
+
+    # BILLING
+    BillingOverview:
+      type: object
+      required: [plan, monthlyCost, tokenUsage, apiRequests, storageUsage]
+      properties:
+        plan:
+          type: string
+        monthlyCost:
+          type: number
+        tokenUsage:
+          type: integer
+        tokenLimit:
+          type: integer
+        apiRequests:
+          type: integer
+        storageUsage:
+          type: number
+        storageLimit:
+          type: number
+        renewalDate:
+          type: string
+          format: date-time
+
+    Invoice:
+      type: object
+      required: [id, amount, status, date]
+      properties:
+        id:
+          type: string
+        amount:
+          type: number
+        currency:
+          type: string
+        status:
+          type: string
+          enum: [paid, pending, failed, refunded]
+        date:
+          type: string
+          format: date-time
+        downloadUrl:
+          type: ["string", "null"]
+
+    Plan:
+      type: object
+      required: [id, name, price, features]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        price:
+          type: number
+        period:
+          type: string
+        features:
+          type: array
+          items:
+            type: string
+        current:
+          type: boolean
+        tokenLimit:
+          type: integer
+        agentLimit:
+          type: integer
+
+    UsageData:
+      type: object
+      required: [daily, modelCosts]
+      properties:
+        daily:
+          type: array
+          items:
+            $ref: "#/components/schemas/DataPoint"
+        modelCosts:
+          type: array
+          items:
+            $ref: "#/components/schemas/ModelCost"
+
+    ModelCost:
+      type: object
+      required: [model, cost, tokens]
+      properties:
+        model:
+          type: string
+        cost:
+          type: number
+        tokens:
+          type: integer
+
+    # REFERRALS
+    ReferralDashboard:
+      type: object
+      required: [referralLink, totalReferrals, activeReferrals, earnings, conversionRate]
+      properties:
+        referralLink:
+          type: string
+        totalReferrals:
+          type: integer
+        activeReferrals:
+          type: integer
+        earnings:
+          type: number
+        conversionRate:
+          type: number
+        monthlyEarnings:
+          type: array
+          items:
+            $ref: "#/components/schemas/DataPoint"
+
+    Referral:
+      type: object
+      required: [id, email, status, joinedAt]
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive, pending]
+        commission:
+          type: number
+        joinedAt:
+          type: string
+          format: date-time
+
+    # PROMOTIONS
+    Promotion:
+      type: object
+      required: [id, name, type, status, startDate, endDate]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        type:
+          type: string
+          enum: [coupon, discount, free_credits, partner]
+        status:
+          type: string
+          enum: [active, inactive, expired, scheduled]
+        discount:
+          type: ["number", "null"]
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+        usageCount:
+          type: integer
+
+    PromotionInput:
+      type: object
+      required: [name, type, startDate, endDate]
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+        discount:
+          type: number
+        startDate:
+          type: string
+          format: date-time
+        endDate:
+          type: string
+          format: date-time
+
+    # MARKETPLACE
+    Template:
+      type: object
+      required: [id, name, author, category, downloads, rating, price]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        description:
+          type: string
+        author:
+          type: string
+        category:
+          type: string
+          enum: [telegram_bots, saas_apps, ai_agents, automation_workflows]
+        downloads:
+          type: integer
+        rating:
+          type: number
+        price:
+          type: number
+        imageUrl:
+          type: ["string", "null"]
+        status:
+          type: string
+          enum: [draft, review, approved, rejected]
+
+    # ANALYTICS
+    AnalyticsData:
+      type: object
+      required: [users, revenue, deployments, agentUsage, botActivity]
+      properties:
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/DataPoint"
+        revenue:
+          type: array
+          items:
+            $ref: "#/components/schemas/DataPoint"
+        deployments:
+          type: array
+          items:
+            $ref: "#/components/schemas/DataPoint"
+        agentUsage:
+          type: array
+          items:
+            $ref: "#/components/schemas/DataPoint"
+        botActivity:
+          type: array
+          items:
+            $ref: "#/components/schemas/DataPoint"
+        totalUsers:
+          type: integer
+        totalRevenue:
+          type: number
+        totalDeployments:
+          type: integer
+
+    # NOTIFICATIONS
+    Notification:
+      type: object
+      required: [id, type, title, message, read, createdAt]
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+          enum: [deployment, billing, security, agent, referral]
+        title:
+          type: string
+        message:
+          type: string
+        read:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    # TEAM
+    TeamMember:
+      type: object
+      required: [id, name, email, role, status, joinedAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+          enum: [owner, admin, developer, billing_manager, viewer]
+        status:
+          type: string
+          enum: [active, pending, suspended]
+        avatarUrl:
+          type: ["string", "null"]
+        joinedAt:
+          type: string
+          format: date-time
+
+    TeamInviteInput:
+      type: object
+      required: [email, role]
+      properties:
+        email:
+          type: string
+          format: email
+        role:
+          type: string
+
+    TeamMemberUpdate:
+      type: object
+      required: [role]
+      properties:
+        role:
+          type: string
+
+    # API KEYS
+    ApiKey:
+      type: object
+      required: [id, name, prefix, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        prefix:
+          type: string
+        lastUsed:
+          type: ["string", "null"]
+          format: date-time
+        createdAt:
+          type: string
+          format: date-time
+
+    ApiKeyInput:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+
+    ApiKeyCreated:
+      type: object
+      required: [id, name, prefix, key, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        prefix:
+          type: string
+        key:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+
+    # ADMIN
+    AdminUser:
+      type: object
+      required: [id, name, email, role, status, plan, spend, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        email:
+          type: string
+        role:
+          type: string
+        status:
+          type: string
+        plan:
+          type: string
+        spend:
+          type: number
+        createdAt:
+          type: string
+          format: date-time
+
+    UserStatusUpdate:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [active, suspended, banned]
+
+    AdminAgent:
+      type: object
+      required: [id, type, user, project, task, status, runtime]
+      properties:
+        id:
+          type: integer
+        type:
+          type: string
+        user:
+          type: string
+        project:
+          type: string
+        task:
+          type: string
+        status:
+          type: string
+        runtime:
+          type: integer
+
+    AiProvider:
+      type: object
+      required: [id, name, type, status, createdAt]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        type:
+          type: string
+        status:
+          type: string
+          enum: [active, inactive]
+        keyCount:
+          type: integer
+        modelCount:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    AiProviderInput:
+      type: object
+      required: [name, type]
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+
+    AiProviderUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+
+    CostOverview:
+      type: object
+      required: [dailySpend, monthlySpend, revenue, profit]
+      properties:
+        dailySpend:
+          type: number
+        monthlySpend:
+          type: number
+        revenue:
+          type: number
+        profit:
+          type: number
+        providerCosts:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProviderCost"
+
+    ProviderCost:
+      type: object
+      required: [provider, cost]
+      properties:
+        provider:
+          type: string
+        cost:
+          type: number
+
+    AuditLog:
+      type: object
+      required: [id, user, action, resource, timestamp]
+      properties:
+        id:
+          type: integer
+        user:
+          type: string
+        action:
+          type: string
+        resource:
+          type: string
+        details:
+          type: ["string", "null"]
+        timestamp:
+          type: string
+          format: date-time
+
+    SystemHealth:
+      type: object
+      required: [api, database, queue, workers, storage]
+      properties:
+        api:
+          $ref: "#/components/schemas/ServiceHealth"
+        database:
+          $ref: "#/components/schemas/ServiceHealth"
+        queue:
+          $ref: "#/components/schemas/ServiceHealth"
+        workers:
+          $ref: "#/components/schemas/ServiceHealth"
+        storage:
+          $ref: "#/components/schemas/ServiceHealth"
+
+    ServiceHealth:
+      type: object
+      required: [status, latency]
+      properties:
+        status:
+          type: string
+          enum: [healthy, warning, critical]
+        latency:
+          type: ["integer", "null"]
+        message:
+          type: ["string", "null"]

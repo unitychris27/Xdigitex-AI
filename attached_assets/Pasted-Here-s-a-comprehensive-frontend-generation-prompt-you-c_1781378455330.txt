@@ -1,0 +1,804 @@
+Here's a comprehensive frontend-generation prompt you can give to an AI coding model to design and build the UI for your platform.
+
+---
+
+# Frontend System Prompt
+
+Build a modern SaaS frontend for an AI-powered Multi-Agent Development Platform.
+
+The platform allows users to build applications, deploy Telegram bots, manage AI agents, connect servers, store secrets securely, monitor deployments, manage billing, referrals, promotions, and administration.
+
+Design should feel like a combination of:
+
+* GitHub
+* Cursor
+* Vercel
+* Linear
+* Railway
+* Stripe Dashboard
+
+The UI must be professional, developer-focused, enterprise-grade, responsive, and production-ready.
+
+---
+
+## Design Requirements
+
+Create:
+
+* Modern dark mode by default
+* Light mode support
+* Responsive desktop/tablet/mobile
+* Clean spacing
+* Premium SaaS appearance
+* Smooth animations
+* Skeleton loaders
+* Empty states
+* Error states
+* Notification system
+* Global search
+* Keyboard shortcuts
+
+Use:
+
+* React
+* Next.js
+* TypeScript
+* TailwindCSS
+* shadcn/ui style components
+* Framer Motion
+
+---
+
+# Layout Structure
+
+Create a persistent application shell.
+
+### Left Sidebar
+
+Navigation:
+
+```text
+Dashboard
+
+Projects
+Agents
+Workspaces
+
+Telegram Bots
+Deployments
+Servers
+
+Secrets Vault
+Environment Variables
+
+Billing
+Invoices
+Usage
+
+Referrals
+Promotions
+
+Marketplace
+
+Analytics
+
+Settings
+
+Admin
+```
+
+Sidebar supports:
+
+* collapse
+* expand
+* icons
+* badges
+* active indicators
+
+---
+
+### Top Navigation
+
+Include:
+
+```text
+Global Search
+
+Notifications
+
+Agent Status
+
+Workspace Switcher
+
+Theme Toggle
+
+Profile Menu
+```
+
+---
+
+### Dashboard Page
+
+Display:
+
+#### Statistics Cards
+
+```text
+Projects
+Active Agents
+Bots Deployed
+Monthly Usage
+Revenue
+Active Users
+```
+
+#### Activity Feed
+
+```text
+Project created
+Bot deployed
+Agent completed task
+Server connected
+```
+
+#### Agent Overview
+
+Display all running agents.
+
+Example:
+
+```text
+Planner Agent
+Frontend Agent
+Backend Agent
+QA Agent
+Security Agent
+```
+
+Show:
+
+* status
+* progress
+* current task
+
+---
+
+# Projects Module
+
+Project listing page.
+
+Features:
+
+```text
+Search
+Filter
+Sort
+Grid View
+List View
+```
+
+Project Card:
+
+```text
+Name
+Description
+Status
+Owner
+Deployment Status
+Last Activity
+```
+
+Project Details:
+
+Tabs:
+
+```text
+Overview
+Files
+Agents
+Deployments
+Logs
+Settings
+```
+
+---
+
+# Multi-Agent Workspace
+
+Build the core AI coding interface.
+
+Layout:
+
+```text
+Left:
+File Explorer
+
+Center:
+Code Editor
+
+Right:
+Agent Chat
+
+Bottom:
+Terminal
+```
+
+Resizable panels.
+
+---
+
+### Agent Panel
+
+Show:
+
+```text
+Planner
+Architect
+Frontend
+Backend
+QA
+Security
+Reviewer
+```
+
+For each:
+
+```text
+Current Task
+Status
+Progress
+Model Used
+Runtime
+```
+
+---
+
+### Agent Timeline
+
+Display:
+
+```text
+Read file
+Analyzed project
+Generated code
+Ran tests
+Fixed issue
+```
+
+Real-time updates.
+
+---
+
+### Diff Viewer
+
+Visual Git-style changes.
+
+Support:
+
+* approve
+* reject
+* revert
+
+---
+
+### Task Board
+
+Kanban view.
+
+Columns:
+
+```text
+Backlog
+Planning
+In Progress
+Review
+Done
+```
+
+Agent tasks update automatically.
+
+---
+
+# Telegram Bot Builder
+
+Create dedicated Telegram bot management UI.
+
+Listing page:
+
+```text
+Bot Name
+Status
+Users
+Messages
+Deployments
+```
+
+Bot Details:
+
+Tabs:
+
+```text
+Overview
+Configuration
+Commands
+Analytics
+Deployments
+Logs
+```
+
+---
+
+### Bot Creation Wizard
+
+Step 1:
+
+```text
+Bot Name
+Description
+Purpose
+```
+
+Step 2:
+
+```text
+Telegram Token
+```
+
+Step 3:
+
+```text
+AI Configuration
+```
+
+Step 4:
+
+```text
+Deploy
+```
+
+---
+
+# Deployments Module
+
+Deployments page.
+
+Display:
+
+```text
+Environment
+Status
+Provider
+Version
+Created Date
+```
+
+Deployment details:
+
+```text
+Logs
+Metrics
+Resources
+Environment Variables
+```
+
+---
+
+# Servers Module
+
+Manage VPS and SSH connections.
+
+Server Card:
+
+```text
+Server Name
+Provider
+Status
+Location
+```
+
+Details:
+
+```text
+CPU
+RAM
+Storage
+Network
+```
+
+Actions:
+
+```text
+Connect
+Restart
+Stop
+Delete
+```
+
+---
+
+# Secrets Vault
+
+Create highly secure secrets management UI.
+
+Never display secret values.
+
+Table:
+
+```text
+Name
+Type
+Created
+Last Used
+```
+
+Actions:
+
+```text
+Create
+Rotate
+Delete
+```
+
+Secret Types:
+
+```text
+API Keys
+SSH Keys
+Database Credentials
+Tokens
+Certificates
+```
+
+---
+
+### Secret Creation Modal
+
+Fields:
+
+```text
+Name
+Description
+Secret Type
+Value
+Environment
+```
+
+Value must be masked.
+
+---
+
+# Billing Module
+
+Create Stripe-style billing dashboard.
+
+Overview Cards:
+
+```text
+Current Plan
+Monthly Cost
+Token Usage
+API Requests
+Storage Usage
+```
+
+---
+
+### Usage Charts
+
+Display:
+
+```text
+Daily Usage
+Monthly Usage
+Model Costs
+Agent Costs
+```
+
+---
+
+### Invoices Page
+
+Table:
+
+```text
+Invoice ID
+Amount
+Status
+Date
+```
+
+Download support.
+
+---
+
+# Referral System
+
+Referral dashboard.
+
+Show:
+
+```text
+Referral Link
+Total Referrals
+Active Referrals
+Earnings
+Conversion Rate
+```
+
+Charts included.
+
+---
+
+# Promotions Module
+
+Display:
+
+```text
+Campaign Name
+Type
+Status
+Start Date
+End Date
+```
+
+Campaign Types:
+
+```text
+Coupon
+Discount
+Free Credits
+Partner Promotion
+```
+
+---
+
+# Marketplace
+
+Template marketplace.
+
+Categories:
+
+```text
+Telegram Bots
+SaaS Apps
+AI Agents
+Automation Workflows
+```
+
+Template Card:
+
+```text
+Name
+Author
+Downloads
+Rating
+Price
+```
+
+---
+
+# Analytics Dashboard
+
+Charts:
+
+```text
+Users
+Revenue
+Deployments
+Agent Usage
+Bot Activity
+```
+
+Time Filters:
+
+```text
+24H
+7D
+30D
+90D
+1Y
+```
+
+---
+
+# Notifications Center
+
+Support:
+
+```text
+Deployments
+Billing
+Security
+Agents
+Referrals
+```
+
+Mark:
+
+```text
+Read
+Unread
+Archived
+```
+
+---
+
+# Settings
+
+Tabs:
+
+```text
+Profile
+Workspace
+Security
+API Keys
+Notifications
+Billing
+```
+
+---
+
+# Team Management
+
+Role system:
+
+```text
+Owner
+Admin
+Developer
+Billing Manager
+Viewer
+```
+
+Invite members modal.
+
+Permission matrix UI.
+
+---
+
+# Admin Dashboard
+
+Visible only to admins.
+
+---
+
+### User Management
+
+Table:
+
+```text
+User
+Email
+Plan
+Spend
+Status
+```
+
+Actions:
+
+```text
+Suspend
+Ban
+Verify
+Impersonate
+```
+
+---
+
+### Agent Monitoring
+
+Real-time dashboard.
+
+Display:
+
+```text
+Agent ID
+User
+Project
+Task
+Status
+Runtime
+```
+
+---
+
+### Model Routing
+
+Configuration screen.
+
+Example:
+
+```text
+Planner -> GPT
+Coder -> Claude
+Reviewer -> Gemini
+Security -> GPT
+```
+
+Editable rules.
+
+---
+
+### Cost Monitoring
+
+Cards:
+
+```text
+Daily Spend
+Monthly Spend
+Provider Costs
+Revenue
+Profit
+```
+
+---
+
+### Audit Logs
+
+Display:
+
+```text
+Timestamp
+User
+Action
+Resource
+```
+
+Searchable.
+
+---
+
+### System Health
+
+Panels:
+
+```text
+API
+Database
+Queue
+Workers
+Storage
+```
+
+Status:
+
+```text
+Healthy
+Warning
+Critical
+```
+
+---
+
+# UX Requirements
+
+Implement:
+
+* loading skeletons
+* empty states
+* optimistic updates
+* drag and drop
+* command palette
+* keyboard navigation
+* accessibility support
+* toast notifications
+* real-time WebSocket updates
+
+---
+
+# Expected Output
+
+Generate:
+
+* complete application structure
+* routes
+* layouts
+* pages
+* reusable components
+* TypeScript types
+* hooks
+* state management
+* mock data
+* responsive layouts
+
+The result should feel like a premium AI engineering platform capable of managing multi-agent software development, Telegram bot deployment, secrets management, billing, referrals, promotions, and enterprise administration.
