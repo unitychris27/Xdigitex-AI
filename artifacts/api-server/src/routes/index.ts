@@ -17,6 +17,7 @@ import notificationsRouter from "./notifications";
 import teamRouter from "./team";
 import apikeysRouter from "./apikeys";
 import adminRouter from "./admin";
+import generateRouter from "./generate";
 
 const router: IRouter = Router();
 
@@ -38,5 +39,6 @@ router.use("/notifications", notificationsRouter);
 router.use("/team", teamRouter);
 router.use("/apikeys", apikeysRouter);
 router.use("/admin", adminRouter);
+router.use("/generate", generateRouter);
 
 export default router;
