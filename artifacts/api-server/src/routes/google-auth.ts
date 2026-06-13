@@ -3,6 +3,7 @@ import { OAuth2Client } from "google-auth-library";
 import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
+import { sendLoginNotification, sendWelcomeEmail } from "../lib/email.js";
 
 const router = Router();
 
@@ -59,10 +60,10 @@ router.get("/google/callback", async (req, res) => {
     // Upsert user
     const existing = await db.select().from(usersTable).where(eq(usersTable.email, email));
     let user;
+    let isNewUser = false;
 
     if (existing.length > 0) {
       user = existing[0]!;
-      // Update name/googleId if missing
       if (!user.googleId) {
         const [updated] = await db
           .update(usersTable)
@@ -72,6 +73,7 @@ router.get("/google/callback", async (req, res) => {
         user = updated!;
       }
     } else {
+      isNewUser = true;
       const [created] = await db
         .insert(usersTable)
         .values({
@@ -88,6 +90,18 @@ router.get("/google/callback", async (req, res) => {
 
     const { passwordHash: _, ...safeUser } = user;
     const token = `mock-token-${user.id}`;
+
+    // Send email notification (non-blocking)
+    const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ?? req.socket.remoteAddress ?? undefined;
+    if (isNewUser) {
+      sendWelcomeEmail({ to: email, name: user.name, isGoogle: true }).catch(err =>
+        req.log?.warn({ err }, "Failed to send Google welcome email")
+      );
+    } else {
+      sendLoginNotification({ to: email, name: user.name, ip, isGoogle: true }).catch(err =>
+        req.log?.warn({ err }, "Failed to send Google login notification email")
+      );
+    }
 
     // Redirect back to frontend with user data encoded in the URL
     const userData = encodeURIComponent(JSON.stringify({ user: safeUser, token }));

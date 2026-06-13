@@ -3,6 +3,7 @@ import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
+import { sendLoginNotification, sendWelcomeEmail } from "../lib/email.js";
 
 const router = Router();
 
@@ -25,6 +26,12 @@ router.post("/register", async (req, res) => {
   if (existing.length > 0) return res.status(400).json({ error: "Email already in use" });
   const [user] = await db.insert(usersTable).values({ name, email, passwordHash: password, role: "user", status: "active" }).returning();
   const { passwordHash: _, ...safeUser } = user;
+
+  // Send welcome email (non-blocking)
+  sendWelcomeEmail({ to: email, name }).catch(err =>
+    req.log?.warn({ err }, "Failed to send welcome email")
+  );
+
   return res.status(201).json({ user: safeUser, token: `mock-token-${user.id}` });
 });
 
@@ -35,6 +42,14 @@ router.post("/login", async (req, res) => {
   const [user] = await db.select().from(usersTable).where(eq(usersTable.email, email));
   if (!user) return res.status(401).json({ error: "Invalid credentials" });
   const { passwordHash: _, ...safeUser } = user;
+
+  // Send login notification (non-blocking)
+  const ip = (req.headers["x-forwarded-for"] as string)?.split(",")[0]?.trim() ?? req.socket.remoteAddress ?? undefined;
+  const ua = req.headers["user-agent"] ?? undefined;
+  sendLoginNotification({ to: email, name: user.name, ip, userAgent: ua }).catch(err =>
+    req.log?.warn({ err }, "Failed to send login notification email")
+  );
+
   return res.json({ user: safeUser, token: `mock-token-${user.id}` });
 });
 
