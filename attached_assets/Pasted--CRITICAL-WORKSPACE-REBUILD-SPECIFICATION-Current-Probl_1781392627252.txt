@@ -1,0 +1,579 @@
+# CRITICAL WORKSPACE REBUILD SPECIFICATION
+
+## Current Problems
+
+### Problem 1: Generated Files Are Not Connected To Workspace
+
+Current Behavior:
+
+AI generates code.
+
+Code appears in chat.
+
+Files are not properly added to project storage.
+
+Workspace remains empty.
+
+Result:
+
+User cannot continue working.
+
+User loses generated output.
+
+---
+
+Required Behavior:
+
+Every generated file must automatically become a project asset.
+
+When AI generates:
+
+* index.html
+* app.js
+* style.css
+* docker-compose.yml
+* main.py
+
+Those files must immediately appear in:
+
+Files Tab
+Explorer
+Project Storage
+
+without requiring refresh.
+
+The AI should never generate files that only exist in chat.
+
+All generated files must be persisted.
+
+---
+
+### Problem 2: Cannot Continue Development
+
+Current Behavior:
+
+AI builds project.
+
+Build finishes.
+
+Conversation effectively ends.
+
+User cannot evolve project.
+
+---
+
+Required Behavior:
+
+Projects are living workspaces.
+
+Example:
+
+User:
+
+Build an invoicing SaaS.
+
+AI builds.
+
+User:
+
+Add Stripe integration.
+
+AI updates existing files.
+
+User:
+
+Create admin dashboard.
+
+AI modifies project.
+
+User:
+
+Convert frontend to Next.js.
+
+AI performs migration.
+
+Every prompt should modify the existing project.
+
+Not create a new project.
+
+---
+
+### Problem 3: Workspace Clears On Refresh
+
+Current Behavior:
+
+Refresh page.
+
+Workspace resets.
+
+Project disappears.
+
+---
+
+Required Behavior:
+
+All project state must be stored.
+
+Persist:
+
+* Chat history
+* Generated files
+* Build versions
+* Deployments
+* Logs
+* Preview state
+
+Refreshing page should restore project exactly where user left off.
+
+Workspace state must survive:
+
+* refresh
+* logout/login
+* browser restart
+
+---
+
+### Problem 4: Preview Is Broken
+
+Current Behavior:
+
+HTML loads.
+
+CSS missing.
+
+JavaScript missing.
+
+Assets broken.
+
+Preview shows raw HTML.
+
+---
+
+Required Behavior:
+
+Preview must render complete application.
+
+When preview loads:
+
+Resolve:
+
+* CSS files
+* JavaScript files
+* Images
+* Fonts
+* Assets
+
+Serve generated project from isolated runtime.
+
+Preview must behave exactly like deployed application.
+
+---
+
+### Problem 5: Upload Files Missing
+
+Current Behavior:
+
+Cannot upload code.
+
+Cannot upload ZIP.
+
+Cannot upload project.
+
+AI cannot analyze existing projects.
+
+---
+
+Required Behavior:
+
+Workspace must support:
+
+Upload Files
+
+Upload Folder
+
+Upload ZIP
+
+Git Repository Import
+
+GitHub Repository Import
+
+Drag and Drop
+
+AI should then:
+
+Read files.
+
+Analyze architecture.
+
+Suggest improvements.
+
+Fix bugs.
+
+Refactor.
+
+Deploy.
+
+Generate documentation.
+
+Create automations.
+
+---
+
+### Problem 6: File Downloads Are Wrong
+
+Current Behavior:
+
+Single file downloads only.
+
+---
+
+Required Behavior:
+
+Files tab must include:
+
+Download File
+
+Download Folder
+
+Download Project ZIP
+
+Export Project
+
+Clone Repository
+
+Every project should automatically generate:
+
+project.zip
+
+after every successful build.
+
+---
+
+### Problem 7: Publish Uses Wrong Project
+
+Current Behavior:
+
+Publish loads old projects.
+
+Deployment references wrong builds.
+
+---
+
+Required Behavior:
+
+Publish must deploy:
+
+Current Project
+
+Current Version
+
+Current Files
+
+Current Build
+
+Never historical projects unless explicitly selected.
+
+Publish button must always reference active project ID.
+
+---
+
+### Problem 8: AI Cannot SSH
+
+Current Behavior:
+
+AI claims SSH support.
+
+Cannot actually access servers.
+
+---
+
+Required Behavior:
+
+Server Connections Module.
+
+Users connect:
+
+Host
+
+Port
+
+Username
+
+SSH Key
+
+Password
+
+Stored in Secrets Vault.
+
+AI can:
+
+View Logs
+
+Deploy
+
+Restart Services
+
+Run Commands
+
+Update Containers
+
+Install Packages
+
+Execute Scripts
+
+After user approval.
+
+---
+
+# Workspace Redesign
+
+Tabs:
+
+Chat
+
+Files
+
+Preview
+
+Deploy
+
+Logs
+
+History
+
+Servers
+
+Secrets
+
+---
+
+# Chat Tab Redesign
+
+Current chat is weak.
+
+Replace with:
+
+Conversation + Build System.
+
+---
+
+AI should show:
+
+Analyzing Requirements
+
+Planning Architecture
+
+Generating Backend
+
+Generating Frontend
+
+Creating Database
+
+Generating Docker Config
+
+Building Preview
+
+Packaging ZIP
+
+Deployment Ready
+
+---
+
+Each step visible live.
+
+---
+
+# Chat Actions
+
+Every AI response should support:
+
+Apply Changes
+
+View Files
+
+Open Preview
+
+Download ZIP
+
+Deploy
+
+Rollback
+
+Continue Building
+
+---
+
+# Files Tab Redesign
+
+Explorer must behave like VS Code.
+
+Support:
+
+Create
+
+Rename
+
+Delete
+
+Move
+
+Upload
+
+Download
+
+ZIP Export
+
+Folder Download
+
+Search
+
+Multi-select
+
+Drag & Drop
+
+---
+
+# Preview Tab Redesign
+
+Preview should render actual application.
+
+Not raw HTML.
+
+Support:
+
+HTML
+
+React
+
+Next.js
+
+Vue
+
+Laravel
+
+Django
+
+Flask
+
+FastAPI
+
+Static Sites
+
+Dashboards
+
+Admin Panels
+
+---
+
+# Deploy Tab Redesign
+
+Display:
+
+Current Build
+
+Build Status
+
+Deployment Targets
+
+Deployment History
+
+Deployment Logs
+
+Domains
+
+SSL
+
+Environment Variables
+
+---
+
+Actions:
+
+Deploy
+
+Redeploy
+
+Rollback
+
+Publish
+
+Stop
+
+Delete
+
+---
+
+# History Tab
+
+Every AI change becomes version.
+
+Example:
+
+Version 1
+
+Initial Build
+
+Version 2
+
+Added Payments
+
+Version 3
+
+Added Dashboard
+
+Version 4
+
+Refactored Backend
+
+---
+
+User can:
+
+Restore
+
+Compare
+
+Download
+
+Deploy
+
+---
+
+# Build Persistence
+
+Every build creates:
+
+Project Record
+
+Version Record
+
+ZIP Archive
+
+Preview Snapshot
+
+Deployment Snapshot
+
+Chat Snapshot
+
+Nothing should be lost.
+
+---
+
+# Success Criteria
+
+A user should be able to:
+
+1. Build project.
+2. Refresh browser.
+3. Return tomorrow.
+4. Continue same conversation.
+5. Modify project.
+6. Upload files.
+7. Download ZIP.
+8. Preview correctly.
+9. Deploy current version.
+10. SSH into connected servers.
+11. Publish applications.
+12. View version history.
+
+without losing any project data.

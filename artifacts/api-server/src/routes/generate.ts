@@ -6,11 +6,10 @@ const router = Router();
 
 const hostedSites = new Map<string, { html: string; name: string; createdAt: Date }>();
 
-// Build mode → provider + model
 const MODE_MAP: Record<string, { provider: AIProvider; model: string; tokens: number }> = {
-  economy:    { provider: "deepseek",    model: "deepseek-chat",                    tokens: 8000  },
-  balanced:   { provider: "openrouter",  model: "deepseek/deepseek-chat",           tokens: 10000 },
-  "high-power": { provider: "openrouter", model: "anthropic/claude-3.5-sonnet",    tokens: 12000 },
+  economy:      { provider: "deepseek",   model: "deepseek-chat",                 tokens: 8000  },
+  balanced:     { provider: "openrouter", model: "deepseek/deepseek-chat",        tokens: 10000 },
+  "high-power": { provider: "openrouter", model: "anthropic/claude-3.5-sonnet",   tokens: 14000 },
 };
 
 const AUTO_STACK_SYSTEM_PROMPT = `You are an expert AI software architect and full-stack developer.
@@ -24,7 +23,7 @@ When given a project description, you:
 6. Add a README.md with setup and run instructions
 
 Stack selection rules:
-- "website" / "landing page" / "frontend only" → use HTML + CSS + JS (single index.html)
+- "website" / "landing page" / "frontend only" → use HTML + CSS + JS (single index.html + style.css + app.js)
 - "React" / "Next.js" / "Vue" → use that framework with full project scaffold
 - "Laravel" → use PHP/Laravel with all relevant files
 - "FastAPI" / "Django" / "Flask" → use Python with requirements.txt
@@ -35,15 +34,34 @@ Stack selection rules:
 - "Docker" / "DevOps" → Docker Compose + Dockerfile(s)
 - "SaaS" / "full-stack" / unspecified → Next.js + Tailwind + appropriate backend
 
+IMPORTANT: For HTML projects, always split into 3 files: index.html, style.css, app.js — never inline everything into one file.
 Always output the full file content between separators. Never truncate code. Never use placeholders like [add your code here].`;
 
+const UPDATE_SYSTEM_PROMPT = `You are an expert AI software architect and full-stack developer performing iterative updates on an existing project.
+
+The user will provide their EXISTING PROJECT FILES and a description of changes to make.
+
+Your job:
+1. Understand the existing codebase structure and style
+2. Apply the requested changes, improvements, or additions
+3. Return ALL project files (both modified and unmodified) using EXACTLY this format:
+   === FILE: relative/path/to/file.ext ===
+   [complete file content]
+4. Never truncate code. Never use placeholders.
+5. Preserve the existing file structure unless restructuring is explicitly requested.
+6. Keep existing functionality intact while adding the new features.`;
+
 const generateSiteSchema = z.object({
-  prompt: z.string().min(1).max(4000),
+  prompt: z.string().min(1).max(6000),
   mode: z.enum(["economy", "balanced", "high-power"]).default("economy"),
-  // legacy fields kept for backwards compat but ignored
+  existingFiles: z.array(z.object({
+    name: z.string(),
+    content: z.string(),
+    language: z.string(),
+  })).optional(),
+  systemOverride: z.string().max(3000).optional(),
   provider: z.string().optional(),
   model: z.string().optional(),
-  systemOverride: z.string().max(3000).optional(),
 });
 
 const chatSchema = z.object({
@@ -52,7 +70,6 @@ const chatSchema = z.object({
     content: z.string(),
   })).min(1),
   mode: z.enum(["economy", "balanced", "high-power"]).default("economy"),
-  // legacy
   provider: z.string().optional(),
   model: z.string().optional(),
 });
@@ -69,8 +86,9 @@ router.post("/site", async (req, res) => {
     return res.status(400).json({ error: "Invalid input", details: parsed.error.issues });
   }
 
-  const { prompt, mode, systemOverride } = parsed.data;
+  const { prompt, mode, existingFiles, systemOverride } = parsed.data;
   const config = MODE_MAP[mode] ?? MODE_MAP["economy"]!;
+  const isUpdate = existingFiles && existingFiles.length > 0;
 
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
@@ -84,15 +102,19 @@ router.post("/site", async (req, res) => {
 
   try {
     const client = getAIClient(config.provider);
-    const systemPrompt = systemOverride ?? AUTO_STACK_SYSTEM_PROMPT;
+    const systemPrompt = systemOverride ?? (isUpdate ? UPDATE_SYSTEM_PROMPT : AUTO_STACK_SYSTEM_PROMPT);
 
-    send("status", "Analyzing requirements and selecting optimal stack...");
+    let userContent = isUpdate
+      ? `EXISTING PROJECT FILES:\n${existingFiles!.map(f => `=== FILE: ${f.name} ===\n${f.content}`).join("\n\n")}\n\n---\n\nREQUESTED CHANGES:\n${prompt}`
+      : `Build the following project:\n\n${prompt}`;
+
+    send("status", isUpdate ? "Analyzing existing project and planning updates..." : "Analyzing requirements and selecting optimal stack...");
 
     const stream = await client.chat.completions.create({
       model: config.model,
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: `Build the following project:\n\n${prompt}` },
+        { role: "user", content: userContent },
       ],
       stream: true,
       max_tokens: config.tokens,
