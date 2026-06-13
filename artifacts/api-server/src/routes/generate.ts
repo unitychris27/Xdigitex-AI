@@ -4,6 +4,9 @@ import { getAIClient, getDefaultModel, SITE_GENERATION_SYSTEM_PROMPT, AGENT_SYST
 
 const router = Router();
 
+// In-memory hosted sites store
+const hostedSites = new Map<string, { html: string; name: string; createdAt: Date }>();
+
 const generateSiteSchema = z.object({
   prompt: z.string().min(1).max(2000),
   provider: z.enum(["deepseek", "openrouter"]).default("deepseek"),
@@ -18,6 +21,11 @@ const chatSchema = z.object({
   provider: z.enum(["deepseek", "openrouter"]).default("deepseek"),
   model: z.string().optional(),
   agentType: z.string().optional(),
+});
+
+const deploySchema = z.object({
+  html: z.string().min(1),
+  name: z.string().optional(),
 });
 
 // POST /api/generate/site — streams HTML back via SSE
@@ -43,7 +51,7 @@ router.post("/site", async (req, res) => {
     const client = getAIClient(provider as AIProvider);
     const chosenModel = model ?? getDefaultModel(provider as AIProvider);
 
-    send("status", `Generating site with ${chosenModel}...`);
+    send("status", "Generating your site...");
 
     const stream = await client.chat.completions.create({
       model: chosenModel,
@@ -118,6 +126,43 @@ router.post("/chat", async (req, res) => {
     send("error", err?.message ?? "Agent chat failed");
     res.end();
   }
+});
+
+// POST /api/generate/deploy — save HTML and return a hosted URL
+router.post("/deploy", (req, res) => {
+  const parsed = deploySchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: "Invalid input", details: parsed.error.issues });
+  }
+
+  const { html, name } = parsed.data;
+  const id = Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+  const siteName = name?.trim() || `site-${id}`;
+
+  hostedSites.set(id, { html, name: siteName, createdAt: new Date() });
+
+  res.json({ id, name: siteName, url: `/api/generate/hosted/${id}` });
+});
+
+// GET /api/generate/hosted/:id — serve the deployed HTML page
+router.get("/hosted/:id", (req, res) => {
+  const site = hostedSites.get(req.params["id"] ?? "");
+  if (!site) {
+    return res.status(404).send("<!DOCTYPE html><html><body><h1>404 — Site not found</h1></body></html>");
+  }
+  res.setHeader("Content-Type", "text/html; charset=utf-8");
+  res.send(site.html);
+});
+
+// GET /api/generate/hosted-list — list all deployed sites
+router.get("/hosted-list", (_req, res) => {
+  const sites = Array.from(hostedSites.entries()).map(([id, s]) => ({
+    id,
+    name: s.name,
+    url: `/api/generate/hosted/${id}`,
+    createdAt: s.createdAt,
+  }));
+  res.json({ sites: sites.reverse() });
 });
 
 // GET /api/generate/providers — list available providers & their status

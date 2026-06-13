@@ -4,25 +4,19 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  FolderTree, Terminal, Code2, BotMessageSquare, Send, Loader2,
-  Sparkles, RefreshCw, ExternalLink, Copy, Check, Globe, Settings2,
-  ChevronDown, Cpu,
+  BotMessageSquare, Send, Loader2, Sparkles, RefreshCw,
+  ExternalLink, Copy, Check, Globe, Code2, Download,
+  Rocket, CheckCircle2, X,
 } from "lucide-react";
 import { toast } from "sonner";
 import ReactMarkdown from "react-markdown";
+import JSZip from "jszip";
 
 const BASE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
-type Provider = "deepseek" | "openrouter";
 type ChatMsg = { role: "user" | "assistant"; content: string; streaming?: boolean };
 
-const OPENROUTER_MODELS = [
-  "deepseek/deepseek-chat",
-  "anthropic/claude-3.5-sonnet",
-  "openai/gpt-4o",
-  "meta-llama/llama-3.3-70b-instruct",
-  "google/gemini-2.0-flash-001",
-];
+type DeployedSite = { id: string; name: string; url: string };
 
 function useSSEStream() {
   const abort = useRef<AbortController | null>(null);
@@ -44,10 +38,7 @@ function useSSEStream() {
       signal: abort.current.signal,
     });
 
-    if (!res.ok || !res.body) {
-      onError(`Server error: ${res.status}`);
-      return;
-    }
+    if (!res.ok || !res.body) { onError(`Server error: ${res.status}`); return; }
 
     const reader = res.body.getReader();
     const decoder = new TextDecoder();
@@ -71,8 +62,8 @@ function useSSEStream() {
         if (!data) continue;
         const payload = JSON.parse(data);
         if (event === "token") { fullContent += payload; onToken(payload); }
-        else if (event === "done") { onDone(fullContent || payload); }
-        else if (event === "error") { onError(payload); }
+        else if (event === "done") onDone(fullContent || payload);
+        else if (event === "error") onError(payload);
       }
     }
   }, []);
@@ -81,23 +72,27 @@ function useSSEStream() {
   return { stream, cancel };
 }
 
+function extractHtml(raw: string): string {
+  const fence = raw.match(/```(?:html)?\s*([\s\S]+?)```/i);
+  if (fence) return fence[1].trim();
+  return raw.trim();
+}
+
 export default function Workspace() {
-  // Site generation
   const [sitePrompt, setSitePrompt] = useState("");
-  const [generatedHtml, setGeneratedHtml] = useState<string>("");
+  const [generatedHtml, setGeneratedHtml] = useState("");
   const [generating, setGenerating] = useState(false);
-  const [genProvider, setGenProvider] = useState<Provider>("deepseek");
-  const [genModel, setGenModel] = useState(OPENROUTER_MODELS[0]);
   const [streamingHtml, setStreamingHtml] = useState("");
   const [copied, setCopied] = useState(false);
+  const [deploying, setDeploying] = useState(false);
+  const [deployed, setDeployed] = useState<DeployedSite | null>(null);
+  const [siteName, setSiteName] = useState("");
 
-  // Agent chat
   const [messages, setMessages] = useState<ChatMsg[]>([
-    { role: "assistant", content: "Hi! I'm your AI development assistant. Ask me to **generate a site**, write code, review architecture, or help with anything in your project." },
+    { role: "assistant", content: "Hi! I'm your AI development assistant. Ask me to **generate a site**, write code, explain architecture, or help with anything in your project." },
   ]);
   const [chatInput, setChatInput] = useState("");
   const [chatLoading, setChatLoading] = useState(false);
-  const [chatProvider, setChatProvider] = useState<Provider>("deepseek");
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const { stream, cancel } = useSSEStream();
@@ -111,20 +106,14 @@ export default function Workspace() {
     setGenerating(true);
     setStreamingHtml("");
     setGeneratedHtml("");
-
-    const model = genProvider === "openrouter" ? genModel : undefined;
+    setDeployed(null);
 
     await stream(
       `${BASE}/api/generate/site`,
-      { prompt: sitePrompt, provider: genProvider, ...(model ? { model } : {}) },
+      { prompt: sitePrompt },
       (token) => setStreamingHtml(h => h + token),
       (full) => {
-        // Extract HTML from possible markdown fences
-        let html = full.trim();
-        const fenceMatch = html.match(/```(?:html)?\s*([\s\S]+?)```/i);
-        if (fenceMatch) html = fenceMatch[1].trim();
-        if (!html.startsWith("<!")) html = full.trim();
-        setGeneratedHtml(html);
+        setGeneratedHtml(extractHtml(full));
         setStreamingHtml("");
         setGenerating(false);
         toast.success("Site generated!");
@@ -140,6 +129,53 @@ export default function Workspace() {
     });
   };
 
+  const deployToServer = async () => {
+    if (!generatedHtml) return;
+    setDeploying(true);
+    try {
+      const res = await fetch(`${BASE}/api/generate/deploy`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ html: generatedHtml, name: siteName || sitePrompt.slice(0, 40) }),
+      });
+      if (!res.ok) throw new Error(`${res.status}`);
+      const data = await res.json() as DeployedSite;
+      setDeployed(data);
+      toast.success("Site deployed!");
+    } catch (e: any) {
+      toast.error(`Deploy failed: ${e.message}`);
+    } finally {
+      setDeploying(false);
+    }
+  };
+
+  const downloadZip = async () => {
+    if (!generatedHtml) return;
+    const zip = new JSZip();
+    const folder = zip.folder("site")!;
+    folder.file("index.html", generatedHtml);
+    // Add a minimal readme
+    folder.file("README.txt", `Site generated by XDIGITEX AI\nPrompt: ${sitePrompt}\nGenerated: ${new Date().toISOString()}\n\nOpen index.html in any browser to view your site.`);
+    const blob = await zip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 9 } });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${(siteName || sitePrompt.slice(0, 30) || "site").replace(/[^a-z0-9]/gi, "-").toLowerCase()}.zip`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    toast.success("ZIP downloaded!");
+  };
+
+  const copyHtml = () => {
+    navigator.clipboard.writeText(generatedHtml);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const openPreview = () => {
+    const blob = new Blob([generatedHtml], { type: "text/html" });
+    window.open(URL.createObjectURL(blob), "_blank");
+  };
+
   const sendChat = async () => {
     const text = chatInput.trim();
     if (!text || chatLoading) return;
@@ -151,7 +187,7 @@ export default function Workspace() {
     let acc = "";
     await stream(
       `${BASE}/api/generate/chat`,
-      { messages: newMsgs.map(m => ({ role: m.role, content: m.content })), provider: chatProvider },
+      { messages: newMsgs.map(m => ({ role: m.role, content: m.content })) },
       (token) => {
         acc += token;
         setMessages(msgs => msgs.map((m, i) => i === msgs.length - 1 ? { ...m, content: acc } : m));
@@ -171,19 +207,9 @@ export default function Workspace() {
     });
   };
 
-  const copyHtml = () => {
-    navigator.clipboard.writeText(generatedHtml);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
-
-  const openPreview = () => {
-    const blob = new Blob([generatedHtml], { type: "text/html" });
-    window.open(URL.createObjectURL(blob), "_blank");
-  };
-
   const currentCode = streamingHtml || generatedHtml;
   const displayCode = currentCode.slice(0, 3000) + (currentCode.length > 3000 ? "\n... (truncated for display)" : "");
+  const hasOutput = !!generatedHtml;
 
   return (
     <div className="h-[calc(100vh-8rem)] -m-6 flex flex-col border-t border-border">
@@ -196,44 +222,19 @@ export default function Workspace() {
             Live
           </Badge>
         </div>
-        <div className="flex items-center gap-2">
-          {/* Provider selector */}
-          <div className="flex items-center gap-1.5 text-xs border border-border rounded-md px-2 py-1 bg-muted/30">
-            <Cpu className="w-3 h-3 text-primary" />
-            <select
-              value={genProvider}
-              onChange={e => setGenProvider(e.target.value as Provider)}
-              className="bg-transparent text-xs outline-none cursor-pointer"
-            >
-              <option value="deepseek">DeepSeek</option>
-              <option value="openrouter">OpenRouter</option>
-            </select>
-            {genProvider === "openrouter" && (
-              <>
-                <span className="text-muted-foreground">·</span>
-                <select
-                  value={genModel}
-                  onChange={e => setGenModel(e.target.value)}
-                  className="bg-transparent text-xs outline-none cursor-pointer max-w-[160px]"
-                >
-                  {OPENROUTER_MODELS.map(m => <option key={m} value={m}>{m}</option>)}
-                </select>
-              </>
-            )}
-          </div>
-          {generating && (
-            <Button variant="outline" size="sm" className="text-xs gap-1.5 text-red-400 border-red-500/30" onClick={cancel}>
-              Stop
-            </Button>
-          )}
-        </div>
+        {generating && (
+          <Button variant="outline" size="sm" className="text-xs gap-1.5 text-red-400 border-red-500/30" onClick={cancel}>
+            <X className="w-3 h-3" /> Stop
+          </Button>
+        )}
       </div>
 
       <ResizablePanelGroup direction="horizontal" className="flex-1 rounded-none bg-background">
-        {/* Left: Generate + Code view */}
+        {/* Left: Generate + Code + Preview */}
         <ResizablePanel defaultSize={60} minSize={30}>
           <ResizablePanelGroup direction="vertical">
-            {/* Generate Site panel */}
+
+            {/* Prompt bar */}
             <ResizablePanel defaultSize={15} minSize={10}>
               <div className="h-full flex flex-col p-3 border-b gap-2 bg-card/30">
                 <div className="text-[11px] text-muted-foreground uppercase tracking-wider font-semibold flex items-center gap-1.5">
@@ -242,7 +243,7 @@ export default function Workspace() {
                 <div className="flex gap-2 flex-1">
                   <input
                     className="flex-1 bg-muted/50 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary placeholder:text-muted-foreground/50"
-                    placeholder="Describe the site you want to build... e.g. 'A SaaS landing page for an AI writing tool with pricing'"
+                    placeholder="Describe the site you want… e.g. 'A SaaS landing page for an AI writing tool with pricing'"
                     value={sitePrompt}
                     onChange={e => setSitePrompt(e.target.value)}
                     onKeyDown={e => e.key === "Enter" && !e.shiftKey && generateSite()}
@@ -250,9 +251,57 @@ export default function Workspace() {
                   />
                   <Button onClick={generateSite} disabled={generating || !sitePrompt.trim()} className="gap-1.5 shrink-0">
                     {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-                    {generating ? "Generating..." : "Generate"}
+                    {generating ? "Generating…" : "Generate"}
                   </Button>
                 </div>
+
+                {/* Action bar — shown after generation */}
+                {hasOutput && !generating && (
+                  <div className="flex items-center gap-2 pt-0.5 flex-wrap">
+                    <input
+                      className="bg-muted/40 border border-border rounded px-2 py-1 text-xs w-44 focus:outline-none focus:ring-1 focus:ring-primary placeholder:text-muted-foreground/40"
+                      placeholder="Site name (optional)"
+                      value={siteName}
+                      onChange={e => setSiteName(e.target.value)}
+                    />
+                    <Button size="sm" variant="default" className="gap-1.5 text-xs" onClick={deployToServer} disabled={deploying}>
+                      {deploying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Rocket className="w-3.5 h-3.5" />}
+                      {deploying ? "Deploying…" : "Deploy to Server"}
+                    </Button>
+                    <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={downloadZip}>
+                      <Download className="w-3.5 h-3.5" /> Download ZIP
+                    </Button>
+                    <Button size="sm" variant="ghost" className="gap-1.5 text-xs text-muted-foreground" onClick={copyHtml}>
+                      {copied ? <Check className="w-3.5 h-3.5 text-green-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      {copied ? "Copied" : "Copy HTML"}
+                    </Button>
+                    <Button size="sm" variant="ghost" className="gap-1.5 text-xs text-muted-foreground" onClick={openPreview}>
+                      <ExternalLink className="w-3.5 h-3.5" /> Open tab
+                    </Button>
+                  </div>
+                )}
+
+                {/* Deployed URL bar */}
+                {deployed && (
+                  <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded-md px-3 py-1.5 text-xs">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-green-400 shrink-0" />
+                    <span className="text-green-400 font-medium">Deployed:</span>
+                    <a
+                      href={deployed.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-primary underline underline-offset-2 truncate max-w-[260px]"
+                    >
+                      {window.location.origin}{deployed.url}
+                    </a>
+                    <button
+                      onClick={() => { navigator.clipboard.writeText(window.location.origin + deployed.url); toast.success("URL copied"); }}
+                      className="ml-auto text-muted-foreground hover:text-foreground shrink-0"
+                    >
+                      <Copy className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
               </div>
             </ResizablePanel>
 
@@ -265,21 +314,10 @@ export default function Workspace() {
                   <div className="flex items-center gap-2">
                     <Code2 className="w-3.5 h-3.5 text-[#969696]" />
                     <span className="text-[#d4d4d4] text-xs font-medium">
-                      {generating ? "generating..." : generatedHtml ? "index.html" : "index.html (empty)"}
+                      {generating ? "generating…" : hasOutput ? "index.html" : "index.html (empty)"}
                     </span>
                     {generating && <Loader2 className="w-3 h-3 animate-spin text-primary" />}
                   </div>
-                  {generatedHtml && (
-                    <div className="flex items-center gap-1.5">
-                      <button onClick={copyHtml} className="flex items-center gap-1 text-[10px] text-[#969696] hover:text-[#d4d4d4] transition-colors px-2 py-0.5 rounded hover:bg-[#404040]">
-                        {copied ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3" />}
-                        {copied ? "Copied" : "Copy"}
-                      </button>
-                      <button onClick={openPreview} className="flex items-center gap-1 text-[10px] text-[#969696] hover:text-[#d4d4d4] transition-colors px-2 py-0.5 rounded hover:bg-[#404040]">
-                        <ExternalLink className="w-3 h-3" /> Open
-                      </button>
-                    </div>
-                  )}
                 </div>
                 <ScrollArea className="flex-1">
                   <pre className="p-4 font-mono text-xs text-[#d4d4d4] leading-relaxed whitespace-pre-wrap">
@@ -294,19 +332,12 @@ export default function Workspace() {
 
             {/* Preview */}
             <ResizablePanel defaultSize={30} minSize={15}>
-              <div className="h-full flex flex-col bg-white">
-                <div className="flex items-center justify-between bg-[#1e1e1e] border-b border-[#404040] px-3 py-1.5 shrink-0">
-                  <div className="flex items-center gap-2 text-[#d4d4d4]">
-                    <Globe className="w-3.5 h-3.5 text-[#969696]" />
-                    <span className="text-xs font-medium">Preview</span>
-                  </div>
-                  {generatedHtml && (
-                    <button onClick={() => setGeneratedHtml("")} className="text-[10px] text-[#969696] hover:text-[#d4d4d4] px-2 py-0.5 rounded hover:bg-[#404040]">
-                      <RefreshCw className="w-3 h-3" />
-                    </button>
-                  )}
+              <div className="h-full flex flex-col">
+                <div className="flex items-center gap-2 bg-[#1e1e1e] border-b border-[#404040] px-3 py-1.5 shrink-0">
+                  <Globe className="w-3.5 h-3.5 text-[#969696]" />
+                  <span className="text-xs font-medium text-[#d4d4d4]">Preview</span>
                 </div>
-                <div className="flex-1 relative">
+                <div className="flex-1 relative bg-white">
                   {generatedHtml ? (
                     <iframe
                       srcDoc={generatedHtml}
@@ -330,21 +361,9 @@ export default function Workspace() {
 
         {/* Right: Agent Chat */}
         <ResizablePanel defaultSize={40} minSize={25} className="border-l bg-card/30 flex flex-col">
-          <div className="flex items-center justify-between px-3 py-2 border-b bg-card shrink-0">
-            <div className="flex items-center gap-2 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              <BotMessageSquare className="w-3.5 h-3.5 text-primary" /> AI Agent
-            </div>
-            <div className="flex items-center gap-1.5">
-              <Cpu className="w-3 h-3 text-muted-foreground" />
-              <select
-                value={chatProvider}
-                onChange={e => setChatProvider(e.target.value as Provider)}
-                className="bg-transparent text-[11px] text-muted-foreground outline-none cursor-pointer"
-              >
-                <option value="deepseek">DeepSeek</option>
-                <option value="openrouter">OpenRouter</option>
-              </select>
-            </div>
+          <div className="flex items-center gap-2 px-3 py-2 border-b bg-card shrink-0">
+            <BotMessageSquare className="w-3.5 h-3.5 text-primary" />
+            <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">AI Agent</span>
           </div>
 
           <ScrollArea className="flex-1 p-4">
@@ -378,13 +397,11 @@ export default function Workspace() {
             <div className="flex gap-2">
               <textarea
                 rows={2}
-                placeholder="Ask the agent anything... or say 'generate a landing page for X'"
+                placeholder="Ask anything… or say 'generate a landing page for X'"
                 className="flex-1 bg-muted/50 border border-border rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-primary resize-none placeholder:text-muted-foreground/50"
                 value={chatInput}
                 onChange={e => setChatInput(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); }
-                }}
+                onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendChat(); } }}
                 disabled={chatLoading}
               />
               <Button
