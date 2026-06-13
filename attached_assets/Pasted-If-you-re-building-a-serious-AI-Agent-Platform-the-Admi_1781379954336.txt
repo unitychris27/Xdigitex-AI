@@ -1,0 +1,985 @@
+If you're building a serious AI Agent Platform, the Admin Panel is almost a separate product. It should control users, AI providers, billing, infrastructure, security, deployments, referrals, promotions, analytics, and system health from one place.
+
+# Complete Admin Panel Specification
+
+## Admin Dashboard
+
+Main overview page.
+
+Cards:
+
+```text
+Total Users
+Active Users
+New Users Today
+
+Total Workspaces
+Total Projects
+Active Agents
+
+Token Usage Today
+Revenue Today
+Monthly Revenue
+
+Deployments
+Telegram Bots
+API Requests
+
+System Health
+```
+
+Charts:
+
+```text
+User Growth
+Revenue Growth
+Token Consumption
+Provider Usage
+Agent Activity
+Deployments
+```
+
+Live Feed:
+
+```text
+User Registered
+Bot Created
+Deployment Started
+Payment Received
+API Key Added
+Agent Failed
+```
+
+---
+
+# User Management
+
+### Users List
+
+Columns:
+
+```text
+ID
+Name
+Email
+Plan
+Workspace
+Status
+Spend
+Joined Date
+```
+
+Actions:
+
+```text
+View
+Edit
+Suspend
+Unsuspend
+Ban
+Delete
+Reset Password
+Impersonate
+```
+
+Filters:
+
+```text
+Status
+Plan
+Country
+Signup Date
+Revenue
+```
+
+---
+
+### User Profile
+
+View:
+
+```text
+Profile
+Workspaces
+Projects
+Payments
+Deployments
+Agents
+Referrals
+Audit Logs
+```
+
+Statistics:
+
+```text
+Lifetime Spend
+Token Usage
+Projects Created
+Deployments
+```
+
+---
+
+# Workspace Management
+
+View:
+
+```text
+Workspace Name
+Owner
+Plan
+Usage
+Members
+```
+
+Actions:
+
+```text
+Upgrade
+Downgrade
+Suspend
+Delete
+Transfer Ownership
+```
+
+---
+
+# AI Provider Management
+
+This becomes one of the most important modules.
+
+### Providers
+
+Supported examples:
+
+* [OpenAI Platform](https://platform.openai.com?utm_source=chatgpt.com)
+* [Anthropic](https://www.anthropic.com?utm_source=chatgpt.com)
+* [DeepSeek](https://www.deepseek.com?utm_source=chatgpt.com)
+* [Google AI Studio](https://aistudio.google.com?utm_source=chatgpt.com)
+* [OpenRouter](https://openrouter.ai?utm_source=chatgpt.com)
+* [GroqCloud](https://console.groq.com?utm_source=chatgpt.com)
+* [Mistral AI](https://mistral.ai?utm_source=chatgpt.com)
+
+Columns:
+
+```text
+Provider
+Status
+Models
+Requests
+Cost
+```
+
+Actions:
+
+```text
+Enable
+Disable
+Edit
+Delete
+```
+
+---
+
+### API Key Vault
+
+Admin adds:
+
+```text
+Provider Name
+API Key
+Organization ID
+Priority
+Rate Limit
+```
+
+Features:
+
+```text
+Rotate Key
+Disable Key
+Test Key
+Usage Monitoring
+```
+
+Store encrypted.
+
+---
+
+### Model Management
+
+Example:
+
+```text
+GPT-5
+GPT-5 Mini
+Claude Opus
+Claude Sonnet
+Gemini Pro
+DeepSeek Chat
+```
+
+Settings:
+
+```text
+Context Window
+Input Cost
+Output Cost
+RPM
+TPM
+Status
+```
+
+---
+
+# Agent Management
+
+### Agent Types
+
+```text
+Planner
+Architect
+Frontend
+Backend
+QA
+Security
+DevOps
+Reviewer
+Research
+Telegram Builder
+```
+
+Actions:
+
+```text
+Create
+Edit
+Disable
+Delete
+```
+
+---
+
+### Agent Routing
+
+Assign model:
+
+```text
+Planner → GPT-5
+
+Architect → Claude Opus
+
+Frontend → Claude Sonnet
+
+Backend → GPT-5
+
+QA → DeepSeek
+
+Security → GPT-5
+
+Reviewer → Claude Opus
+```
+
+Live updates.
+
+No deployment needed.
+
+---
+
+### Agent Prompts
+
+Manage system prompts.
+
+Example:
+
+```text
+Frontend Agent Prompt
+
+Backend Agent Prompt
+
+Security Agent Prompt
+```
+
+Version history included.
+
+---
+
+# Cost Management
+
+Critical feature.
+
+---
+
+### Global Cost Dashboard
+
+View:
+
+```text
+Today's Cost
+Monthly Cost
+Yearly Cost
+```
+
+Breakdown:
+
+```text
+OpenAI
+Anthropic
+DeepSeek
+Gemini
+```
+
+---
+
+### Spending Limits
+
+Set:
+
+```text
+Global Limit
+
+Per Workspace Limit
+
+Per User Limit
+
+Per Agent Limit
+
+Per Provider Limit
+```
+
+Actions:
+
+```text
+Warn
+Throttle
+Block
+```
+
+---
+
+### Cost Alerts
+
+Notify when:
+
+```text
+80% budget reached
+90% budget reached
+100% budget reached
+```
+
+---
+
+# Billing Administration
+
+Using PesaPal.
+
+### Payments
+
+View:
+
+```text
+Payment ID
+User
+Amount
+Status
+Reference
+```
+
+Actions:
+
+```text
+Refund
+Retry
+Mark Paid
+Investigate
+```
+
+---
+
+### Subscriptions
+
+View:
+
+```text
+Plan
+Renewal
+Status
+```
+
+Actions:
+
+```text
+Upgrade
+Downgrade
+Pause
+Cancel
+```
+
+---
+
+### Invoices
+
+```text
+Generate
+Download
+Email
+Resend
+```
+
+---
+
+# Referral System
+
+### Referrals
+
+View:
+
+```text
+Referrer
+User
+Commission
+Status
+```
+
+Actions:
+
+```text
+Approve
+Reject
+Pay
+```
+
+---
+
+### Affiliate Management
+
+Manage:
+
+```text
+Referral %
+Bonus Credits
+Partner Tiers
+```
+
+---
+
+# Promotions Module
+
+Create:
+
+```text
+Coupons
+Discounts
+Credits
+Special Offers
+```
+
+Settings:
+
+```text
+Expiration
+Usage Limits
+Plan Restrictions
+```
+
+---
+
+# Telegram Bot Management
+
+View all bots.
+
+Columns:
+
+```text
+Bot Name
+Owner
+Status
+Messages
+Users
+```
+
+Actions:
+
+```text
+Disable
+Restart
+Delete
+```
+
+---
+
+# Deployment Management
+
+View all deployments.
+
+Columns:
+
+```text
+Project
+Owner
+Environment
+Status
+```
+
+Actions:
+
+```text
+Restart
+Rollback
+Delete
+```
+
+---
+
+### Deployment Logs
+
+View:
+
+```text
+Build Logs
+Runtime Logs
+Error Logs
+```
+
+---
+
+# Secrets Management
+
+Admin vault.
+
+View:
+
+```text
+Secret Name
+Workspace
+Created
+Last Accessed
+```
+
+Actions:
+
+```text
+Rotate
+Disable
+Delete
+```
+
+Audit everything.
+
+---
+
+# SSH Server Management
+
+View:
+
+```text
+Server
+Workspace
+Status
+```
+
+Actions:
+
+```text
+Test Connection
+Restart
+Disable
+Delete
+```
+
+---
+
+# Marketplace Administration
+
+### Templates
+
+View:
+
+```text
+Pending
+Approved
+Rejected
+```
+
+Actions:
+
+```text
+Approve
+Reject
+Feature
+Remove
+```
+
+---
+
+### Reviews
+
+Moderate:
+
+```text
+Ratings
+Comments
+Reports
+```
+
+---
+
+# Analytics Center
+
+### User Analytics
+
+Charts:
+
+```text
+Signups
+Retention
+Churn
+Active Users
+```
+
+---
+
+### Revenue Analytics
+
+```text
+MRR
+ARR
+Revenue by Plan
+Revenue by Country
+```
+
+---
+
+### AI Analytics
+
+```text
+Provider Usage
+Model Usage
+Agent Usage
+Token Usage
+```
+
+---
+
+# Notification Center
+
+Manage:
+
+```text
+Email Templates
+Push Notifications
+Telegram Alerts
+```
+
+Broadcasts:
+
+```text
+All Users
+Specific Plans
+Specific Workspaces
+```
+
+---
+
+# Audit Logs
+
+Track every action.
+
+Columns:
+
+```text
+Timestamp
+Admin
+Action
+Resource
+IP Address
+```
+
+Examples:
+
+```text
+User Suspended
+API Key Added
+Secret Rotated
+Refund Issued
+```
+
+---
+
+# Security Center
+
+### Login Monitoring
+
+View:
+
+```text
+Failed Logins
+Blocked IPs
+2FA Status
+```
+
+---
+
+### Threat Detection
+
+Monitor:
+
+```text
+API Abuse
+Spam
+Rate Limit Violations
+Bot Attacks
+```
+
+---
+
+### Security Actions
+
+```text
+Force Logout
+Reset Sessions
+Lock Account
+Require Password Reset
+```
+
+---
+
+# Queue Management
+
+BullMQ queues.
+
+View:
+
+```text
+Queue Name
+Pending
+Running
+Failed
+Completed
+```
+
+Actions:
+
+```text
+Retry
+Pause
+Resume
+Clear
+```
+
+---
+
+# Webhook Center
+
+Manage:
+
+```text
+PesaPal
+Telegram
+GitHub
+Deployments
+```
+
+View:
+
+```text
+Deliveries
+Failures
+Retries
+```
+
+---
+
+# Infrastructure Management
+
+### System Health
+
+Services:
+
+```text
+API
+Database
+Redis
+Queue Workers
+Storage
+WebSocket
+```
+
+Status:
+
+```text
+Healthy
+Warning
+Critical
+```
+
+---
+
+### Storage
+
+View:
+
+```text
+Files
+Usage
+Bandwidth
+```
+
+Actions:
+
+```text
+Clean
+Archive
+Delete
+```
+
+---
+
+# Feature Flags
+
+Enable/disable features without deployment.
+
+Examples:
+
+```text
+Telegram Bots
+
+Marketplace
+
+Claude Models
+
+GPT Models
+
+Referrals
+
+Promotions
+```
+
+---
+
+# Configuration Center
+
+Manage:
+
+```text
+App Name
+Branding
+Email Settings
+SMTP
+Domains
+CDN
+```
+
+---
+
+# Support Center
+
+Admin tools:
+
+```text
+Tickets
+Live Chat
+User Sessions
+```
+
+Actions:
+
+```text
+Reply
+Escalate
+Resolve
+```
+
+---
+
+# Super Admin Only
+
+Highest-level controls.
+
+### Database Tools
+
+```text
+Backups
+Restores
+Migrations
+```
+
+---
+
+### System Settings
+
+```text
+Maintenance Mode
+Emergency Shutdown
+Global Limits
+```
+
+---
+
+### Root Access Logs
+
+Track:
+
+```text
+Admin Login
+Configuration Changes
+System Changes
+```
+
+---
+
+## Recommended Admin Navigation
+
+```text
+Dashboard
+
+Users
+Workspaces
+
+AI Providers
+Models
+Agents
+
+Billing
+Payments
+Subscriptions
+
+Referrals
+Promotions
+
+Projects
+Deployments
+Telegram Bots
+
+Secrets
+SSH Servers
+
+Marketplace
+
+Analytics
+
+Notifications
+
+Audit Logs
+Security
+
+Queues
+Webhooks
+
+Infrastructure
+Storage
+
+Feature Flags
+
+Settings
+
+Support
+
+Super Admin
+ ├ Database
+ ├ System
+ ├ Backups
+ └ Emergency Controls
+```
+
+This level of administration is comparable to what you'd find in platforms such as [Vercel](https://vercel.com?utm_source=chatgpt.com), [Railway](https://railway.com?utm_source=chatgpt.com), [Stripe Dashboard](https://dashboard.stripe.com?utm_source=chatgpt.com), or [OpenAI Platform](https://platform.openai.com?utm_source=chatgpt.com), but adapted specifically for a multi-agent AI development and deployment ecosystem.

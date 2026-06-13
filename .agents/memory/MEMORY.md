@@ -1,2 +1,3 @@
-- [XDIGITEX stack decisions](xdigitex-stack.md) — zod/v4 subpath fails esbuild bundling; use "zod" bare import in api-server routes
-- [XDIGITEX DB schema](xdigitex-db.md) — 16 tables in lib/db/src/schema/; all seeded with realistic data; push via `pnpm --filter @workspace/db run push`
+- [Admin auth & routing](admin-auth-routing.md) — role-based auth via AuthContext + localStorage; admin routes use AdminShell with separate sidebar
+- [Wouter link nesting](wouter-link-nesting.md) — never nest <a> inside <Link>; pass className directly to <Link> which renders as <a>
+- [Zod import in api-server](zod-import.md) — always use `import { z } from "zod"` not `zod/v4` subpath (esbuild fails on subpaths)
