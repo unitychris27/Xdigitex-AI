@@ -4,6 +4,7 @@ import { db } from "@workspace/db";
 import { usersTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { sendLoginNotification, sendWelcomeEmail } from "../lib/email.js";
+import { logger } from "../lib/logger.js";
 
 const router = Router();
 
@@ -13,6 +14,9 @@ const REDIRECT_URI = (() => {
   if (primary) return `https://${primary}/api/auth/google/callback`;
   return "http://localhost:80/api/auth/google/callback";
 })();
+
+// Log redirect URI at startup so it's easy to copy into Google Cloud Console
+logger.info({ redirectUri: REDIRECT_URI }, "Google OAuth redirect URI (add this to Google Cloud Console → Authorized redirect URIs)");
 
 function getClient() {
   return new OAuth2Client(
@@ -112,6 +116,16 @@ router.get("/google/callback", async (req, res) => {
     req.log?.error({ err }, "Google OAuth error");
     res.redirect(`/login?error=${encodeURIComponent(err?.message ?? "oauth_failed")}`);
   }
+});
+
+// GET /api/auth/google/config — returns the redirect URI so developers can add it to Google Console
+router.get("/google/config", (_req, res) => {
+  res.json({
+    redirectUri: REDIRECT_URI,
+    clientIdConfigured: !!process.env["GOOGLE_CLIENT_ID"],
+    clientSecretConfigured: !!process.env["GOOGLE_CLIENT_SECRET"],
+    instructions: "Add the redirectUri value to your Google Cloud Console project under APIs & Services → Credentials → OAuth 2.0 Client IDs → Authorized redirect URIs",
+  });
 });
 
 export { REDIRECT_URI };

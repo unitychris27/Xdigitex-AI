@@ -1,50 +1,48 @@
 import { Link, useLocation } from "wouter";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/contexts/AuthContext";
+import { X } from "lucide-react";
 import {
-  LayoutDashboard,
-  FolderKanban,
-  Cpu,
-  Zap,
-  Rocket,
-  Server,
-  KeyRound,
-  CreditCard,
-  Gift,
-  Store,
-  BarChart3,
-  Settings,
-  ShieldCheck,
-  Bot,
-  FolderOpen,
-  Globe,
+  LayoutDashboard, FolderKanban, Cpu, Zap, Rocket, Server,
+  KeyRound, CreditCard, Gift, BarChart3, Settings,
+  ShieldCheck, Bot, FolderOpen, Globe,
 } from "lucide-react";
 
 const mainNav = [
-  { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { title: "Projects", href: "/projects", icon: FolderKanban },
-  { title: "AI Workspace", href: "/workspace", icon: Cpu },
-  { title: "My Automations", href: "/automations", icon: Zap },
-  { title: "Deployments", href: "/deployments", icon: Rocket },
-  { title: "Servers", href: "/servers", icon: Server },
-  { title: "Secrets Vault", href: "/secrets", icon: KeyRound },
-  { title: "Files", href: "/files", icon: FolderOpen },
-  { title: "Agents", href: "/agents", icon: Bot },
-  { title: "Marketplace", href: "/marketplace", icon: Globe },
+  { title: "Dashboard",     href: "/dashboard",   icon: LayoutDashboard },
+  { title: "Projects",      href: "/projects",    icon: FolderKanban    },
+  { title: "AI Workspace",  href: "/workspace",   icon: Cpu             },
+  { title: "My Automations",href: "/automations", icon: Zap             },
+  { title: "Deployments",   href: "/deployments", icon: Rocket          },
+  { title: "Servers",       href: "/servers",     icon: Server          },
+  { title: "Secrets Vault", href: "/secrets",     icon: KeyRound        },
+  { title: "Files",         href: "/files",       icon: FolderOpen      },
+  { title: "Agents",        href: "/agents",      icon: Bot             },
+  { title: "Marketplace",   href: "/marketplace", icon: Globe           },
 ];
 
-const filteredSecondary = [
-  { title: "Analytics", href: "/analytics", icon: BarChart3 },
-  { title: "Billing", href: "/billing", icon: CreditCard },
-  { title: "Referrals", href: "/referrals", icon: Gift },
-  { title: "Settings", href: "/settings", icon: Settings },
-  { title: "Admin", href: "/admin", icon: ShieldCheck },
+const platformNav = [
+  { title: "Analytics", href: "/analytics", icon: BarChart3, adminOnly: false },
+  { title: "Billing",   href: "/billing",   icon: CreditCard, adminOnly: false },
+  { title: "Referrals", href: "/referrals", icon: Gift,       adminOnly: false },
+  { title: "Settings",  href: "/settings",  icon: Settings,   adminOnly: false },
+  { title: "Admin",     href: "/admin",     icon: ShieldCheck, adminOnly: true  },
 ];
 
-function NavItem({ item, location }: { item: { title: string; href: string; icon: React.ElementType }; location: string }) {
+function NavItem({
+  item,
+  location,
+  onClick,
+}: {
+  item: { title: string; href: string; icon: React.ElementType };
+  location: string;
+  onClick?: () => void;
+}) {
   const isActive = location === item.href || (item.href !== "/dashboard" && location.startsWith(item.href));
   return (
     <Link
       href={item.href}
+      onClick={onClick}
       className={cn(
         "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
         isActive
@@ -58,22 +56,41 @@ function NavItem({ item, location }: { item: { title: string; href: string; icon
   );
 }
 
-export function Sidebar() {
+interface SidebarProps {
+  onClose?: () => void;
+}
+
+export function Sidebar({ onClose }: SidebarProps) {
   const [location] = useLocation();
+  const { isAdmin } = useAuth();
+
+  const visiblePlatformNav = platformNav.filter(item => !item.adminOnly || isAdmin);
 
   return (
-    <div className="flex h-full w-60 flex-col bg-sidebar border-r border-sidebar-border text-sidebar-foreground shrink-0">
-      <div className="p-4 flex items-center gap-2 font-bold text-xl tracking-tight text-primary border-b border-sidebar-border shrink-0">
-        <div className="w-8 h-8 rounded bg-primary text-primary-foreground flex items-center justify-center text-xs font-black">
-          XD
+    <div className="flex h-full w-64 flex-col bg-sidebar border-r border-sidebar-border text-sidebar-foreground shrink-0">
+      {/* Logo + close button */}
+      <div className="p-4 flex items-center justify-between border-b border-sidebar-border shrink-0">
+        <div className="flex items-center gap-2 font-bold text-xl tracking-tight text-primary">
+          <div className="w-8 h-8 rounded bg-primary text-primary-foreground flex items-center justify-center text-xs font-black shrink-0">
+            XD
+          </div>
+          XDIGITEX AI
         </div>
-        XDIGITEX AI
+        {/* Close button — mobile only */}
+        <button
+          onClick={onClose}
+          className="lg:hidden p-1.5 rounded-md text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
+          aria-label="Close sidebar"
+        >
+          <X className="w-4 h-4" />
+        </button>
       </div>
 
+      {/* Nav items */}
       <div className="flex-1 overflow-y-auto py-3 scrollbar-thin">
         <nav className="space-y-0.5 px-2">
-          {mainNav.map((item) => (
-            <NavItem key={item.href} item={item} location={location} />
+          {mainNav.map(item => (
+            <NavItem key={item.href} item={item} location={location} onClick={onClose} />
           ))}
         </nav>
 
@@ -82,8 +99,8 @@ export function Sidebar() {
         </div>
 
         <nav className="space-y-0.5 px-2">
-          {filteredSecondary.map((item) => (
-            <NavItem key={item.href} item={item} location={location} />
+          {visiblePlatformNav.map(item => (
+            <NavItem key={item.href} item={item} location={location} onClick={onClose} />
           ))}
         </nav>
       </div>
