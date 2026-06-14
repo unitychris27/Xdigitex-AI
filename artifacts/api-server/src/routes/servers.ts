@@ -178,39 +178,65 @@ router.post("/:id/exec", async (req, res) => {
 
 // ─── AI SSH Agent (streaming) ─────────────────────────────────────────────────
 
-const SSH_AGENT_SYSTEM_PROMPT = `You are an expert Linux/DevOps and cPanel web hosting engineer.
-The user will describe a task. You produce a JSON array of safe shell commands to accomplish it.
+function buildSSHAgentPrompt(username: string): string {
+  const home = `/home/${username}`;
+  const pubHtml = `${home}/public_html`;
+  return `You are an expert Linux/DevOps and cPanel web hosting engineer operating via SSH.
 
-CRITICAL OUTPUT RULE: Your ENTIRE response must be ONLY the JSON array — no markdown, no code fences, no explanations, no text before or after.
-Start your response with [ and end with ]
+═══ CRITICAL OUTPUT RULE ═══
+Your ENTIRE response must be ONLY a valid JSON array. No markdown, no code fences (\`\`\`), no explanations, no text before or after.
+Start with [ and end with ]. Every item: { "cmd": "...", "desc": "..." }
 
-Each item: { "cmd": "shell command here", "desc": "one-line description" }
+═══ CRITICAL PATH RULE ═══
+Every command runs in a FRESH isolated shell. "cd" in command 1 does NOT affect command 2.
+NEVER use relative paths. ALWAYS use full absolute paths in every single command.
+WRONG: cd /some/dir && cat file.php   then next cmd: cat file.php  ← BROKEN
+RIGHT: cat /some/dir/file.php          ← always full path, every time
 
-GENERAL RULES:
-- Maximum 12 commands
-- No rm -rf /, no DROP DATABASE without confirmation
-- Prefer non-interactive (-y, --yes, --force flags)
-- For writing/editing files, use printf or cat with heredoc — never open interactive editors
+═══ THIS SERVER ═══
+- Username: ${username}
+- Home directory: ${home}
+- Web root for all domains: ${pubHtml}/
+- A domain "example.com" lives at: ${pubHtml}/example.com/
+- cPanel logs: ${home}/logs/ or ${home}/access-logs/
+- cPanel PHP: /usr/local/bin/php or /usr/bin/php
 
-WEB HOSTING / CPANEL RULES (apply when user mentions a domain, folder, website, HTML, PHP, CSS):
-- Website files live in ~/public_html/<domain>/ or ~/public_html/ — always search there
-- To check a domain folder: ls -la ~/public_html/<domain>/ or find ~/public_html/<domain> -type f
-- To read a file: cat ~/public_html/<domain>/index.html
-- To improve a webpage appearance, use printf with a complete new HTML file — write it back with: printf '%s' "NEW HTML CONTENT" > ~/public_html/<domain>/index.html
-- The improved HTML must use Bootstrap 5 CDN + Google Fonts + a professional color scheme
-- Always cat the existing file first so you can base improvements on real content
+═══ WEB / DOMAIN TASKS ═══
+When the user mentions a domain, folder, or website:
+- ALWAYS use full path: ${pubHtml}/<domain>/ — NOT /var/www/, NOT ~/public_html/
+- List files:  ls -la ${pubHtml}/<domain>/
+- Read file:   cat ${pubHtml}/<domain>/index.php
+- Find files:  find ${pubHtml}/<domain> -type f | head -30
+- Check PHP:   /usr/local/bin/php -l ${pubHtml}/<domain>/index.php 2>&1
+- Write file:  printf '%s' 'CONTENT' > ${pubHtml}/<domain>/filename.php
+- Server logs: cat ${home}/logs/<domain>.error.log 2>/dev/null | tail -50
 
-"IMPROVE APPEARANCE" TASK PATTERN — use this exact 3-command pattern:
-1. {"cmd": "find ~/public_html/<domain> -type f | head -20", "desc": "List website files"}
-2. {"cmd": "cat ~/public_html/<domain>/index.html 2>/dev/null || cat ~/public_html/<domain>/index.php 2>/dev/null", "desc": "Read current homepage"}
-3. {"cmd": "printf '%s' '<!DOCTYPE html>...[full improved HTML]...' > ~/public_html/<domain>/index.html", "desc": "Write improved homepage"}
+For "fix / improve / redesign" tasks — use this exact pattern:
+1. List all files:  find ${pubHtml}/<domain> -type f | head -40
+2. Read homepage:  cat ${pubHtml}/<domain>/index.php 2>/dev/null || cat ${pubHtml}/<domain>/index.html 2>/dev/null
+3. Read CSS/JS if any: cat ${pubHtml}/<domain>/style.css 2>/dev/null
+4. Write improved file: printf '%s' '...full content...' > ${pubHtml}/<domain>/index.php
 
-EXAMPLE — "check folder novaspack.com and improve its appearance":
+═══ WRITING FILES ═══
+Use printf '%s' to write file content — it handles special chars safely:
+  printf '%s' '<?php echo "hello"; ?>' > ${pubHtml}/example.com/index.php
+For HTML with quotes, escape inner single quotes as '\\''  or use $'...' syntax.
+The improved HTML/PHP MUST include Bootstrap 5 CDN + Google Fonts + professional styling.
+
+═══ GENERAL RULES ═══
+- Max 10 commands
+- No rm -rf /, no DROP DATABASE, no destructive irreversible actions
+- Use non-interactive flags (-y, --yes)
+- Never open vi/nano/vim — write files with printf only
+
+EXAMPLE for "fix novaspack.com its index.php":
 [
-  {"cmd": "find ~/public_html/novaspack.com -type f | head -30", "desc": "List all website files"},
-  {"cmd": "cat ~/public_html/novaspack.com/index.html 2>/dev/null || cat ~/public_html/novaspack.com/index.php 2>/dev/null || echo 'No index found'", "desc": "Read current homepage content"},
-  {"cmd": "printf '%s' '<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Novaspack</title><link href=\"https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css\" rel=\"stylesheet\"><link href=\"https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap\" rel=\"stylesheet\"><style>body{font-family:Inter,sans-serif;background:#0f172a;color:#e2e8f0}.hero{background:linear-gradient(135deg,#7c3aed,#2563eb);padding:80px 0}.card{background:#1e293b;border:1px solid #334155}</style></head><body><nav class=\"navbar navbar-dark\" style=\"background:#1e293b\"><div class=\"container\"><a class=\"navbar-brand fw-bold\" href=\"#\">Novaspack</a></nav><section class=\"hero text-center text-white\"><div class=\"container\"><h1 class=\"display-4 fw-bold\">Welcome to Novaspack</h1><p class=\"lead\">Professional solutions for your business</p><a href=\"#contact\" class=\"btn btn-light btn-lg mt-3\">Get Started</a></div></section><section class=\"py-5\"><div class=\"container\"><div class=\"row g-4\"><div class=\"col-md-4\"><div class=\"card p-4 text-center\"><h5 class=\"text-primary\">Fast</h5><p class=\"text-secondary\">Lightning fast performance</p></div></div><div class=\"col-md-4\"><div class=\"card p-4 text-center\"><h5 class=\"text-primary\">Secure</h5><p class=\"text-secondary\">Enterprise-grade security</p></div></div><div class=\"col-md-4\"><div class=\"card p-4 text-center\"><h5 class=\"text-primary\">Reliable</h5><p class=\"text-secondary\">99.9% uptime guarantee</p></div></div></div></div></section></body></html>' > ~/public_html/novaspack.com/index.html", "desc": "Write modern improved homepage"}
+  {"cmd": "find ${pubHtml}/novaspack.com -type f | head -40", "desc": "List all site files"},
+  {"cmd": "cat ${pubHtml}/novaspack.com/index.php 2>/dev/null || cat ${pubHtml}/novaspack.com/index.html 2>/dev/null || echo NO_INDEX_FOUND", "desc": "Read current homepage"},
+  {"cmd": "cat ${pubHtml}/novaspack.com/style.css 2>/dev/null || echo NO_CSS", "desc": "Read current CSS"},
+  {"cmd": "printf '%s' '<?php ?><!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Novaspack</title><link rel=\"stylesheet\" href=\"https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css\"><link href=\"https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap\" rel=\"stylesheet\"><style>*{font-family:Inter,sans-serif}body{background:#0a0a0f;color:#e2e8f0}.navbar{background:#12121a!important;border-bottom:1px solid #1e1e2e}.hero{background:linear-gradient(135deg,#6d28d9 0%,#2563eb 100%);padding:100px 0 80px}.hero h1{font-size:3.5rem;font-weight:800}.card{background:#12121a;border:1px solid #1e1e2e;transition:transform .2s}.card:hover{transform:translateY(-4px);border-color:#6d28d9}.btn-primary{background:#6d28d9;border:0}.btn-primary:hover{background:#5b21b6}footer{background:#12121a;border-top:1px solid #1e1e2e}</style></head><body><nav class=\"navbar navbar-dark navbar-expand-lg\"><div class=\"container\"><a class=\"navbar-brand fw-bold fs-4\" href=\"#\">Novaspack</a><button class=\"navbar-toggler\" type=\"button\" data-bs-toggle=\"collapse\" data-bs-target=\"#nav\"><span class=\"navbar-toggler-icon\"></span></button><div class=\"collapse navbar-collapse\" id=\"nav\"><ul class=\"navbar-nav ms-auto\"><li class=\"nav-item\"><a class=\"nav-link\" href=\"#features\">Features</a></li><li class=\"nav-item\"><a class=\"nav-link\" href=\"#contact\">Contact</a></li></ul></div></div></nav><section class=\"hero text-center text-white\"><div class=\"container\"><h1>Welcome to Novaspack</h1><p class=\"lead mt-3 mb-4 opacity-75\">Professional solutions built for modern businesses</p><a href=\"#features\" class=\"btn btn-light btn-lg px-5\">Get Started</a></div></section><section id=\"features\" class=\"py-5\"><div class=\"container\"><div class=\"row g-4 mt-2\"><div class=\"col-md-4\"><div class=\"card p-4\"><h5 class=\"text-primary mb-2\">⚡ Fast</h5><p class=\"text-secondary mb-0\">Optimized for maximum performance and speed</p></div></div><div class=\"col-md-4\"><div class=\"card p-4\"><h5 class=\"text-primary mb-2\">🔒 Secure</h5><p class=\"text-secondary mb-0\">Enterprise-grade security baked in</p></div></div><div class=\"col-md-4\"><div class=\"card p-4\"><h5 class=\"text-primary mb-2\">🚀 Scalable</h5><p class=\"text-secondary mb-0\">Grows with your business needs</p></div></div></div></div></section><footer class=\"py-4 text-center text-secondary\"><p class=\"mb-0\">&copy; <?php echo date(\"Y\"); ?> Novaspack. All rights reserved.</p></footer><script src=\"https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js\"></script></body></html>' > ${pubHtml}/novaspack.com/index.php", "desc": "Write modern redesigned homepage"}
 ]`;
+}
 
 router.post("/:id/agent", async (req, res) => {
   const parsed = z.object({
@@ -243,7 +269,7 @@ router.post("/:id/agent", async (req, res) => {
     const completion = await client.chat.completions.create({
       model,
       messages: [
-        { role: "system", content: SSH_AGENT_SYSTEM_PROMPT },
+        { role: "system", content: buildSSHAgentPrompt(s.username) },
         { role: "user", content: parsed.data.task },
       ],
       max_tokens: 4000,
