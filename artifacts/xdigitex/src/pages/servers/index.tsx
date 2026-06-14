@@ -446,8 +446,9 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
     const newHistory: AIMsg[] = [...aiHistory, { role: "user", content: userText }];
     setAiHistory(newHistory);
 
-    // Track assistant turn output for AI history
-    let agentTurnParts: string[] = [];
+    // Build rich AI history for the next conversation turn
+    // Includes command outputs so the AI has full context on follow-up messages
+    const agentTurnParts: string[] = [];
 
     try {
       const res = await fetch(`${BASE}/api/servers/${server.id}/chat`, {
@@ -461,8 +462,10 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
       const dec    = new TextDecoder();
       let   buf    = "";
 
-      // map: localCmdIndex → globalCmdIndex
-      const localToGlobal = new Map<number, number>();
+      // map: localCmdIndex (per-run, resets each iteration) → globalCmdIndex (unique across session)
+      // Backend resets local indices each "run" action, so we track by iteration+localIdx
+      let   iterOffset = 0;
+      const localToGlobal = new Map<string, number>();
 
       while (true) {
         const { done, value } = await reader.read();
@@ -485,30 +488,36 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
             agentTurnParts.push(`[thinking] ${text}`);
 
           } else if (type === "cmd_start") {
-            const localIdx = ev.index as number;
+            const localIdx  = ev.index as number;
             const globalIdx = cmdCounter.current++;
-            localToGlobal.set(localIdx, globalIdx);
+            const key       = `${iterOffset}:${localIdx}`;
+            localToGlobal.set(key, globalIdx);
             const cmd  = ev.cmd  as string ?? "";
             const desc = ev.desc as string ?? "";
             addMsg({ kind: "cmd", index: globalIdx, cmd, desc, output: "", open: true });
-            agentTurnParts.push(`[run] ${cmd}`);
 
           } else if (type === "cmd_output") {
             const localIdx  = ev.index as number;
-            const globalIdx = localToGlobal.get(localIdx) ?? -1;
+            const globalIdx = localToGlobal.get(`${iterOffset}:${localIdx}`) ?? -1;
             const chunk     = ev.chunk as string ?? "";
             if (globalIdx >= 0) updateCmdOutput(globalIdx, chunk);
 
           } else if (type === "cmd_done") {
             const localIdx  = ev.index as number;
-            const globalIdx = localToGlobal.get(localIdx) ?? -1;
+            const globalIdx = localToGlobal.get(`${iterOffset}:${localIdx}`) ?? -1;
             const code      = ev.code as number ?? 0;
             if (globalIdx >= 0) updateCmdOutput(globalIdx, "", code);
+
+          } else if (type === "cmd_results") {
+            // Full command results text — include in AI history for context on next turn
+            const text = ev.text as string ?? "";
+            agentTurnParts.push(`[commands executed + output]\n${text}`);
+            iterOffset++; // next batch of commands will have fresh local indices
 
           } else if (type === "reply" || type === "done") {
             const text = ev.text as string ?? "";
             addMsg({ kind: type === "done" ? "done" : "reply", text });
-            agentTurnParts.push(`[agent] ${text}`);
+            agentTurnParts.push(`[agent message] ${text}`);
 
           } else if (type === "error") {
             const text = ev.text as string ?? "Unknown error";
@@ -518,9 +527,10 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
         }
       }
 
-      // Add agent turn summary to AI history for next round
+      // Store full agent turn (with all command outputs) in AI history
+      // This ensures follow-up messages have full context of what was done
       if (agentTurnParts.length) {
-        setAiHistory(h => [...h, { role: "assistant", content: agentTurnParts.join("\n") }]);
+        setAiHistory(h => [...h, { role: "assistant", content: agentTurnParts.join("\n\n") }]);
       }
     } catch (e: unknown) {
       addMsg({ kind: "error", text: String(e instanceof Error ? e.message : e) });

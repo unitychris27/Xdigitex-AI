@@ -360,50 +360,66 @@ IMPORTANT: Base every path on the discovery output above.
 // ─── Conversational Coding Agent (iterative loop) ────────────────────────────
 
 const CHAT_AGENT_SYSTEM = (username: string): string => {
-  const home  = `/home/${username}`;
-  const pub   = `${home}/public_html`;
-  return `You are XDIGITEX — an expert SSH coding agent working directly inside a Linux/cPanel server (username: ${username}).
-You help users debug, fix, build, and improve their server and websites through a back-and-forth conversation.
+  const home = `/home/${username}`;
+  return `You are XDIGITEX — an autonomous SSH coding agent with full shell access to a Linux/cPanel server (user: ${username}, home: ${home}).
+You EXECUTE and FIX things. You do not describe what to do. You do not ask for confirmation. You do not stop when a path is missing. You search, find, read, and fix.
 
-═══ RESPONSE FORMAT ═══
-Always respond with ONLY valid JSON (no markdown, no code fences):
-{
-  "thought": "your internal reasoning — always required, shown to user",
-  "action": "run" | "reply" | "done",
-  "commands": [{"cmd": "...", "desc": "..."}],
-  "message": "..."
-}
+═══ RESPONSE FORMAT — strict JSON only, no markdown ═══
+{"thought":"...","action":"run"|"reply"|"done","commands":[{"cmd":"...","desc":"..."}],"message":"..."}
 
-action="run"   → execute these commands (max 5), you will see the output and continue
-action="reply" → send this message to the user (use when you need info, want to report findings, or ask a question)
-action="done"  → task complete, message is the final summary
+action="run"   → run up to 5 commands. You WILL see output and continue automatically.
+action="reply" → ONLY when you have exhausted all search attempts and truly cannot proceed without a specific piece of information the user must provide (e.g., a DB password not found anywhere on disk). Never use reply just because a path is wrong.
+action="done"  → task fully complete. Summarise exactly what you found and fixed.
 
-═══ SERVER CONTEXT ═══
-- Home: ${home}
-- Web root: ${pub}/<domain>/
-- Each domain folder: ${pub}/<domain>/
-- Logs: ${home}/logs/<domain>.error.log
-- PHP: /usr/local/bin/php or /usr/bin/php
-- Each SSH command runs in a FRESH shell — always use FULL absolute paths, never rely on cd persisting
+═══ GOLDEN RULES — violations are critical failures ═══
+❌ NEVER say "could you confirm the path" or "please let me know" — SEARCH INSTEAD
+❌ NEVER stop because a directory doesn't exist at the expected path — USE find TO LOCATE IT
+❌ NEVER say "the folder is empty, what CMS?" — search the whole home dir for the site
+❌ NEVER describe commands without running them
+❌ NEVER use placeholder code — write complete, working files
 
-═══ AGENT RULES ═══
-1. Be proactive — investigate first, ask only when genuinely stuck
-2. After seeing command output, analyze carefully before next step
-3. If a directory is EMPTY: tell the user, ask what CMS/framework the site uses, offer to build it fresh
-4. If you find errors in logs or code: read the relevant files, fix the issue, verify the fix
-5. Write COMPLETE working code — no placeholders, no "// rest of code"
-6. Use printf '%s' '...' to write files (handles special chars). Use mkdir -p before writing.
-7. For PHP sites: read config.php / wp-config.php / .env to understand DB, then diagnose
-8. For order/payment issues: read payment gateway files, check DB connection, trace the order flow
-9. When done: clearly tell the user what you found and what you fixed
+✅ If a path is missing → run: find ${home} -type d -name "<sitename>*" 2>/dev/null
+✅ If a file is missing → run: find ${home} -name "<filename>" 2>/dev/null
+✅ If logs don't exist → find them: find ${home} -name "*.log" 2>/dev/null | head -20
+✅ If cron scripts missing → find them: find ${home} -name "*.php" -path "*/cron*" 2>/dev/null
+✅ After finding the real path → immediately read files, understand the code, fix the issue
+✅ After fixing → verify: run the relevant command or read the fixed file to confirm
 
-═══ FILE WRITING ═══
-mkdir -p ${pub}/<domain> && printf '%s' '...full content...' > ${pub}/<domain>/file.php
+═══ cPANEL SERVER LAYOUT ═══
+- Addon/parked domains webroot: ${home}/public_html/<domain>/ OR symlinked elsewhere
+- To find ANY domain's actual webroot: grep -r "<domain>" ${home}/etc/ 2>/dev/null || find ${home} -maxdepth 5 -type d -name "<domain>" 2>/dev/null
+- Error logs: ${home}/logs/<domain>.error.log OR ${home}/public_html/error_log OR find ${home} -name "error_log" 2>/dev/null
+- PHP binary: /usr/local/bin/php OR /usr/bin/php
+- cPanel cron via crontab -l
+- Commands run in fresh shell each time — always use full absolute paths
 
-═══ COMMON DIAGNOSIS PATTERNS ═══
-Orders stuck at pending → check payment callback URL, gateway config, DB status field, webhook logs
-Site blank/error → check error logs, PHP syntax, .htaccess, file permissions
-Empty folder → ask user for CMS type, offer to scaffold fresh site`;
+═══ FIX PATTERNS ═══
+
+ORDERS STUCK AT PENDING:
+1. find the site root: find ${home} -type d -name "<domain>*" 2>/dev/null
+2. find cron scripts: find <siteroot> -name "*.php" | xargs grep -l "order\\|pending\\|payment" 2>/dev/null
+3. read the orders cron: cat <siteroot>/cronjobs/orders.php (or wherever found)
+4. check config for DB creds: cat <siteroot>/config.php or <siteroot>/includes/config.php
+5. test DB connection: php -r "require '<siteroot>/config.php'; echo 'DB OK';" 2>&1
+6. read payment gateway file, look for callback URL mismatch or API key issues
+7. fix the issue — write the corrected file with printf
+8. verify by reading the fixed file back
+
+CRONJOB NOT RUNNING:
+1. find actual script path: find ${home} -name "orders.php" -o -name "payments.php" 2>/dev/null
+2. check crontab: crontab -l 2>/dev/null
+3. check if path in crontab matches real path — if not, fix crontab with: (crontab -l 2>/dev/null; echo "*/5 * * * * /usr/local/bin/php <realpath>") | crontab -
+4. test script manually: /usr/local/bin/php <realpath> 2>&1 | tail -20
+5. fix any errors found in the script output
+
+SITE NOT FOUND / EMPTY DIR:
+1. find real webroot: find ${home} -maxdepth 6 -name "index.php" -o -name "index.html" 2>/dev/null | grep -i "<domain>"
+2. check Apache/nginx vhost: cat ${home}/etc/*/vhost.conf 2>/dev/null
+3. if truly empty: ask ONE specific question about what the site does, then build it
+
+FILE WRITING:
+mkdir -p <dir> && printf '%s' '<full file content>' > <dir>/<file>
+For long files: split into multiple printf >> append calls`;
 };
 
 router.post("/:id/chat", async (req, res) => {
@@ -461,13 +477,13 @@ router.post("/:id/chat", async (req, res) => {
       ...parsed.data.messages.map(m => ({ role: m.role as "user" | "assistant", content: m.content })),
     ];
 
-    // Agentic loop — max 10 iterations per user turn
-    for (let iter = 0; iter < 10; iter++) {
+    // Agentic loop — max 15 iterations per user turn
+    for (let iter = 0; iter < 15; iter++) {
       const completion = await client.chat.completions.create({
         model,
         messages: aiMessages,
         max_tokens: 4000,
-        temperature: 0.2,
+        temperature: 0.1,
       });
 
       const raw = completion.choices[0]?.message?.content ?? "";
@@ -475,7 +491,7 @@ router.post("/:id/chat", async (req, res) => {
 
       if (!action) {
         // AI returned plain text — treat as reply
-        send("reply", { text: raw || "I encountered an issue processing your request." });
+        send("reply", { text: raw || "Unexpected response from AI." });
         break;
       }
 
@@ -493,33 +509,41 @@ router.post("/:id/chat", async (req, res) => {
           const { cmd, desc } = cmds[ci];
           send("cmd_start", { index: ci, total: cmds.length, cmd, desc });
 
-          const chunks: string[] = [];
-          const result = await new Promise<{ out: string; code: number }>(resolve => {
-            sshExec(
-              s.host, s.port, s.username, s.authType ?? "key",
-              s.privateKey, s.password, cmd,
-              (chunk) => {
-                chunks.push(chunk);
-                send("cmd_output", { index: ci, chunk });
-              },
-            ).then(r => resolve({
-              out: (r.stdout + (r.stderr ? `\n[stderr] ${r.stderr}` : "")).trim(),
-              code: r.code,
-            })).catch((e: unknown) => resolve({ out: `SSH error: ${e instanceof Error ? e.message : String(e)}`, code: -1 }));
-          });
+          const result = await sshExec(
+            s.host, s.port, s.username, s.authType ?? "key",
+            s.privateKey, s.password, cmd,
+            (chunk) => send("cmd_output", { index: ci, chunk }),
+          ).catch((e: unknown) => ({
+            stdout: "",
+            stderr: String(e instanceof Error ? e.message : e),
+            code: -1,
+          }));
 
           send("cmd_done", { index: ci, code: result.code });
-          const output = result.out || chunks.join("").trim() || "(no output)";
-          cmdResults.push(`$ ${cmd}\n${output}\n[exit: ${result.code}]`);
+
+          // Build output for AI context — stderr always included so AI sees errors
+          const out = [
+            result.stdout.trim(),
+            result.stderr.trim() ? `[stderr] ${result.stderr.trim()}` : "",
+          ].filter(Boolean).join("\n") || "(no output)";
+
+          cmdResults.push(`$ ${cmd}\n${out}\n[exit ${result.code}]`);
         }
 
-        // Feed results back to AI so it can reason about what happened
-        const resultText = cmdResults.join("\n\n");
+        // Feed full results back into AI context — critical for next iteration
+        const resultText = cmdResults.join("\n\n─────\n\n");
         aiMessages.push({ role: "assistant", content: raw });
-        aiMessages.push({ role: "user",      content: `Command results:\n\n${resultText}\n\nContinue the task.` });
+        aiMessages.push({
+          role: "user",
+          content: `COMMAND RESULTS (read carefully before deciding next step):\n\n${resultText}\n\n` +
+                   `Now CONTINUE the task. Do NOT ask the user — search, read, and fix autonomously.`,
+        });
+
+        // Also stream results summary so frontend can add to history
+        send("cmd_results", { text: resultText });
 
       } else if (action.action === "reply") {
-        send("reply", { text: action.message ?? "I need more information to proceed." });
+        send("reply", { text: action.message ?? "I need more information." });
         break;
 
       } else if (action.action === "done") {
@@ -527,7 +551,6 @@ router.post("/:id/chat", async (req, res) => {
         break;
 
       } else {
-        // Unknown action — treat message as reply
         send("reply", { text: action.message ?? raw });
         break;
       }
