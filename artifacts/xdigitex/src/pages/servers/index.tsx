@@ -91,28 +91,58 @@ function TerminalView({ lines, loading }: { lines: TerminalLine[]; loading?: boo
 // ─── Command block inside chat ────────────────────────────────────────────────
 
 function CmdBlock({ msg, onToggle }: { msg: Extract<ChatMsg, { kind: "cmd" }>; onToggle: () => void }) {
-  const ok = (msg.exitCode ?? 0) === 0;
+  const isRunning = msg.exitCode === undefined;
+  const ok        = msg.exitCode === 0;
+  const lines     = msg.output ? msg.output.split("\n").filter(l => l.trim()) : [];
+  const preview   = lines.slice(0, 4);
+  const rest      = lines.slice(4);
+
   return (
-    <div className="rounded-lg border border-zinc-800 bg-black/60 text-xs overflow-hidden">
-      <button
-        onClick={onToggle}
-        className="w-full flex items-center gap-2 px-3 py-2 hover:bg-zinc-800/40 transition-colors text-left"
-      >
-        {msg.exitCode === undefined ? (
-          <Loader2 className="w-3 h-3 text-purple-400 animate-spin shrink-0" />
-        ) : ok ? (
-          <CheckCircle2 className="w-3 h-3 text-green-400 shrink-0" />
-        ) : (
-          <XCircle className="w-3 h-3 text-red-400 shrink-0" />
+    <div className="rounded-lg border border-zinc-800 bg-black/70 text-xs overflow-hidden my-1">
+      {/* Command line */}
+      <div className="flex items-center gap-2 px-3 py-2 font-mono">
+        <span className="shrink-0">
+          {isRunning
+            ? <Loader2 className="w-3 h-3 text-purple-400 animate-spin" />
+            : ok
+              ? <CheckCircle2 className="w-3 h-3 text-green-400" />
+              : <XCircle className="w-3 h-3 text-red-400" />}
+        </span>
+        <span className="text-zinc-500 shrink-0">$</span>
+        <span className="text-zinc-200 flex-1 min-w-0 truncate">{msg.cmd}</span>
+        {!isRunning && (
+          <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded ${ok ? "text-green-500" : "text-red-400"}`}>
+            {ok ? "ok" : `exit ${msg.exitCode}`}
+          </span>
         )}
-        <span className="font-mono text-zinc-300 truncate flex-1">{msg.cmd}</span>
-        <span className="text-zinc-600 shrink-0">{msg.desc}</span>
-        {msg.open ? <ChevronDown className="w-3 h-3 text-zinc-600 shrink-0" /> : <ChevronRight className="w-3 h-3 text-zinc-600 shrink-0" />}
-      </button>
-      {msg.open && msg.output && (
-        <pre className="border-t border-zinc-800 px-3 py-2 text-zinc-400 whitespace-pre-wrap max-h-48 overflow-y-auto font-mono text-[11px]">
-          {msg.output}
-        </pre>
+      </div>
+      {/* Preview lines — always shown */}
+      {preview.length > 0 && (
+        <div className="border-t border-zinc-800/60 px-3 py-2 space-y-0.5">
+          {preview.map((l, i) => (
+            <div key={i} className="font-mono text-[11px] text-zinc-400 leading-relaxed break-all">
+              {l}
+            </div>
+          ))}
+          {rest.length > 0 && (
+            <button onClick={onToggle}
+              className="text-[10px] text-zinc-600 hover:text-zinc-400 mt-1 flex items-center gap-1">
+              {msg.open
+                ? <><ChevronDown className="w-3 h-3" /> collapse</>
+                : <><ChevronRight className="w-3 h-3" /> +{rest.length} more lines</>}
+            </button>
+          )}
+          {msg.open && rest.length > 0 && (
+            <pre className="font-mono text-[11px] text-zinc-400 whitespace-pre-wrap max-h-56 overflow-y-auto border-t border-zinc-800 pt-2 mt-1">
+              {rest.join("\n")}
+            </pre>
+          )}
+        </div>
+      )}
+      {isRunning && lines.length === 0 && (
+        <div className="border-t border-zinc-800/60 px-3 py-1.5 text-zinc-600 text-[11px] font-mono">
+          running…
+        </div>
       )}
     </div>
   );
@@ -400,14 +430,13 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
   const [mode, setMode]         = useState<"economy" | "balanced" | "high-power">("high-power");
   const [input, setInput]       = useState("");
   const [running, setRunning]   = useState(false);
+  // Live status: what the agent is doing RIGHT NOW
+  const [liveOp, setLiveOp]     = useState<string>("");
 
   // Chat display messages
   const [msgs, setMsgs]         = useState<ChatMsg[]>([]);
   // AI conversation history (clean role/content for backend)
   const [aiHistory, setAiHistory] = useState<AIMsg[]>([]);
-
-  // Track active command blocks by index
-  const [activeCmds, setActiveCmds] = useState<Map<number, { cmd: string; desc: string; output: string }>>(new Map());
 
   const bottomRef  = useRef<HTMLDivElement>(null);
   const inputRef   = useRef<HTMLTextAreaElement>(null);
@@ -494,6 +523,7 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
             localToGlobal.set(key, globalIdx);
             const cmd  = ev.cmd  as string ?? "";
             const desc = ev.desc as string ?? "";
+            setLiveOp(desc || cmd.slice(0, 60));
             addMsg({ kind: "cmd", index: globalIdx, cmd, desc, output: "", open: true });
 
           } else if (type === "cmd_output") {
@@ -507,17 +537,18 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
             const globalIdx = localToGlobal.get(`${iterOffset}:${localIdx}`) ?? -1;
             const code      = ev.code as number ?? 0;
             if (globalIdx >= 0) updateCmdOutput(globalIdx, "", code);
+            setLiveOp("");
 
           } else if (type === "cmd_results") {
-            // Full command results text — include in AI history for context on next turn
             const text = ev.text as string ?? "";
             agentTurnParts.push(`[commands executed + output]\n${text}`);
-            iterOffset++; // next batch of commands will have fresh local indices
+            iterOffset++;
 
           } else if (type === "reply" || type === "done") {
             const text = ev.text as string ?? "";
             addMsg({ kind: type === "done" ? "done" : "reply", text });
             agentTurnParts.push(`[agent message] ${text}`);
+            setLiveOp("");
 
           } else if (type === "error") {
             const text = ev.text as string ?? "Unknown error";
@@ -545,8 +576,7 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
   };
 
   const clearChat = () => {
-    setMsgs([]); setAiHistory([]); cmdCounter.current = 0;
-    setActiveCmds(new Map());
+    setMsgs([]); setAiHistory([]); cmdCounter.current = 0; setLiveOp("");
   };
 
   return (
@@ -564,15 +594,16 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
                 <StatusDot s={server.status} />
                 <span className="text-xs font-normal text-muted-foreground font-mono">{server.username}@{server.host}</span>
               </div>
-              <div className="text-[11px]">
+              <div className="text-[11px] truncate">
                 {running ? (
-                  <span className="text-purple-400 flex items-center gap-1">
-                    <Loader2 className="w-3 h-3 animate-spin" /> Working on server…
+                  <span className="text-purple-400 flex items-center gap-1.5 min-w-0">
+                    <Loader2 className="w-3 h-3 animate-spin shrink-0" />
+                    <span className="truncate">{liveOp ? liveOp : "Thinking…"}</span>
                   </span>
                 ) : msgs.length > 0 ? (
-                  <span className="text-green-400 flex items-center gap-1">
-                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
-                    Live — type your next message below ↓
+                  <span className="text-green-400 flex items-center gap-1.5">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse shrink-0" />
+                    Ready — type your next message ↓
                   </span>
                 ) : (
                   <span className="text-muted-foreground">Ready — ask me to fix, build, or diagnose anything</span>
@@ -614,14 +645,14 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
               </div>
               <div className="grid grid-cols-2 gap-2 w-full max-w-sm text-xs">
                 {[
-                  "Fix orders stuck at pending in malabora.site",
-                  "Diagnose why my site is returning 500 errors",
-                  "Build a landing page for novaspack.com",
-                  "Check disk space and clean old logs",
+                  { label: "🔍 Fix orders stuck at pending", val: "Fix orders stuck at pending in malabora.site" },
+                  { label: "🚨 Diagnose 500 errors on my site", val: "Diagnose why my site is returning 500 errors" },
+                  { label: "🪵 Check and inspect error logs", val: "Check and show me the error logs" },
+                  { label: "🔑 Generate SSH key for this server", val: "Generate an SSH key pair for this server so I can connect without a password" },
                 ].map(s => (
-                  <button key={s} onClick={() => setInput(s)}
+                  <button key={s.val} onClick={() => setInput(s.val)}
                     className="text-left px-3 py-2 rounded-lg border border-border bg-card/40 hover:border-purple-500/40 hover:bg-purple-500/5 transition-colors text-muted-foreground">
-                    {s}
+                    {s.label}
                   </button>
                 ))}
               </div>
@@ -637,16 +668,24 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
               </div>
             );
 
-            if (m.kind === "think") return (
-              <div key={i} className="flex items-start gap-2">
-                <div className="w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center shrink-0 mt-0.5">
-                  <Loader2 className="w-3 h-3 text-zinc-500" />
+            if (m.kind === "think") {
+              const t = m.text.toLowerCase();
+              const icon =
+                t.includes("found") || t.includes("located") || t.includes("at /") ? "✅" :
+                t.includes("fix") || t.includes("updat") || t.includes("replac") || t.includes("sed") || t.includes("writ") ? "🔧" :
+                t.includes("bug") || t.includes("error") || t.includes("issue") || t.includes("empty") || t.includes("fail") ? "🐛" :
+                t.includes("verif") || t.includes("test") || t.includes("check") || t.includes("confirm") ? "⚡" :
+                t.includes("read") || t.includes("cat ") || t.includes("content") ? "📖" :
+                t.includes("ssh") || t.includes("key") || t.includes("generat") ? "🔑" :
+                t.includes("log") || t.includes("error_log") ? "🪵" :
+                "🔍";
+              return (
+                <div key={i} className="flex items-start gap-3 px-1 py-0.5">
+                  <span className="text-base shrink-0 leading-snug mt-0.5">{icon}</span>
+                  <p className="text-sm text-zinc-300 leading-relaxed flex-1">{m.text}</p>
                 </div>
-                <div className="text-xs text-zinc-500 italic bg-zinc-900/50 rounded-lg px-3 py-2 max-w-[90%]">
-                  💭 {m.text}
-                </div>
-              </div>
-            );
+              );
+            }
 
             if (m.kind === "cmd") return (
               <div key={i} className="ml-8">
