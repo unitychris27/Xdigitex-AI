@@ -3,6 +3,7 @@ import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod/v4";
 
 export const serverStatusEnum = pgEnum("server_status", ["online", "offline", "error", "connecting"]);
+export const serverAuthEnum = pgEnum("server_auth_type", ["key", "password"]);
 
 export const serversTable = pgTable("servers", {
   id: serial("id").primaryKey(),
@@ -13,6 +14,9 @@ export const serversTable = pgTable("servers", {
   host: text("host").notNull(),
   port: integer("port").notNull().default(22),
   username: text("username").notNull(),
+  authType: serverAuthEnum("auth_type").notNull().default("key"),
+  privateKey: text("private_key"),
+  password: text("password"),
   privateKeyHash: text("private_key_hash"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
