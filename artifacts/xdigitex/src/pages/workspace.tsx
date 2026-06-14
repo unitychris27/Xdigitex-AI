@@ -34,9 +34,9 @@ type ChatMsg       = {
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const BUILD_MODES: { id: BuildMode; label: string; desc: string; icon: React.ElementType; badge?: string }[] = [
-  { id: "economy",    label: "Economy",    desc: "Gemini · fast & free",           icon: Zap,      badge: "Gemini"  },
-  { id: "balanced",   label: "Balanced",   desc: "DeepSeek · quality + speed",     icon: BarChart3, badge: "Default" },
-  { id: "high-power", label: "High Power", desc: "GPT-4o · OpenAI's best",          icon: Crown,     badge: "GPT-4o"  },
+  { id: "economy",    label: "Economy",    desc: "Fast & lightweight",   icon: Zap,      badge: "Fast"    },
+  { id: "balanced",   label: "Balanced",   desc: "Quality + speed",      icon: BarChart3, badge: "Default" },
+  { id: "high-power", label: "High Power", desc: "Maximum quality",      icon: Crown,     badge: "Max"     },
 ];
 
 const BUILD_STEPS = [
@@ -163,7 +163,7 @@ function loadWorkspace() {
 
 const WELCOME_MSG: ChatMsg = {
   id: "welcome", role: "assistant", at: new Date().toLocaleTimeString(),
-  content: "Hi! I'm your **Project AI**.\n\nDescribe what you want to build — I'll pick the right stack and generate a complete, beautiful, ready-to-run project.\n\nYou can also upload files and ask me to modify them, or generate images with Gemini.",
+  content: "Hi! I'm **XDIGITEX AI**.\n\nDescribe what you want to build — I'll pick the right stack and generate a complete, beautiful, ready-to-run project.\n\nYou can also upload files for me to modify, or tap the 🖼 icon to generate images.",
   suggestions: STARTERS.slice(0, 4),
 };
 
@@ -297,6 +297,19 @@ export default function Workspace() {
   const generate = async () => {
     const q = chatInput.trim();
     if (!q || generating) return;
+
+    // Intercept image generation intent
+    const imageIntent = /^(generate|create|make|draw|show|produce)\s+(an?\s+)?(image|photo|picture|illustration|art|icon|logo|banner|thumbnail)\s+(.+)/i.exec(q);
+    if (imageIntent) {
+      const imgPrompt = imageIntent[4] ?? q.replace(/^(generate|create|make|draw|show|produce)\s+(an?\s+)?(image|photo|picture|illustration|art|icon|logo|banner|thumbnail)\s+/i, "");
+      setChatInput("");
+      setImagePrompt(imgPrompt);
+      setShowImageInput(true);
+      setMobilePanel("chat");
+      toast.info("Image generation ready — tap Send to generate");
+      return;
+    }
+
     setChatInput("");
     if ((inputRef.current as any)) { (inputRef.current as any).style.height = "auto"; }
     addMsg({ role: "user", content: q });
@@ -614,7 +627,7 @@ export default function Workspace() {
           <Bot className="w-4 h-4 text-primary" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-semibold text-foreground">Project AI</p>
+          <p className="text-xs font-semibold text-foreground">XDIGITEX AI</p>
           <p className="text-[10px] text-muted-foreground">
             {generating ? "Building your project…" : generatingImage ? "Generating image…" : isUpdate ? "Ready · ask for changes" : "Ready · describe your project"}
           </p>

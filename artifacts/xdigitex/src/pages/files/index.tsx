@@ -1,204 +1,203 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
-  FolderOpen, FileCode2, FileText, File, Plus, Upload,
-  FolderPlus, RefreshCw, Download, Trash2, ChevronRight,
+  FolderOpen, FileCode2, FileText, File, Download,
+  Trash2, ChevronRight, Inbox, ExternalLink, Archive,
 } from "lucide-react";
+import { toast } from "sonner";
+import JSZip from "jszip";
+import { Link } from "wouter";
 
-type FileNode = {
-  name: string;
-  type: "file" | "folder";
-  size?: string;
-  modified?: string;
-  children?: FileNode[];
-};
+const WS_KEY = "xdx_workspace_v6";
 
-const DEMO_FILES: FileNode[] = [
-  {
-    name: "my-saas-app",
-    type: "folder",
-    children: [
-      {
-        name: "frontend",
-        type: "folder",
-        children: [
-          { name: "index.html", type: "file", size: "4.2 KB", modified: "2 min ago" },
-          { name: "styles.css", type: "file", size: "1.8 KB", modified: "2 min ago" },
-          { name: "app.js", type: "file", size: "3.1 KB", modified: "2 min ago" },
-        ],
-      },
-      {
-        name: "backend",
-        type: "folder",
-        children: [
-          { name: "server.py", type: "file", size: "2.4 KB", modified: "5 min ago" },
-          { name: "requirements.txt", type: "file", size: "312 B", modified: "5 min ago" },
-        ],
-      },
-      { name: "README.md", type: "file", size: "1.1 KB", modified: "5 min ago" },
-      { name: "docker-compose.yml", type: "file", size: "780 B", modified: "5 min ago" },
-    ],
-  },
-  {
-    name: "telegram-bot",
-    type: "folder",
-    children: [
-      { name: "bot.py", type: "file", size: "5.6 KB", modified: "1 hour ago" },
-      { name: "handlers.py", type: "file", size: "3.2 KB", modified: "1 hour ago" },
-      { name: ".env.example", type: "file", size: "148 B", modified: "1 hour ago" },
-    ],
-  },
-  { name: "deployment-notes.md", type: "file", size: "2.3 KB", modified: "Yesterday" },
-];
+type GeneratedFile = { name: string; content: string; language: string };
+type BuildRecord   = { id: string; prompt: string; mode: string; files: GeneratedFile[]; builtAt: string; version: number };
 
-function getFileIcon(node: FileNode) {
-  if (node.type === "folder") return FolderOpen;
-  const ext = node.name.split(".").pop()?.toLowerCase();
-  if (["js", "ts", "tsx", "jsx", "py", "php", "go", "dart"].includes(ext ?? "")) return FileCode2;
-  if (["md", "txt", "yml", "yaml", "json", "env"].includes(ext ?? "")) return FileText;
+function getFileIcon(name: string) {
+  const ext = name.split(".").pop()?.toLowerCase() ?? "";
+  if (["js","ts","tsx","jsx","py","php","go","dart","rs","rb"].includes(ext)) return FileCode2;
+  if (["md","txt","yml","yaml","json","env","toml","sql"].includes(ext))        return FileText;
   return File;
 }
 
-function FileTree({ nodes, depth = 0 }: { nodes: FileNode[]; depth?: number }) {
-  const [expanded, setExpanded] = useState<Set<string>>(new Set(["my-saas-app", "frontend"]));
+function sizeLabel(content: string): string {
+  const bytes = new TextEncoder().encode(content).length;
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
-  return (
-    <div>
-      {nodes.map(node => {
-        const Icon = getFileIcon(node);
-        const isExpanded = expanded.has(node.name);
-        return (
-          <div key={node.name}>
-            <div
-              className="flex items-center gap-2 px-3 py-1.5 hover:bg-muted/40 cursor-pointer rounded-md group text-sm"
-              style={{ paddingLeft: `${12 + depth * 16}px` }}
-              onClick={() => {
-                if (node.type === "folder") {
-                  setExpanded(prev => {
-                    const next = new Set(prev);
-                    next.has(node.name) ? next.delete(node.name) : next.add(node.name);
-                    return next;
-                  });
-                }
-              }}
-            >
-              {node.type === "folder" && (
-                <ChevronRight className={`w-3 h-3 text-muted-foreground transition-transform ${isExpanded ? "rotate-90" : ""}`} />
-              )}
-              {node.type === "file" && <span className="w-3" />}
-              <Icon className={`w-4 h-4 shrink-0 ${node.type === "folder" ? "text-amber-400" : "text-blue-400"}`} />
-              <span className="flex-1 truncate">{node.name}</span>
-              {node.size && <span className="text-[11px] text-muted-foreground opacity-0 group-hover:opacity-100">{node.size}</span>}
-            </div>
-            {node.type === "folder" && isExpanded && node.children && (
-              <FileTree nodes={node.children} depth={depth + 1} />
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
+function totalSize(files: GeneratedFile[]): string {
+  const bytes = files.reduce((s, f) => s + new TextEncoder().encode(f.content).length, 0);
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+async function downloadZip(files: GeneratedFile[], name: string) {
+  const zip = new JSZip();
+  const folder = zip.folder(name.replace(/[^a-z0-9-_]/gi, "-").slice(0, 40) || "project")!;
+  files.forEach(f => folder.file(f.name, f.content));
+  const blob = await zip.generateAsync({ type: "blob", compression: "DEFLATE" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `${name.slice(0, 30).replace(/[^a-z0-9]/gi, "-")}.zip`;
+  a.click(); URL.revokeObjectURL(a.href);
+  toast.success("ZIP downloaded!");
+}
+
+function downloadFile(f: GeneratedFile) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([f.content], { type: "text/plain" }));
+  a.download = f.name.split("/").pop() ?? f.name;
+  a.click(); URL.revokeObjectURL(a.href);
 }
 
 export default function FilesPage() {
+  const [history, setHistory] = useState<BuildRecord[]>([]);
+  const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(WS_KEY);
+      if (!raw) return;
+      const ws = JSON.parse(raw);
+      const builds: BuildRecord[] = ws.buildHistory ?? [];
+      setHistory(builds);
+      if (builds.length) setExpanded(new Set([builds[0]!.id]));
+    } catch { /* empty workspace */ }
+  }, []);
+
+  const toggleBuild = (id: string) =>
+    setExpanded(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+
+  const totalFiles = history.reduce((s, b) => s + b.files.length, 0);
+  const totalBytes = history.reduce((s, b) =>
+    s + b.files.reduce((ss, f) => ss + new TextEncoder().encode(f.content).length, 0), 0);
+  const totalBytesLabel = totalBytes < 1024 ? `${totalBytes} B`
+    : totalBytes < 1024 * 1024 ? `${(totalBytes / 1024).toFixed(1)} KB`
+    : `${(totalBytes / (1024 * 1024)).toFixed(2)} MB`;
+
+  if (history.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 text-center">
+        <Inbox className="w-16 h-16 text-muted-foreground/20" />
+        <h2 className="text-xl font-semibold">No builds yet</h2>
+        <p className="text-sm text-muted-foreground max-w-sm">
+          Files you build in the AI Workspace will appear here automatically — ready to browse, download, or ZIP.
+        </p>
+        <Link href="/workspace">
+          <Button className="gap-2 mt-2"><ExternalLink className="w-4 h-4" /> Go to AI Workspace</Button>
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Files</h1>
-          <p className="text-sm text-muted-foreground mt-1">Browse and manage all project files generated by AI</p>
+          <p className="text-sm text-muted-foreground mt-1">All files generated by the AI Workspace</p>
         </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-1.5 text-xs"><Upload className="w-3.5 h-3.5" /> Upload</Button>
-          <Button variant="outline" size="sm" className="gap-1.5 text-xs"><FolderPlus className="w-3.5 h-3.5" /> New Folder</Button>
-          <Button size="sm" className="gap-1.5 text-xs"><Plus className="w-3.5 h-3.5" /> New File</Button>
-        </div>
+        <Link href="/workspace">
+          <Button variant="outline" size="sm" className="gap-1.5 text-xs">
+            <ExternalLink className="w-3.5 h-3.5" /> Open Workspace
+          </Button>
+        </Link>
       </div>
 
-      <div className="grid grid-cols-4 gap-6">
-        {/* File tree */}
-        <div className="col-span-1">
-          <Card className="bg-card/50 border-border/50">
-            <CardContent className="p-2">
-              <div className="flex items-center justify-between px-3 py-2 border-b border-border/50 mb-1">
-                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Explorer</span>
-                <button className="text-muted-foreground hover:text-foreground"><RefreshCw className="w-3 h-3" /></button>
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-3">
+        {[
+          { label: "Total Files",  value: totalFiles.toString(),      icon: FileCode2, color: "text-blue-400" },
+          { label: "Total Size",   value: totalBytesLabel,             icon: Archive,   color: "text-green-400" },
+          { label: "Build Runs",   value: history.length.toString(),   icon: FolderOpen, color: "text-amber-400" },
+        ].map(s => (
+          <Card key={s.label} className="bg-card/50 border-border/50">
+            <CardContent className="flex items-center gap-3 p-4">
+              <s.icon className={`w-8 h-8 ${s.color} opacity-80`} />
+              <div>
+                <div className="text-xl font-bold">{s.value}</div>
+                <div className="text-xs text-muted-foreground">{s.label}</div>
               </div>
-              <FileTree nodes={DEMO_FILES} />
             </CardContent>
           </Card>
-        </div>
+        ))}
+      </div>
 
-        {/* Main content */}
-        <div className="col-span-3 space-y-4">
-          <div className="grid grid-cols-3 gap-3">
-            {[
-              { label: "Total Files", value: "12", icon: FileCode2, color: "text-blue-400" },
-              { label: "Total Size", value: "24.8 KB", icon: File, color: "text-green-400" },
-              { label: "Projects", value: "2", icon: FolderOpen, color: "text-amber-400" },
-            ].map(s => (
-              <Card key={s.label} className="bg-card/50 border-border/50">
-                <CardContent className="flex items-center gap-3 p-4">
-                  <s.icon className={`w-8 h-8 ${s.color} opacity-80`} />
-                  <div>
-                    <div className="text-xl font-bold">{s.value}</div>
-                    <div className="text-xs text-muted-foreground">{s.label}</div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+      {/* Build list */}
+      <div className="space-y-3">
+        {history.map(build => {
+          const isOpen = expanded.has(build.id);
+          return (
+            <Card key={build.id} className="bg-card/50 border-border/50 overflow-hidden">
+              {/* Header row */}
+              <button
+                className="w-full flex items-center gap-3 p-4 hover:bg-muted/20 transition-colors text-left"
+                onClick={() => toggleBuild(build.id)}
+              >
+                <ChevronRight className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform ${isOpen ? "rotate-90" : ""}`} />
+                <FolderOpen className="w-4 h-4 text-amber-400 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium text-sm truncate">{build.prompt}</p>
+                  <p className="text-[11px] text-muted-foreground">{build.builtAt} · {build.files.length} files · {totalSize(build.files)}</p>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <Badge variant="outline" className="text-[10px] font-mono">v{build.version}</Badge>
+                  <Badge variant="secondary" className="text-[10px]">{build.mode}</Badge>
+                  <Button size="sm" variant="outline" className="gap-1 text-xs h-7"
+                    onClick={e => { e.stopPropagation(); downloadZip(build.files, build.prompt); }}>
+                    <Download className="w-3 h-3" /> ZIP
+                  </Button>
+                </div>
+              </button>
 
-          <Card className="bg-card/50 border-border/50">
-            <CardContent className="p-0">
-              <div className="flex items-center gap-3 px-4 py-3 border-b border-border/50">
-                <span className="text-sm font-semibold">Recent Files</span>
-                <Badge variant="outline" className="text-[10px]">12 files</Badge>
-              </div>
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border/30">
-                    <th className="text-left text-xs font-medium text-muted-foreground px-4 py-2">Name</th>
-                    <th className="text-left text-xs font-medium text-muted-foreground px-4 py-2">Size</th>
-                    <th className="text-left text-xs font-medium text-muted-foreground px-4 py-2">Modified</th>
-                    <th className="px-4 py-2" />
-                  </tr>
-                </thead>
-                <tbody>
-                  {[
-                    { name: "index.html", folder: "my-saas-app/frontend", size: "4.2 KB", modified: "2 min ago" },
-                    { name: "server.py", folder: "my-saas-app/backend", size: "2.4 KB", modified: "5 min ago" },
-                    { name: "bot.py", folder: "telegram-bot", size: "5.6 KB", modified: "1 hour ago" },
-                    { name: "docker-compose.yml", folder: "my-saas-app", size: "780 B", modified: "5 min ago" },
-                    { name: "README.md", folder: "my-saas-app", size: "1.1 KB", modified: "5 min ago" },
-                  ].map(f => (
-                    <tr key={f.name} className="border-b border-border/20 hover:bg-muted/20 transition-colors">
-                      <td className="px-4 py-2.5">
-                        <div className="flex items-center gap-2">
-                          <FileCode2 className="w-4 h-4 text-blue-400 shrink-0" />
-                          <div>
-                            <div className="font-medium">{f.name}</div>
-                            <div className="text-[11px] text-muted-foreground">{f.folder}</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-2.5 text-muted-foreground text-xs">{f.size}</td>
-                      <td className="px-4 py-2.5 text-muted-foreground text-xs">{f.modified}</td>
-                      <td className="px-4 py-2.5">
-                        <div className="flex items-center gap-1 justify-end">
-                          <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground"><Download className="w-3 h-3" /></Button>
-                          <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-red-400"><Trash2 className="w-3 h-3" /></Button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </CardContent>
-          </Card>
-        </div>
+              {/* File list */}
+              {isOpen && (
+                <div className="border-t border-border/30">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-border/20 bg-muted/10">
+                        <th className="text-left text-[11px] font-medium text-muted-foreground px-4 py-2">File</th>
+                        <th className="text-left text-[11px] font-medium text-muted-foreground px-4 py-2 hidden sm:table-cell">Language</th>
+                        <th className="text-left text-[11px] font-medium text-muted-foreground px-4 py-2 hidden sm:table-cell">Size</th>
+                        <th className="px-4 py-2 w-16" />
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {build.files.map(f => {
+                        const Icon = getFileIcon(f.name);
+                        return (
+                          <tr key={f.name} className="border-b border-border/10 last:border-0 hover:bg-muted/10 transition-colors">
+                            <td className="px-4 py-2.5">
+                              <div className="flex items-center gap-2">
+                                <Icon className="w-4 h-4 text-blue-400 shrink-0" />
+                                <span className="font-mono text-xs truncate max-w-[160px] sm:max-w-none">{f.name}</span>
+                              </div>
+                            </td>
+                            <td className="px-4 py-2.5 text-muted-foreground text-xs hidden sm:table-cell">{f.language}</td>
+                            <td className="px-4 py-2.5 text-muted-foreground text-xs hidden sm:table-cell">{sizeLabel(f.content)}</td>
+                            <td className="px-4 py-2.5">
+                              <div className="flex items-center gap-1 justify-end">
+                                <Button size="icon" variant="ghost" className="h-6 w-6 text-muted-foreground hover:text-foreground"
+                                  onClick={() => downloadFile(f)}>
+                                  <Download className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
+          );
+        })}
       </div>
     </div>
   );

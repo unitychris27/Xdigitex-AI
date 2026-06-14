@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { db } from "@workspace/db";
-import { invoicesTable, usageLogsTable } from "@workspace/db";
-import { gte, sql, count } from "drizzle-orm";
+import { invoicesTable, usageLogsTable, promotionsTable } from "@workspace/db";
+import { gte, sql, count, eq } from "drizzle-orm";
+import { z } from "zod";
 
 const router = Router();
 
@@ -56,6 +57,33 @@ router.get("/plans", async (_req, res) => {
     { id: "business",   name: "Business",   price: 499, period: "month", features: ["Unlimited projects", "100 agents", "50M tokens/mo", "24/7 support", "SLA", "Custom integrations"], current: false, tokenLimit: 50000000,  agentLimit: 100 },
     { id: "enterprise", name: "Enterprise", price: 0,   period: "custom", features: ["Unlimited everything", "Dedicated infrastructure", "Custom SLA", "Dedicated support"],            current: false, tokenLimit: -1,        agentLimit: -1  },
   ]);
+});
+
+// ─── POST /api/billing/promo — apply promo code ───────────────────────────────
+router.post("/promo", async (req, res) => {
+  const parsed = z.object({ code: z.string().min(1).max(50) }).safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Invalid input" });
+
+  const code = parsed.data.code.trim().toUpperCase();
+  const now = new Date();
+
+  const [promo] = await db
+    .select()
+    .from(promotionsTable)
+    .where(eq(promotionsTable.name, code))
+    .limit(1);
+
+  if (!promo)
+    return res.status(404).json({ error: "Promo code not found" });
+  if (promo.status !== "active")
+    return res.status(400).json({ error: "This promo code is not currently active" });
+  if (new Date(promo.endDate) < now)
+    return res.status(400).json({ error: "This promo code has expired" });
+  if (new Date(promo.startDate) > now)
+    return res.status(400).json({ error: "This promo code is not yet valid" });
+
+  const discount = promo.discount ? `${promo.discount}%` : "special offer";
+  return res.json({ code, discount, message: `Promo code applied! ${discount} discount activated.` });
 });
 
 router.get("/usage", async (req, res) => {
