@@ -1,0 +1,500 @@
+# WORKSPACE REFACTOR - DO NOT REBUILD FROM SCRATCH
+
+These are targeted changes to the existing platform.
+
+Do NOT redesign the entire system.
+
+Apply only the modifications below.
+
+---
+
+# REMOVE AI AGENT TAB
+
+Current:
+
+Chat
+Files
+Preview
+Deploy
+Logs
+History
+
+AI Agent
+
+Problem:
+
+AI Agent behaves like a normal chatbot.
+
+It outputs raw code.
+
+It does not create files.
+
+It does not update workspace.
+
+It does not update preview.
+
+It does not update deployments.
+
+It is disconnected from the project.
+
+---
+
+Required:
+
+Remove AI Agent tab completely.
+
+Replace it with the existing Build experience.
+
+The Build interface becomes the primary AI assistant.
+
+---
+
+# BUILD BECOMES THE AI AGENT
+
+Current Build:
+
+User enters prompt.
+
+AI generates project.
+
+Build finishes.
+
+Interaction ends.
+
+---
+
+Required:
+
+Build should become a persistent project assistant.
+
+Example:
+
+User:
+
+Build a restaurant ordering platform.
+
+AI builds project.
+
+Later:
+
+Add dark mode.
+
+AI modifies project files.
+
+Later:
+
+Add payments.
+
+AI modifies project files.
+
+Later:
+
+Deploy to my server.
+
+AI performs deployment.
+
+The Build panel must continue conversations.
+
+Build is now the project AI.
+
+No separate AI Agent needed.
+
+---
+
+# AI MUST WRITE TO FILES
+
+Current:
+
+AI writes code inside chat.
+
+Example:
+
+index.html
+style.css
+app.js
+
+inside messages.
+
+---
+
+Required:
+
+AI NEVER outputs full files inside chat.
+
+Instead:
+
+AI creates files directly.
+
+Files appear immediately inside:
+
+Files Tab
+
+Explorer
+
+Project Storage
+
+Preview
+
+Deployment Package
+
+Chat only explains what changed.
+
+Example:
+
+Created:
+
+* index.html
+* style.css
+* app.js
+
+Preview updated.
+
+Deployment ready.
+
+---
+
+# FILE MODIFICATION MODE
+
+Current:
+
+User says:
+
+Change button color.
+
+AI rewrites entire project.
+
+Consumes tokens.
+
+Expensive.
+
+Slow.
+
+Breaks code.
+
+---
+
+Required:
+
+AI must perform targeted edits.
+
+Example:
+
+User:
+
+Change login button color to blue.
+
+AI:
+
+Modified:
+frontend/components/LoginButton.tsx
+
+Only.
+
+Do not regenerate unaffected files.
+
+Do not rebuild project.
+
+Do not recreate files.
+
+---
+
+# DIFF-BASED EDITING
+
+Before changing files:
+
+AI loads current file.
+
+Calculates difference.
+
+Applies patch.
+
+Saves file.
+
+Only changed content is rewritten.
+
+This dramatically reduces:
+
+* token usage
+* build time
+* costs
+
+---
+
+# LONG PROMPTS FAILING
+
+Current:
+
+Large requests fail.
+
+Project generation stops.
+
+---
+
+Required:
+
+Automatic task breakdown.
+
+Example:
+
+Build Uber clone.
+
+System:
+
+Task 1:
+Architecture
+
+Task 2:
+Database
+
+Task 3:
+Backend
+
+Task 4:
+Frontend
+
+Task 5:
+Deployment
+
+Each task executed independently.
+
+Results merged.
+
+No giant single prompt.
+
+---
+
+# HTML DEPLOYMENT
+
+Current deployment screen:
+
+Deploy to XDIGITEX Hosting
+
+Publish Now
+
+Deployment Targets
+
+XDIGITEX Hosting
+
+Docker
+
+Railway
+
+Render
+
+AWS
+
+VPS / SSH
+
+with emojis.
+
+---
+
+Required:
+
+Remove all emojis.
+
+Display clean professional cards.
+
+Example:
+
+Deployment Targets
+
+XDIGITEX Hosting
+Available
+
+Docker
+Coming Soon
+
+Railway
+Coming Soon
+
+Render
+Coming Soon
+
+AWS
+Coming Soon
+
+VPS / SSH
+Coming Soon
+
+---
+
+# XDIGITEX HOSTING
+
+Current issue:
+
+HTML/CSS/JS sites deploy inconsistently.
+
+---
+
+Required:
+
+For static projects:
+
+index.html
+styles.css
+script.js
+
+Publish must:
+
+1. Package project
+2. Upload assets
+3. Generate deployment
+4. Assign public URL
+
+Example:
+
+https://project-name.xdigitex.com
+
+Return URL immediately after deployment.
+
+User should never need external hosting.
+
+---
+
+# PREVIEW MUST MATCH DEPLOYMENT
+
+Current:
+
+Preview missing CSS.
+
+Preview missing JS.
+
+Preview differs from deployed site.
+
+---
+
+Required:
+
+Preview should use same build output as deployment.
+
+If deployment works:
+
+Preview works.
+
+If preview works:
+
+Deployment works.
+
+Single source of truth.
+
+---
+
+# FILES TAB UPGRADES
+
+Current:
+
+Individual file downloads only.
+
+---
+
+Required:
+
+Files Tab actions:
+
+Download File
+
+Download Folder
+
+Download ZIP
+
+Export Project
+
+Generate ZIP
+
+Rebuild ZIP
+
+---
+
+# ZIP GENERATION
+
+Every successful build automatically creates:
+
+project.zip
+
+stored in project assets.
+
+Whenever files change:
+
+ZIP updates automatically.
+
+---
+
+# BUILD CHAT IMPROVEMENTS
+
+Current:
+
+Generic AI responses.
+
+---
+
+Required:
+
+AI acts like project engineer.
+
+Example:
+
+User:
+Add authentication.
+
+AI:
+
+Plan:
+
+* Create users table
+* Add login page
+* Add JWT authentication
+* Add protected routes
+
+Proceeding...
+
+Files Modified:
+
+* auth.ts
+* login.tsx
+* middleware.ts
+
+Preview Updated.
+
+Deployment Package Updated.
+
+This is the expected workflow.
+
+---
+
+# PERSISTENT PROJECT MEMORY
+
+Build assistant must always know:
+
+Current Files
+
+Current Versions
+
+Current Deployments
+
+Current Preview
+
+Current Project State
+
+The AI should never forget what it built.
+
+Refreshing page must restore:
+
+* Build conversation
+* Files
+* Preview
+* Deployment history
+
+---
+
+# CRITICAL RULE
+
+The Build assistant is the AI agent.
+
+There must not be a separate chatbot that generates raw code.
+
+All AI actions must operate directly on project files.
+
+Chat is only for instructions, explanations, plans, and progress updates.
+
+Files are the source of truth.
