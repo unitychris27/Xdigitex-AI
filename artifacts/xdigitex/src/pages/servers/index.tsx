@@ -564,12 +564,19 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
                 <StatusDot s={server.status} />
                 <span className="text-xs font-normal text-muted-foreground font-mono">{server.username}@{server.host}</span>
               </div>
-              <div className="text-[11px] text-muted-foreground">
+              <div className="text-[11px]">
                 {running ? (
                   <span className="text-purple-400 flex items-center gap-1">
                     <Loader2 className="w-3 h-3 animate-spin" /> Working on server…
                   </span>
-                ) : "Ready — ask me to fix, build, or diagnose anything on your server"}
+                ) : msgs.length > 0 ? (
+                  <span className="text-green-400 flex items-center gap-1">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                    Live — type your next message below ↓
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground">Ready — ask me to fix, build, or diagnose anything</span>
+                )}
               </div>
             </div>
           </div>
@@ -696,12 +703,26 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
         </div>
 
         {/* Input bar */}
-        <div className="shrink-0 border-t border-border bg-card/60 px-4 py-3">
+        <div className={`shrink-0 border-t bg-card/60 px-4 py-3 transition-colors ${
+          !running && msgs.length > 0 ? "border-purple-500/30" : "border-border"
+        }`}>
+          {!running && msgs.length > 0 && (
+            <div className="mb-2 text-[11px] text-purple-400 flex items-center gap-1.5">
+              <span className="inline-block w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
+              Conversation is live — reply to continue, ask for more, or say "now fix it"
+            </div>
+          )}
           <div className="flex gap-2 items-end">
             <Textarea
               ref={inputRef}
-              className="flex-1 resize-none text-sm min-h-[44px] max-h-36 bg-background"
-              placeholder="Ask me to fix, build, or diagnose anything… (Enter to send, Shift+Enter for newline)"
+              className={`flex-1 resize-none text-sm min-h-[44px] max-h-36 bg-background transition-colors ${
+                !running && msgs.length > 0 ? "border-purple-500/40 focus:border-purple-400" : ""
+              }`}
+              placeholder={
+                running ? "Agent is working…" :
+                msgs.length > 0 ? "Reply, ask a follow-up, or say 'now fix it'…" :
+                "Ask me to fix, build, or diagnose anything… (Enter to send)"
+              }
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKey}
@@ -717,7 +738,7 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
             </Button>
           </div>
           <div className="mt-1.5 text-[10px] text-zinc-600 text-center">
-            Using {MODE_DESCS[mode]} · Agent will SSH into your server and work autonomously
+            {MODE_DESCS[mode]} · Agent SSHes into your server and works autonomously
           </div>
         </div>
       </DialogContent>
