@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 
-export type AIProvider = "deepseek" | "openrouter";
+export type AIProvider = "deepseek" | "openrouter" | "openai";
 
 export interface GenerateOptions {
   prompt: string;
@@ -22,32 +22,56 @@ function getOpenRouterClient() {
   return new OpenAI({
     baseURL: "https://openrouter.ai/api/v1",
     apiKey,
-    defaultHeaders: {
-      "HTTP-Referer": "https://xdigitex.ai",
-      "X-Title": "XDIGITEX AI",
-    },
+    defaultHeaders: { "HTTP-Referer": "https://xdigitex.ai", "X-Title": "XDIGITEX AI" },
   });
 }
 
+function getOpenAIClient() {
+  const apiKey = process.env["OPENAI_API_KEY"];
+  if (!apiKey) throw new Error("OPENAI_API_KEY is not set");
+  return new OpenAI({ apiKey });
+}
+
 export function getAIClient(provider: AIProvider = "deepseek") {
-  return provider === "openrouter" ? getOpenRouterClient() : getDeepSeekClient();
+  if (provider === "openrouter") return getOpenRouterClient();
+  if (provider === "openai")    return getOpenAIClient();
+  return getDeepSeekClient();
+}
+
+// ─── Gemini image generation ────────────────────────────────────────────────
+export async function generateImageWithGemini(prompt: string): Promise<string> {
+  const apiKey = process.env["GEMINI_API_KEY"];
+  if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/imagen-3.0-generate-002:predict?key=${apiKey}`;
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      instances: [{ prompt }],
+      parameters: { sampleCount: 1, aspectRatio: "16:9" },
+    }),
+  });
+
+  if (!res.ok) {
+    const err = await res.text();
+    throw new Error(`Gemini image API error ${res.status}: ${err}`);
+  }
+
+  const data = await res.json() as { predictions: { bytesBase64Encoded: string; mimeType: string }[] };
+  const prediction = data.predictions?.[0];
+  if (!prediction?.bytesBase64Encoded) throw new Error("No image returned from Gemini");
+
+  return `data:${prediction.mimeType ?? "image/png"};base64,${prediction.bytesBase64Encoded}`;
 }
 
 export function getDefaultModel(provider: AIProvider): string {
   if (provider === "openrouter") return "deepseek/deepseek-chat";
+  if (provider === "openai")     return "gpt-4o";
   return "deepseek-chat";
 }
 
-export const SITE_GENERATION_SYSTEM_PROMPT = `You are an expert web developer. When asked to generate a website, produce a single complete self-contained HTML file with embedded CSS and JavaScript.
-
-Rules:
-- Output ONLY valid HTML starting with <!DOCTYPE html> — no markdown, no code fences, no explanations
-- Use a modern, beautiful design with a dark or light theme as appropriate
-- Include Tailwind CSS via CDN: <script src="https://cdn.tailwindcss.com"></script>
-- Make it fully responsive and visually polished
-- Include realistic placeholder content relevant to the request
-- Add subtle animations/transitions where appropriate
-- The page should look professional enough to ship immediately`;
+export const SITE_GENERATION_SYSTEM_PROMPT = `You are an expert web developer who creates beautiful, modern, production-ready websites.`;
 
 export const AGENT_SYSTEM_PROMPT = `You are an expert AI software architect and developer assistant working inside XDIGITEX AI — a multi-agent development platform.
 
@@ -57,4 +81,4 @@ You help users:
 - Debug issues and explain solutions
 - Design system architecture and APIs
 
-Be concise, technical, and actionable. Use markdown for code blocks. When generating code, always explain what it does briefly.`;
+Be concise, technical, and actionable. Use markdown for code blocks.`;

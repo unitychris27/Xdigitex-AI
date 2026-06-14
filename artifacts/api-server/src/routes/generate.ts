@@ -1,60 +1,76 @@
 import { Router } from "express";
 import { z } from "zod";
-import { getAIClient, AGENT_SYSTEM_PROMPT, type AIProvider } from "../lib/ai.js";
+import { getAIClient, generateImageWithGemini, AGENT_SYSTEM_PROMPT, type AIProvider } from "../lib/ai.js";
 
 const router = Router();
 
 const hostedSites = new Map<string, { html: string; name: string; slug: string; createdAt: Date }>();
 
 const MODE_MAP: Record<string, { provider: AIProvider; model: string; tokens: number }> = {
-  economy:      { provider: "deepseek",   model: "deepseek-chat",               tokens: 8000  },
-  balanced:     { provider: "openrouter", model: "deepseek/deepseek-chat",      tokens: 10000 },
-  "high-power": { provider: "openrouter", model: "anthropic/claude-3.5-sonnet", tokens: 14000 },
+  economy:      { provider: "deepseek", model: "deepseek-chat", tokens: 8000  },
+  balanced:     { provider: "openrouter", model: "deepseek/deepseek-chat", tokens: 10000 },
+  "high-power": { provider: "openai",    model: "gpt-4o",                  tokens: 16000 },
 };
 
-// ─── System prompts ───────────────────────────────────────────────────────────
+// ─── System prompts ────────────────────────────────────────────────────────────
 
-const AUTO_STACK_SYSTEM_PROMPT = `You are an expert AI software architect and full-stack developer.
+const AUTO_STACK_SYSTEM_PROMPT = `You are an expert AI full-stack developer and UI designer who builds BEAUTIFUL, modern, production-quality projects.
 
-When given a project description:
-1. Automatically determine the best technology stack (do NOT ask the user)
-2. Generate a complete, production-ready project with all files
-3. Output each file using EXACTLY this format:
-   === FILE: relative/path/to/file.ext ===
-   [complete file content]
-4. Each file must be complete — no placeholders, no TODO comments
-5. Include config files (package.json, requirements.txt, etc.)
-6. For HTML projects: always split into index.html + style.css + app.js (never one giant file)
-7. At the very end, add:
-   === SUMMARY: ===
-   [2-3 sentences: what was built, what stack, key features included]
+CRITICAL DESIGN REQUIREMENTS for every HTML/CSS/JS project:
+- ALWAYS include Tailwind CSS via CDN: <script src="https://cdn.tailwindcss.com"></script>
+- ALWAYS use Google Fonts: <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+- NEVER use plain black/white as the main design — use a cohesive, professional color palette
+- Use gradients, glassmorphism, or rich card-based layouts
+- Add subtle animations and hover transitions
+- The result must look like a premium SaaS product or agency website — not a school project
 
-Stack selection rules:
-- "website" / "landing page" → HTML + CSS + JS (3 separate files, well-styled)
-- "React" / "Next.js" → that framework
-- "FastAPI" / "Django" / "Flask" → Python + requirements.txt
-- "Node" / "Express" / "API" → Node.js + package.json
+DESIGN EXAMPLES TO FOLLOW:
+- Dark theme: deep navy/slate background (#0f172a or #1e1e2e), vibrant purple/indigo accents, white text with proper hierarchy
+- Light theme: soft white (#f8fafc), clean cards with shadows (shadow-xl), primary accent color (blue, purple, or green)
+- Always include: hero section with gradient, feature cards with icons, professional typography
+- Buttons must have rounded corners, hover effects, and clear CTA styling
+
+FILE FORMAT (mandatory):
+Output each file using EXACTLY this format:
+=== FILE: filename.ext ===
+[complete file content]
+
+For HTML projects, split into 3 files: index.html + style.css + app.js
+For other stacks, include all necessary files.
+
+At the end, always add:
+=== SUMMARY: ===
+[2-3 sentences: what was built, stack used, key features]
+
+STACK SELECTION (auto-select, never ask user):
+- "website" / "landing" / "portfolio" → Beautiful HTML + Tailwind CSS + JS (3 files)
+- "SaaS" / "dashboard" / "app" → HTML + Tailwind or React
+- "React" / "Vue" → that framework with full scaffold  
+- "FastAPI" / "Flask" / "Django" → Python + requirements.txt
+- "Express" / "Node" / "API" → Node.js + package.json
 - "bot" / "Telegram" → Python + pyTelegramBotAPI
-- "Flutter" / "mobile" → Flutter/Dart + pubspec.yaml
-- "SaaS" / "full-stack" / unspecified → Next.js + Tailwind
 - "Go" → Go + go.mod
+- "Flutter" → Dart + pubspec.yaml
 
-Never truncate. Never use placeholders. Generate real working code.`;
+Generate complete, real working code. Never use placeholders. Never truncate.`;
 
-const TARGETED_EDIT_SYSTEM_PROMPT = `You are an expert AI software engineer performing targeted modifications to an existing project.
+const TARGETED_EDIT_SYSTEM_PROMPT = `You are an expert AI software engineer making targeted modifications to an existing project.
 
 Rules:
-1. Understand the full codebase context before making changes
-2. Apply ONLY the minimum changes needed to satisfy the request
-3. Return ONLY files that were actually modified — do NOT return unchanged files
-4. Use exact format: === FILE: path/to/file.ext ===
-5. Preserve all existing code that was not asked to change
-6. Be surgical — change one button color, not the entire stylesheet
-7. At the end, always include:
+1. Read all existing files carefully before making any changes
+2. Return ONLY files that were actually modified — do NOT return unchanged files
+3. Output format: === FILE: path/to/file.ext ===
+4. Preserve all code that was NOT asked to change
+5. Be surgical — if they ask to change a button color, only touch the CSS for that button
+6. At the end, include:
    === SUMMARY: ===
-   [1-2 sentences: exactly which files changed and what was specifically modified]
+   [1-2 sentences: what specifically changed]
 
-If the request needs new files, include them.
+If the design update is requested:
+- Apply modern styling improvements using the same Tailwind/CSS system
+- Maintain the existing structure unless restructuring was requested
+- Add animations or transitions where appropriate
+
 Never rewrite files that were not touched.`;
 
 // ─── Schemas ─────────────────────────────────────────────────────────────────
@@ -78,6 +94,10 @@ const chatSchema = z.object({
   mode: z.enum(["economy", "balanced", "high-power"]).default("balanced"),
 });
 
+const imageSchema = z.object({
+  prompt: z.string().min(1).max(2000),
+});
+
 const deploySchema = z.object({
   html: z.string().min(1),
   name: z.string().optional(),
@@ -86,9 +106,7 @@ const deploySchema = z.object({
 // ─── POST /api/generate/site ─────────────────────────────────────────────────
 router.post("/site", async (req, res) => {
   const parsed = generateSiteSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: "Invalid input", details: parsed.error.issues });
-  }
+  if (!parsed.success) return res.status(400).json({ error: "Invalid input", details: parsed.error.issues });
 
   const { prompt, mode, existingFiles, systemOverride } = parsed.data;
   const config = MODE_MAP[mode] ?? MODE_MAP["balanced"]!;
@@ -100,9 +118,7 @@ router.post("/site", async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.flushHeaders();
 
-  const send = (event: string, data: string) => {
-    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
-  };
+  const send = (event: string, data: string) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 
   try {
     const client = getAIClient(config.provider);
@@ -110,25 +126,21 @@ router.post("/site", async (req, res) => {
 
     const userContent = isUpdate
       ? `EXISTING PROJECT FILES:\n${existingFiles!.map(f => `=== FILE: ${f.name} ===\n${f.content}`).join("\n\n")}\n\n---\n\nREQUESTED CHANGE:\n${prompt}`
-      : `Build the following project:\n\n${prompt}`;
+      : `Build this project:\n\n${prompt}`;
 
     const stream = await client.chat.completions.create({
       model: config.model,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user",   content: userContent  },
-      ],
+      messages: [{ role: "system", content: systemPrompt }, { role: "user", content: userContent }],
       stream: true,
       max_tokens: config.tokens,
     });
 
-    let fullContent = "";
+    let full = "";
     for await (const chunk of stream) {
       const delta = chunk.choices[0]?.delta?.content ?? "";
-      if (delta) { fullContent += delta; send("token", delta); }
+      if (delta) { full += delta; send("token", delta); }
     }
-
-    send("done", fullContent);
+    send("done", full);
     res.end();
   } catch (err: any) {
     req.log?.error({ err }, "AI generation error");
@@ -137,12 +149,24 @@ router.post("/site", async (req, res) => {
   }
 });
 
+// ─── POST /api/generate/image — Gemini image generation ──────────────────────
+router.post("/image", async (req, res) => {
+  const parsed = imageSchema.safeParse(req.body);
+  if (!parsed.success) return res.status(400).json({ error: "Invalid input", details: parsed.error.issues });
+
+  try {
+    const dataUrl = await generateImageWithGemini(parsed.data.prompt);
+    res.json({ dataUrl });
+  } catch (err: any) {
+    req.log?.error({ err }, "Gemini image error");
+    res.status(500).json({ error: err?.message ?? "Image generation failed" });
+  }
+});
+
 // ─── POST /api/generate/chat ─────────────────────────────────────────────────
 router.post("/chat", async (req, res) => {
   const parsed = chatSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: "Invalid input", details: parsed.error.issues });
-  }
+  if (!parsed.success) return res.status(400).json({ error: "Invalid input", details: parsed.error.issues });
 
   const { messages, mode } = parsed.data;
   const config = MODE_MAP[mode] ?? MODE_MAP["balanced"]!;
@@ -153,9 +177,7 @@ router.post("/chat", async (req, res) => {
   res.setHeader("Access-Control-Allow-Origin", "*");
   res.flushHeaders();
 
-  const send = (event: string, data: string) => {
-    res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
-  };
+  const send = (event: string, data: string) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
 
   try {
     const client = getAIClient(config.provider);
@@ -165,12 +187,10 @@ router.post("/chat", async (req, res) => {
       stream: true,
       max_tokens: 4000,
     });
-
     for await (const chunk of stream) {
       const delta = chunk.choices[0]?.delta?.content ?? "";
       if (delta) send("token", delta);
     }
-
     send("done", "");
     res.end();
   } catch (err: any) {
@@ -180,34 +200,21 @@ router.post("/chat", async (req, res) => {
   }
 });
 
-// ─── POST /api/generate/deploy ───────────────────────────────────────────────
+// ─── POST /api/generate/deploy ────────────────────────────────────────────────
 router.post("/deploy", (req, res) => {
   const parsed = deploySchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: "Invalid input", details: parsed.error.issues });
-  }
+  if (!parsed.success) return res.status(400).json({ error: "Invalid input", details: parsed.error.issues });
 
   const { html, name } = parsed.data;
-
-  // Build a human-readable slug from the project name
   const slugBase = (name ?? "project")
-    .toLowerCase()
-    .replace(/[^a-z0-9\s-]/g, "")
-    .trim()
-    .replace(/\s+/g, "-")
-    .replace(/-+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 45) || "project";
+    .toLowerCase().replace(/[^a-z0-9\s-]/g, "").trim()
+    .replace(/\s+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, "").slice(0, 45) || "project";
 
-  let slug = slugBase;
-  let counter = 1;
-  while (hostedSites.has(slug)) {
-    slug = `${slugBase}-${counter++}`;
-  }
+  let slug = slugBase, counter = 1;
+  while (hostedSites.has(slug)) slug = `${slugBase}-${counter++}`;
 
   hostedSites.set(slug, { html, name: name?.trim() || slug, slug, createdAt: new Date() });
 
-  // Build the public URL from the request host
   const proto = req.headers["x-forwarded-proto"] ?? "https";
   const host  = req.headers["x-forwarded-host"] ?? req.headers["host"] ?? "localhost";
   const publicUrl = `${proto}://${host}/api/generate/hosted/${slug}`;
@@ -218,19 +225,9 @@ router.post("/deploy", (req, res) => {
 // ─── GET /api/generate/hosted/:slug ─────────────────────────────────────────
 router.get("/hosted/:slug", (req, res) => {
   const site = hostedSites.get(req.params["slug"] ?? "");
-  if (!site) {
-    return res.status(404).send("<!DOCTYPE html><html><body><h1>404 — Site not found</h1></body></html>");
-  }
+  if (!site) return res.status(404).send("<!DOCTYPE html><html><body><h1>404 — Not found</h1></body></html>");
   res.setHeader("Content-Type", "text/html; charset=utf-8");
   res.send(site.html);
-});
-
-// ─── GET /api/generate/hosted-list ──────────────────────────────────────────
-router.get("/hosted-list", (_req, res) => {
-  const sites = Array.from(hostedSites.entries()).map(([slug, s]) => ({
-    id: slug, name: s.name, url: `/api/generate/hosted/${slug}`, createdAt: s.createdAt,
-  }));
-  res.json({ sites: sites.reverse() });
 });
 
 export default router;
