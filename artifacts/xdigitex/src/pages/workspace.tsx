@@ -36,7 +36,7 @@ type ChatMsg       = {
 const BUILD_MODES: { id: BuildMode; label: string; desc: string; icon: React.ElementType; badge?: string }[] = [
   { id: "economy",    label: "Economy",    desc: "Gemini · fast & free",           icon: Zap,      badge: "Gemini"  },
   { id: "balanced",   label: "Balanced",   desc: "DeepSeek · quality + speed",     icon: BarChart3, badge: "Default" },
-  { id: "high-power", label: "High Power", desc: "Claude · Anthropic's best",      icon: Crown,     badge: "Claude"  },
+  { id: "high-power", label: "High Power", desc: "GPT-4o · OpenAI's best",          icon: Crown,     badge: "GPT-4o"  },
 ];
 
 const BUILD_STEPS = [

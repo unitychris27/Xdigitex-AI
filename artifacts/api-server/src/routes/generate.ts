@@ -9,7 +9,7 @@ const hostedSites = new Map<string, { html: string; name: string; slug: string; 
 const MODE_MAP: Record<string, { provider: AIProvider; model: string; tokens: number }> = {
   economy:      { provider: "openrouter", model: "google/gemini-2.0-flash-001",    tokens: 8000  },
   balanced:     { provider: "deepseek",   model: "deepseek-chat",                  tokens: 10000 },
-  "high-power": { provider: "openrouter", model: "anthropic/claude-opus-4",         tokens: 16000 },
+  "high-power": { provider: "openai",     model: "gpt-4o",                          tokens: 16000 },
 };
 
 // ─── System prompts ────────────────────────────────────────────────────────────
