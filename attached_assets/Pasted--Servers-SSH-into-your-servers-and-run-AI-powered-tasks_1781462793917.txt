@@ -1,0 +1,93 @@
+
+
+Servers
+SSH into your servers and run AI-powered tasks
+
+Add Server
+VPS CPANEL
+online
+tipmrnhl@184.94.213.176
+:21098
+Password
+Namecheap · custom
+Test
+Terminal
+AI AgentRemove
+AI SSH Agent — VPS CPANEL
+(tipmrnhl@184.94.213.176)
+✓ Done
+Fast
+Default
+Max
+most orders are stuck at pending in malabora.site  check well
+
+List all files in malabora.site
+ls -la /home/tipmrnhl/public_html/malabora.site/
+done
+Read homepage to understand the platform
+cat /home/tipmrnhl/public_html/malabora.site/index.php 2>/dev/null || cat /home/tipmrnhl/public_html/malabora.site/index.html 2>/dev/null || echo NO_HOMEPAGE
+done
+List all PHP files to locate order-related code
+find /home/tipmrnhl/public_html/malabora.site -type f -name '*.php' | head -40
+done
+Check config file for DB settings
+cat /home/tipmrnhl/public_html/malabora.site/config.php 2>/dev/null || cat /home/tipmrnhl/public_html/malabora.site/configuration.php 2>/dev/null || echo NO_CONFIG_FOUND
+done
+Search for order-related files
+find /home/tipmrnhl/public_html/malabora.site -type f -name '*order*' -o -name '*cart*' -o -name '*checkout*' -o -name '*payment*' -o -name '*pending*' 2>/dev/null | head -20
+done
+Search for 'pending' keyword in PHP files
+grep -rl 'pending' /home/tipmrnhl/public_html/malabora.site/*.php 2>/dev/null | head -10
+done
+Read order processing file if exists
+cat /home/tipmrnhl/public_html/malabora.site/process_order.php 2>/dev/null || cat /home/tipmrnhl/public_html/malabora.site/order.php 2>/dev/null || echo NO_ORDER_FILE
+done
+Check functions file for order logic
+cat /home/tipmrnhl/public_html/malabora.site/functions.php 2>/dev/null || echo NO_FUNCTIONS
+done
+Search recursively for pending status assignments
+grep -rn 'status.*pending' /home/tipmrnhl/public_html/malabora.site/ 2>/dev/null | head -15
+done
+Check error logs for clues
+tail -100 /home/tipmrnhl/logs/malabora.site.error.log 2>/dev/null || tail -100 /home/tipmrnhl/access-logs/malabora.site 2>/dev/null || echo NO_LOGS
+done
+$[1/10] ls -la /home/tipmrnhl/public_html/malabora.site/
+→ List all files in malabora.site
+total 8
+drwxrwxr-x 2 tipmrnhl tipmrnhl 4096 Jun 14 12:39 .
+drwxr-x--- 10 tipmrnhl nobody 4096 Jun 14 12:39 ..
+✓ done
+$[2/10] cat /home/tipmrnhl/public_html/malabora.site/index.php 2>/dev/null || cat /home/tipmrnhl/public_html/malabora.site/index.html 2>/dev/null || echo NO_HOMEPAGE
+→ Read homepage to understand the platform
+NO_HOMEPAGE
+✓ done
+$[3/10] find /home/tipmrnhl/public_html/malabora.site -type f -name '*.php' | head -40
+→ List all PHP files to locate order-related code
+✓ done
+$[4/10] cat /home/tipmrnhl/public_html/malabora.site/config.php 2>/dev/null || cat /home/tipmrnhl/public_html/malabora.site/configuration.php 2>/dev/null || echo NO_CONFIG_FOUND
+→ Check config file for DB settings
+NO_CONFIG_FOUND
+✓ done
+$[5/10] find /home/tipmrnhl/public_html/malabora.site -type f -name '*order*' -o -name '*cart*' -o -name '*checkout*' -o -name '*payment*' -o -name '*pending*' 2>/dev/null | head -20
+→ Search for order-related files
+✓ done
+$[6/10] grep -rl 'pending' /home/tipmrnhl/public_html/malabora.site/*.php 2>/dev/null | head -10
+→ Search for 'pending' keyword in PHP files
+✓ done
+$[7/10] cat /home/tipmrnhl/public_html/malabora.site/process_order.php 2>/dev/null || cat /home/tipmrnhl/public_html/malabora.site/order.php 2>/dev/null || echo NO_ORDER_FILE
+→ Read order processing file if exists
+NO_ORDER_FILE
+✓ done
+$[8/10] cat /home/tipmrnhl/public_html/malabora.site/functions.php 2>/dev/null || echo NO_FUNCTIONS
+→ Check functions file for order logic
+NO_FUNCTIONS
+✓ done
+$[9/10] grep -rn 'status.*pending' /home/tipmrnhl/public_html/malabora.site/ 2>/dev/null | head -15
+→ Search recursively for pending status assignments
+✓ done
+$[10/10] tail -100 /home/tipmrnhl/logs/malabora.site.error.log 2>/dev/null || tail -100 /home/tipmrnhl/access-logs/malabora.site 2>/dev/null || echo NO_LOGS
+→ Check error logs for clues
+NO_LOGS
+✓ done
+✓ All commands completed
+Task completed

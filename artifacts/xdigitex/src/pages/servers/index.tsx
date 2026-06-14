@@ -7,17 +7,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter } from "@/components/ui/sheet";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
-  Sheet, SheetContent, SheetHeader, SheetTitle, SheetFooter,
-} from "@/components/ui/sheet";
-import {
-  Dialog, DialogContent, DialogHeader, DialogTitle,
-} from "@/components/ui/dialog";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import {
-  Server, Plus, Terminal, Bot, Wifi, WifiOff, Loader2,
-  Play, Trash2, RefreshCw, CheckCircle2, XCircle, ChevronRight,
-  Key, Lock, Cpu, HardDrive, Activity,
+  Server, Plus, Terminal, Bot, Wifi, Loader2, Play, Trash2,
+  CheckCircle2, XCircle, Key, Lock, Send, Sparkles,
+  ChevronDown, ChevronRight, RotateCcw, X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -26,20 +21,39 @@ const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 interface ServerRow {
-  id: number;
-  name: string;
-  host: string;
-  port: number;
-  username: string;
-  authType: "key" | "password";
-  provider: string;
-  location: string;
+  id: number; name: string; host: string; port: number;
+  username: string; authType: "key" | "password";
+  provider: string; location: string;
   status: "online" | "offline" | "error" | "connecting";
   createdAt: string;
 }
 
-interface AgentStep { index: number; cmd: string; desc: string; }
-interface AgentPlan { commands: AgentStep[]; }
+// Display message types for the chat UI
+type ChatMsg =
+  | { kind: "user";   text: string }
+  | { kind: "think";  text: string }
+  | { kind: "cmd";    index: number; cmd: string; desc: string; output: string; exitCode?: number; open?: boolean }
+  | { kind: "reply";  text: string }
+  | { kind: "done";   text: string }
+  | { kind: "error";  text: string };
+
+// AI conversation history (sent to backend)
+interface AIMsg { role: "user" | "assistant"; content: string; }
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function StatusDot({ s }: { s: string }) {
+  const c = s === "online" ? "bg-green-400" : s === "error" ? "bg-red-400" : s === "connecting" ? "bg-blue-400 animate-pulse" : "bg-zinc-500";
+  return <span className={`inline-block w-2 h-2 rounded-full ${c}`} />;
+}
+function statusBadge(s: string) {
+  if (s === "online")     return "bg-green-500/10 text-green-400 border-green-500/20";
+  if (s === "error")      return "bg-red-500/10 text-red-400 border-red-500/20";
+  if (s === "connecting") return "bg-blue-500/10 text-blue-400 border-blue-500/20";
+  return "bg-zinc-500/10 text-zinc-400 border-zinc-500/20";
+}
+
+// ─── Terminal line types ──────────────────────────────────────────────────────
 
 type TerminalLine =
   | { kind: "cmd"; text: string }
@@ -48,36 +62,18 @@ type TerminalLine =
   | { kind: "info"; text: string }
   | { kind: "ok"; text: string };
 
-// ─── Status helpers ───────────────────────────────────────────────────────────
-
-function statusColor(s: string) {
-  if (s === "online")     return "bg-green-500/10 text-green-400 border-green-500/20";
-  if (s === "error")      return "bg-red-500/10 text-red-400 border-red-500/20";
-  if (s === "connecting") return "bg-blue-500/10 text-blue-400 border-blue-500/20 animate-pulse";
-  return "bg-zinc-500/10 text-zinc-400 border-zinc-500/20";
-}
-function StatusDot({ s }: { s: string }) {
-  const c = s === "online" ? "bg-green-400" : s === "error" ? "bg-red-400" : s === "connecting" ? "bg-blue-400 animate-pulse" : "bg-zinc-500";
-  return <span className={`inline-block w-2 h-2 rounded-full ${c}`} />;
-}
-
-// ─── Terminal display ─────────────────────────────────────────────────────────
-
 function TerminalView({ lines, loading }: { lines: TerminalLine[]; loading?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => { ref.current?.scrollTo(0, ref.current.scrollHeight); }, [lines]);
   return (
-    <div ref={ref} className="bg-black/90 rounded-lg border border-zinc-800 font-mono text-xs p-4 h-72 overflow-y-auto space-y-0.5 select-text">
-      {lines.length === 0 && !loading && (
-        <span className="text-zinc-600">No output yet.</span>
-      )}
+    <div ref={ref} className="bg-black/90 rounded-lg border border-zinc-800 font-mono text-xs p-3 h-64 overflow-y-auto space-y-0.5 select-text">
+      {lines.length === 0 && !loading && <span className="text-zinc-600">No output yet.</span>}
       {lines.map((l, i) => (
         <div key={i} className={
           l.kind === "cmd"  ? "text-purple-400" :
           l.kind === "err"  ? "text-red-400" :
           l.kind === "info" ? "text-blue-400" :
-          l.kind === "ok"   ? "text-green-400" :
-          "text-zinc-200"
+          l.kind === "ok"   ? "text-green-400" : "text-zinc-200"
         }>
           {l.kind === "cmd" && <span className="text-zinc-500 mr-1">$</span>}
           {l.text}
@@ -85,15 +81,44 @@ function TerminalView({ lines, loading }: { lines: TerminalLine[]; loading?: boo
       ))}
       {loading && (
         <div className="flex items-center gap-1.5 text-zinc-500">
-          <Loader2 className="w-3 h-3 animate-spin" />
-          <span>running…</span>
+          <Loader2 className="w-3 h-3 animate-spin" /><span>running…</span>
         </div>
       )}
     </div>
   );
 }
 
-// ─── Main component ───────────────────────────────────────────────────────────
+// ─── Command block inside chat ────────────────────────────────────────────────
+
+function CmdBlock({ msg, onToggle }: { msg: Extract<ChatMsg, { kind: "cmd" }>; onToggle: () => void }) {
+  const ok = (msg.exitCode ?? 0) === 0;
+  return (
+    <div className="rounded-lg border border-zinc-800 bg-black/60 text-xs overflow-hidden">
+      <button
+        onClick={onToggle}
+        className="w-full flex items-center gap-2 px-3 py-2 hover:bg-zinc-800/40 transition-colors text-left"
+      >
+        {msg.exitCode === undefined ? (
+          <Loader2 className="w-3 h-3 text-purple-400 animate-spin shrink-0" />
+        ) : ok ? (
+          <CheckCircle2 className="w-3 h-3 text-green-400 shrink-0" />
+        ) : (
+          <XCircle className="w-3 h-3 text-red-400 shrink-0" />
+        )}
+        <span className="font-mono text-zinc-300 truncate flex-1">{msg.cmd}</span>
+        <span className="text-zinc-600 shrink-0">{msg.desc}</span>
+        {msg.open ? <ChevronDown className="w-3 h-3 text-zinc-600 shrink-0" /> : <ChevronRight className="w-3 h-3 text-zinc-600 shrink-0" />}
+      </button>
+      {msg.open && msg.output && (
+        <pre className="border-t border-zinc-800 px-3 py-2 text-zinc-400 whitespace-pre-wrap max-h-48 overflow-y-auto font-mono text-[11px]">
+          {msg.output}
+        </pre>
+      )}
+    </div>
+  );
+}
+
+// ─── Main Servers Page ────────────────────────────────────────────────────────
 
 export default function ServersList() {
   const { data: servers = [], isLoading } = useListServers() as { data: ServerRow[]; isLoading: boolean };
@@ -105,7 +130,6 @@ export default function ServersList() {
   const [testing, setTesting]         = useState<number | null>(null);
   const [deleting, setDeleting]       = useState<number | null>(null);
 
-  // ─── Add server form ────────────────────────────────────────────────────────
   const [form, setForm] = useState({
     name: "", host: "", port: "22", username: "root",
     authType: "key" as "key" | "password",
@@ -165,7 +189,6 @@ export default function ServersList() {
 
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">Servers</h1>
@@ -176,17 +199,15 @@ export default function ServersList() {
         </Button>
       </div>
 
-      {/* Server list */}
       {isLoading ? (
         <div className="text-center py-12 text-muted-foreground">
-          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 opacity-40" />
-          Loading servers…
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 opacity-40" />Loading servers…
         </div>
       ) : (servers as ServerRow[]).length === 0 ? (
         <div className="text-center py-16 border border-dashed rounded-xl space-y-3">
           <Server className="w-12 h-12 text-muted-foreground mx-auto opacity-40" />
           <h3 className="text-lg font-medium">No servers yet</h3>
-          <p className="text-sm text-muted-foreground">Add a server via SSH to run AI-powered tasks.</p>
+          <p className="text-sm text-muted-foreground">Add a server to start running AI-powered tasks.</p>
           <Button variant="outline" onClick={() => setAddOpen(true)}>
             <Plus className="w-4 h-4 mr-2" /> Add your first server
           </Button>
@@ -203,9 +224,7 @@ export default function ServersList() {
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0 ml-2">
                     <StatusDot s={s.status} />
-                    <Badge variant="outline" className={`text-[10px] py-0 ${statusColor(s.status)}`}>
-                      {s.status}
-                    </Badge>
+                    <Badge variant="outline" className={`text-[10px] py-0 ${statusBadge(s.status)}`}>{s.status}</Badge>
                   </div>
                 </div>
                 <div className="font-mono text-xs text-muted-foreground bg-black/40 rounded px-2 py-1.5 mt-2 flex items-center justify-between">
@@ -221,44 +240,20 @@ export default function ServersList() {
                   </span>
                   <span>{s.provider} · {s.location}</span>
                 </div>
-
                 <div className="grid grid-cols-2 gap-2">
-                  <Button
-                    size="sm" variant="outline"
-                    className="w-full text-xs"
-                    disabled={testing === s.id}
-                    onClick={() => testConnection(s)}
-                  >
-                    {testing === s.id ? (
-                      <Loader2 className="w-3 h-3 mr-1.5 animate-spin" />
-                    ) : (
-                      <Wifi className="w-3 h-3 mr-1.5" />
-                    )}
+                  <Button size="sm" variant="outline" className="w-full text-xs" disabled={testing === s.id} onClick={() => testConnection(s)}>
+                    {testing === s.id ? <Loader2 className="w-3 h-3 mr-1.5 animate-spin" /> : <Wifi className="w-3 h-3 mr-1.5" />}
                     Test
                   </Button>
-                  <Button
-                    size="sm" variant="outline"
-                    className="w-full text-xs"
-                    onClick={() => { setTermServer(s); }}
-                  >
+                  <Button size="sm" variant="outline" className="w-full text-xs" onClick={() => setTermServer(s)}>
                     <Terminal className="w-3 h-3 mr-1.5" /> Terminal
                   </Button>
                 </div>
-
-                <Button
-                  size="sm"
-                  className="w-full bg-purple-600 hover:bg-purple-500 text-white text-xs"
-                  onClick={() => setAgentServer(s)}
-                >
-                  <Bot className="w-3 h-3 mr-1.5" /> AI Agent
+                <Button size="sm" className="w-full bg-purple-600 hover:bg-purple-500 text-white text-xs" onClick={() => setAgentServer(s)}>
+                  <Sparkles className="w-3 h-3 mr-1.5" /> AI Coding Agent
                 </Button>
-
-                <Button
-                  size="sm" variant="ghost"
-                  className="w-full text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10"
-                  disabled={deleting === s.id}
-                  onClick={() => deleteServer(s.id, s.name)}
-                >
+                <Button size="sm" variant="ghost" className="w-full text-xs text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                  disabled={deleting === s.id} onClick={() => deleteServer(s.id, s.name)}>
                   {deleting === s.id ? <Loader2 className="w-3 h-3 mr-1.5 animate-spin" /> : <Trash2 className="w-3 h-3 mr-1.5" />}
                   Remove
                 </Button>
@@ -271,9 +266,7 @@ export default function ServersList() {
       {/* Add Server Drawer */}
       <Sheet open={addOpen} onOpenChange={setAddOpen}>
         <SheetContent className="w-full sm:max-w-md overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle>Add Server</SheetTitle>
-          </SheetHeader>
+          <SheetHeader><SheetTitle>Add Server</SheetTitle></SheetHeader>
           <div className="space-y-4 py-6">
             <div className="grid grid-cols-2 gap-4">
               <div className="col-span-2 space-y-1.5">
@@ -282,7 +275,7 @@ export default function ServersList() {
               </div>
               <div className="col-span-2 space-y-1.5">
                 <Label>Host / IP</Label>
-                <Input placeholder="192.168.1.1 or server.example.com" value={form.host} onChange={e => setForm(f => ({ ...f, host: e.target.value }))} />
+                <Input placeholder="192.168.1.1" value={form.host} onChange={e => setForm(f => ({ ...f, host: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
                 <Label>Port</Label>
@@ -296,12 +289,8 @@ export default function ServersList() {
                 <Label>Auth Type</Label>
                 <div className="flex gap-2">
                   {(["key", "password"] as const).map(t => (
-                    <Button
-                      key={t} size="sm" type="button"
-                      variant={form.authType === t ? "default" : "outline"}
-                      className="flex-1"
-                      onClick={() => setForm(f => ({ ...f, authType: t }))}
-                    >
+                    <Button key={t} size="sm" type="button" variant={form.authType === t ? "default" : "outline"} className="flex-1"
+                      onClick={() => setForm(f => ({ ...f, authType: t }))}>
                       {t === "key" ? <Key className="w-3.5 h-3.5 mr-1.5" /> : <Lock className="w-3.5 h-3.5 mr-1.5" />}
                       {t === "key" ? "SSH Key" : "Password"}
                     </Button>
@@ -311,12 +300,9 @@ export default function ServersList() {
               {form.authType === "key" ? (
                 <div className="col-span-2 space-y-1.5">
                   <Label>Private Key (PEM)</Label>
-                  <Textarea
-                    className="font-mono text-xs h-40"
+                  <Textarea className="font-mono text-xs h-40"
                     placeholder={"-----BEGIN OPENSSH PRIVATE KEY-----\n...\n-----END OPENSSH PRIVATE KEY-----"}
-                    value={form.privateKey}
-                    onChange={e => setForm(f => ({ ...f, privateKey: e.target.value }))}
-                  />
+                    value={form.privateKey} onChange={e => setForm(f => ({ ...f, privateKey: e.target.value }))} />
                 </div>
               ) : (
                 <div className="col-span-2 space-y-1.5">
@@ -326,7 +312,7 @@ export default function ServersList() {
               )}
               <div className="space-y-1.5">
                 <Label>Provider (optional)</Label>
-                <Input placeholder="AWS / DigitalOcean / etc." value={form.provider} onChange={e => setForm(f => ({ ...f, provider: e.target.value }))} />
+                <Input placeholder="AWS / DigitalOcean" value={form.provider} onChange={e => setForm(f => ({ ...f, provider: e.target.value }))} />
               </div>
               <div className="space-y-1.5">
                 <Label>Location (optional)</Label>
@@ -344,15 +330,8 @@ export default function ServersList() {
         </SheetContent>
       </Sheet>
 
-      {/* Terminal Dialog */}
-      {termServer && (
-        <TerminalDialog server={termServer} onClose={() => setTermServer(null)} />
-      )}
-
-      {/* AI Agent Dialog */}
-      {agentServer && (
-        <AgentDialog server={agentServer} onClose={() => setAgentServer(null)} />
-      )}
+      {termServer  && <TerminalDialog server={termServer}  onClose={() => setTermServer(null)}  />}
+      {agentServer && <CodingAgentDialog server={agentServer} onClose={() => setAgentServer(null)} />}
     </div>
   );
 }
@@ -372,9 +351,8 @@ function TerminalDialog({ server, onClose }: { server: ServerRow; onClose: () =>
     setLines(l => [...l, { kind: "cmd", text: c }]);
     setRunning(true);
     try {
-      const res = await fetch(`${import.meta.env.BASE_URL?.replace(/\/$/, "") ?? ""}/api/servers/${server.id}/exec`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      const res = await fetch(`${BASE}/api/servers/${server.id}/exec`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ command: c }),
       });
       const data = await res.json();
@@ -393,26 +371,17 @@ function TerminalDialog({ server, onClose }: { server: ServerRow; onClose: () =>
   return (
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-2xl">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Terminal className="w-5 h-5 text-primary" />
-            Terminal — {server.name}
-            <span className="font-mono text-sm text-muted-foreground font-normal">({server.username}@{server.host})</span>
-          </DialogTitle>
-        </DialogHeader>
+        <div className="flex items-center gap-2 mb-3">
+          <Terminal className="w-5 h-5 text-primary" />
+          <span className="font-semibold">Terminal</span>
+          <span className="font-mono text-sm text-muted-foreground">— {server.username}@{server.host}</span>
+        </div>
         <TerminalView lines={lines} loading={running} />
         <div className="flex gap-2 mt-2">
           <div className="flex items-center text-muted-foreground font-mono text-sm px-2">$</div>
-          <Input
-            ref={inputRef}
-            className="font-mono text-sm"
-            placeholder="ls -la"
-            value={cmd}
-            onChange={e => setCmd(e.target.value)}
-            onKeyDown={e => { if (e.key === "Enter") run(); }}
-            disabled={running}
-            autoFocus
-          />
+          <Input ref={inputRef} className="font-mono text-sm" placeholder="ls -la"
+            value={cmd} onChange={e => setCmd(e.target.value)}
+            onKeyDown={e => { if (e.key === "Enter") run(); }} disabled={running} autoFocus />
           <Button onClick={run} disabled={running || !cmd.trim()}>
             {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
           </Button>
@@ -422,226 +391,325 @@ function TerminalDialog({ server, onClose }: { server: ServerRow; onClose: () =>
   );
 }
 
-// ─── AI Agent Dialog ──────────────────────────────────────────────────────────
+// ─── AI Coding Agent Chat Dialog ──────────────────────────────────────────────
 
-function AgentDialog({ server, onClose }: { server: ServerRow; onClose: () => void }) {
-  const [task, setTask]         = useState("");
-  const [mode, setMode]         = useState<"economy" | "balanced" | "high-power">("balanced");
-  const [running, setRunning]         = useState(false);
-  const [phase, setPhase]             = useState<"idle" | "discovering" | "planning" | "executing" | "done">("idle");
-  const [statusMsg, setStatusMsg]     = useState("");
-  const [discovery, setDiscovery]     = useState("");
-  const [plan, setPlan]               = useState<AgentStep[]>([]);
-  const [stepsDone, setStepsDone]     = useState<Record<number, "ok" | "err">>({});
-  const [current, setCurrent]         = useState(-1);
-  const [done, setDone]               = useState(false);
-  const [lines, setLines]             = useState<TerminalLine[]>([]);
+const MODE_LABELS: Record<string, string> = { economy: "⚡ Fast", balanced: "🧠 Default", "high-power": "🚀 Max" };
+const MODE_DESCS:  Record<string, string> = { economy: "Gemini Flash", balanced: "DeepSeek", "high-power": "GPT-4o" };
 
-  const add = (l: TerminalLine) => setLines(prev => [...prev, l]);
+function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: () => void }) {
+  const [mode, setMode]         = useState<"economy" | "balanced" | "high-power">("high-power");
+  const [input, setInput]       = useState("");
+  const [running, setRunning]   = useState(false);
 
-  const runAgent = async () => {
-    if (!task.trim() || running) return;
+  // Chat display messages
+  const [msgs, setMsgs]         = useState<ChatMsg[]>([]);
+  // AI conversation history (clean role/content for backend)
+  const [aiHistory, setAiHistory] = useState<AIMsg[]>([]);
+
+  // Track active command blocks by index
+  const [activeCmds, setActiveCmds] = useState<Map<number, { cmd: string; desc: string; output: string }>>(new Map());
+
+  const bottomRef  = useRef<HTMLDivElement>(null);
+  const inputRef   = useRef<HTMLTextAreaElement>(null);
+  const cmdCounter = useRef(0);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [msgs]);
+
+  const addMsg = (m: ChatMsg) => setMsgs(prev => [...prev, m]);
+
+  const updateCmdOutput = (globalIdx: number, chunk: string, exitCode?: number) => {
+    setMsgs(prev => prev.map(m => {
+      if (m.kind === "cmd" && m.index === globalIdx) {
+        return { ...m, output: m.output + chunk, exitCode: exitCode ?? m.exitCode };
+      }
+      return m;
+    }));
+  };
+
+  const toggleCmd = (globalIdx: number) => {
+    setMsgs(prev => prev.map(m => {
+      if (m.kind === "cmd" && m.index === globalIdx) return { ...m, open: !m.open };
+      return m;
+    }));
+  };
+
+  const sendMessage = async () => {
+    if (!input.trim() || running) return;
+    const userText = input.trim();
+    setInput("");
     setRunning(true);
-    setPhase("discovering");
-    setPlan([]); setStepsDone({}); setCurrent(-1); setDone(false);
-    setLines([]); setDiscovery(""); setStatusMsg("");
 
-    const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
+    // Add user message to display + AI history
+    addMsg({ kind: "user", text: userText });
+    const newHistory: AIMsg[] = [...aiHistory, { role: "user", content: userText }];
+    setAiHistory(newHistory);
+
+    // Track assistant turn output for AI history
+    let agentTurnParts: string[] = [];
+
     try {
-      const res = await fetch(`${BASE}/api/servers/${server.id}/agent`, {
+      const res = await fetch(`${BASE}/api/servers/${server.id}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ task, mode }),
+        body: JSON.stringify({ messages: newHistory, mode }),
       });
-      if (!res.body) throw new Error("No response stream");
+      if (!res.body) throw new Error("No stream");
 
       const reader = res.body.getReader();
-      const dec = new TextDecoder();
-      let buf = "";
+      const dec    = new TextDecoder();
+      let   buf    = "";
+
+      // map: localCmdIndex → globalCmdIndex
+      const localToGlobal = new Map<number, number>();
 
       while (true) {
-        const { done: d, value } = await reader.read();
-        if (d) break;
+        const { done, value } = await reader.read();
+        if (done) break;
         buf += dec.decode(value, { stream: true });
         const parts = buf.split("\n\n");
         buf = parts.pop() ?? "";
+
         for (const part of parts) {
           const line = part.replace(/^data: /, "").trim();
           if (!line) continue;
-          try {
-            const msg = JSON.parse(line);
-            if (msg.type === "status") {
-              setStatusMsg(msg.value);
-              const v: string = msg.value ?? "";
-              if (v.includes("Discover")) setPhase("discovering");
-              else if (v.includes("Planning")) setPhase("planning");
-            } else if (msg.type === "discovery") {
-              setDiscovery(msg.output ?? "");
-              setPhase("planning");
-            } else if (msg.type === "plan") {
-              setPlan(msg.commands);
-              setPhase("executing");
-            } else if (msg.type === "step") {
-              setCurrent(msg.index);
-              add({ kind: "cmd", text: `[${msg.index + 1}/${msg.total}] ${msg.cmd}` });
-              add({ kind: "info", text: `→ ${msg.desc}` });
-            } else if (msg.type === "output") {
-              msg.chunk.split("\n").filter(Boolean).forEach((t: string) => add({ kind: "out", text: t }));
-            } else if (msg.type === "step_done") {
-              const ok = msg.code === 0;
-              setStepsDone(p => ({ ...p, [msg.index]: ok ? "ok" : "err" }));
-              add({ kind: ok ? "ok" : "err", text: ok ? "✓ done" : `✗ exit ${msg.code}${msg.stderr ? ` — ${msg.stderr.trim()}` : ""}` });
-            } else if (msg.type === "step_error") {
-              setStepsDone(p => ({ ...p, [msg.index ?? current]: "err" }));
-              add({ kind: "err", text: `✗ SSH error: ${msg.error}` });
-            } else if (msg.type === "done") {
-              add({ kind: "ok", text: "✓ All commands completed" });
-              setDone(true); setCurrent(-1); setPhase("done");
-            } else if (msg.type === "error") {
-              add({ kind: "err", text: `Error: ${msg.value}` });
-              setPhase("idle");
-            }
-          } catch { /* skip malformed */ }
+          let ev: Record<string, unknown>;
+          try { ev = JSON.parse(line); } catch { continue; }
+
+          const type = ev.type as string;
+
+          if (type === "think") {
+            const text = ev.text as string ?? "";
+            addMsg({ kind: "think", text });
+            agentTurnParts.push(`[thinking] ${text}`);
+
+          } else if (type === "cmd_start") {
+            const localIdx = ev.index as number;
+            const globalIdx = cmdCounter.current++;
+            localToGlobal.set(localIdx, globalIdx);
+            const cmd  = ev.cmd  as string ?? "";
+            const desc = ev.desc as string ?? "";
+            addMsg({ kind: "cmd", index: globalIdx, cmd, desc, output: "", open: true });
+            agentTurnParts.push(`[run] ${cmd}`);
+
+          } else if (type === "cmd_output") {
+            const localIdx  = ev.index as number;
+            const globalIdx = localToGlobal.get(localIdx) ?? -1;
+            const chunk     = ev.chunk as string ?? "";
+            if (globalIdx >= 0) updateCmdOutput(globalIdx, chunk);
+
+          } else if (type === "cmd_done") {
+            const localIdx  = ev.index as number;
+            const globalIdx = localToGlobal.get(localIdx) ?? -1;
+            const code      = ev.code as number ?? 0;
+            if (globalIdx >= 0) updateCmdOutput(globalIdx, "", code);
+
+          } else if (type === "reply" || type === "done") {
+            const text = ev.text as string ?? "";
+            addMsg({ kind: type === "done" ? "done" : "reply", text });
+            agentTurnParts.push(`[agent] ${text}`);
+
+          } else if (type === "error") {
+            const text = ev.text as string ?? "Unknown error";
+            addMsg({ kind: "error", text });
+            agentTurnParts.push(`[error] ${text}`);
+          }
         }
       }
+
+      // Add agent turn summary to AI history for next round
+      if (agentTurnParts.length) {
+        setAiHistory(h => [...h, { role: "assistant", content: agentTurnParts.join("\n") }]);
+      }
     } catch (e: unknown) {
-      add({ kind: "err", text: String(e instanceof Error ? e.message : e) });
-      setPhase("idle");
-    } finally { setRunning(false); }
+      addMsg({ kind: "error", text: String(e instanceof Error ? e.message : e) });
+    } finally {
+      setRunning(false);
+      setTimeout(() => inputRef.current?.focus(), 50);
+    }
   };
 
-  const modeLabels: Record<string, string> = { economy: "Fast", balanced: "Default", "high-power": "Max" };
+  const handleKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  };
 
-  const phaseLabel: Record<string, string> = {
-    discovering: "🔍 Discovering server…",
-    planning:    "🤖 Planning actions…",
-    executing:   "⚡ Executing…",
-    done:        "✓ Done",
-    idle:        "",
+  const clearChat = () => {
+    setMsgs([]); setAiHistory([]); cmdCounter.current = 0;
+    setActiveCmds(new Map());
   };
 
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 flex-wrap">
-            <Bot className="w-5 h-5 text-purple-400 shrink-0" />
-            AI SSH Agent — {server.name}
-            <span className="font-mono text-xs text-muted-foreground font-normal">({server.username}@{server.host})</span>
-            {phase !== "idle" && (
-              <span className={`ml-auto text-xs px-2 py-0.5 rounded-full font-medium ${
-                phase === "done"
-                  ? "bg-green-500/15 text-green-400"
-                  : "bg-purple-500/15 text-purple-300 animate-pulse"
-              }`}>
-                {phaseLabel[phase]}
-              </span>
-            )}
-          </DialogTitle>
-        </DialogHeader>
-
-        {/* Mode selector */}
-        <div className="flex gap-2">
-          {(["economy", "balanced", "high-power"] as const).map(m => (
-            <button key={m} onClick={() => setMode(m)}
-              className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                mode === m ? "bg-purple-600 text-white" : "bg-muted text-muted-foreground hover:bg-muted/80"
-              }`}>
-              {modeLabels[m]}
-            </button>
-          ))}
-        </div>
-
-        {/* Task input */}
-        <div className="flex gap-2">
-          <Textarea
-            className="resize-none text-sm min-h-[60px]"
-            placeholder="e.g. Fix index.php in novaspack.com  /  restart nginx  /  clean logs older than 30 days"
-            value={task}
-            onChange={e => setTask(e.target.value)}
-            disabled={running}
-            onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); runAgent(); } }}
-          />
-          <Button className="h-full px-4 bg-purple-600 hover:bg-purple-500"
-            disabled={running || !task.trim()} onClick={runAgent}>
-            {running ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5" />}
-          </Button>
-        </div>
-
-        {/* Discovery output */}
-        {discovery && (
-          <details className="group">
-            <summary className="flex items-center gap-1.5 text-xs text-zinc-500 cursor-pointer select-none hover:text-zinc-300 transition-colors">
-              <RefreshCw className="w-3 h-3" />
-              Server discovery output
-              <span className="ml-auto text-zinc-600 group-open:hidden">▸ show</span>
-              <span className="ml-auto text-zinc-600 hidden group-open:inline">▾ hide</span>
-            </summary>
-            <pre className="mt-2 bg-black/80 border border-zinc-800 rounded-lg p-3 text-[11px] font-mono text-zinc-400 overflow-x-auto whitespace-pre-wrap max-h-40 overflow-y-auto">
-              {discovery}
-            </pre>
-          </details>
-        )}
-
-        {/* Plan steps */}
-        {plan.length > 0 && (
-          <div className="border border-border rounded-lg divide-y divide-border text-xs">
-            {plan.map((p, i) => {
-              const st = stepsDone[i];
-              const isActive = current === i;
-              return (
-                <div key={i} className={`flex items-start gap-2 px-3 py-2 transition-colors ${
-                  isActive ? "bg-purple-500/10" : st === "err" ? "bg-red-500/5" : ""
-                }`}>
-                  <div className="mt-0.5 shrink-0">
-                    {isActive ? (
-                      <Loader2 className="w-3.5 h-3.5 text-purple-400 animate-spin" />
-                    ) : st === "ok" ? (
-                      <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />
-                    ) : st === "err" ? (
-                      <XCircle className="w-3.5 h-3.5 text-red-400" />
-                    ) : (
-                      <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
-                    )}
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className={`${st === "err" ? "text-red-300" : "text-muted-foreground"}`}>{p.desc}</div>
-                    <div className="font-mono text-zinc-600 text-[10px] truncate mt-0.5">{p.cmd}</div>
-                  </div>
-                  {st && (
-                    <span className={`shrink-0 text-[10px] ${st === "ok" ? "text-green-500" : "text-red-400"}`}>
-                      {st === "ok" ? "done" : "failed"}
-                    </span>
-                  )}
-                </div>
-              );
-            })}
+      <DialogContent className="max-w-3xl h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
+        {/* Header */}
+        <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card/80 shrink-0">
+          <div className="flex items-center gap-2 flex-1 min-w-0">
+            <div className="w-8 h-8 rounded-full bg-purple-600/20 flex items-center justify-center shrink-0">
+              <Sparkles className="w-4 h-4 text-purple-400" />
+            </div>
+            <div className="min-w-0">
+              <div className="font-semibold text-sm flex items-center gap-2">
+                XDIGITEX Coding Agent
+                <StatusDot s={server.status} />
+                <span className="text-xs font-normal text-muted-foreground font-mono">{server.username}@{server.host}</span>
+              </div>
+              <div className="text-[11px] text-muted-foreground">
+                {running ? (
+                  <span className="text-purple-400 flex items-center gap-1">
+                    <Loader2 className="w-3 h-3 animate-spin" /> Working on server…
+                  </span>
+                ) : "Ready — ask me to fix, build, or diagnose anything on your server"}
+              </div>
+            </div>
           </div>
-        )}
-
-        {/* Terminal output */}
-        {lines.length > 0 && (
-          <TerminalView lines={lines} loading={running && current >= 0} />
-        )}
-
-        {/* Status while discovering/planning (no lines yet) */}
-        {running && lines.length === 0 && statusMsg && (
-          <div className="flex items-center gap-2 text-sm text-zinc-400 py-2">
-            <Loader2 className="w-4 h-4 animate-spin text-purple-400" />
-            {statusMsg}
-          </div>
-        )}
-
-        {done && (
-          <div className="flex items-center gap-2 text-sm text-green-400 bg-green-500/10 border border-green-500/20 rounded-lg px-4 py-2">
-            <CheckCircle2 className="w-4 h-4 shrink-0" />
-            Task completed
-            <Button size="sm" variant="ghost" className="ml-auto text-xs"
-              onClick={() => { setTask(""); setPlan([]); setLines([]); setDone(false); setPhase("idle"); setDiscovery(""); setStepsDone({}); }}>
-              New task
+          <div className="flex items-center gap-2 shrink-0">
+            {/* Mode selector */}
+            <div className="flex gap-1">
+              {(["economy", "balanced", "high-power"] as const).map(m => (
+                <button key={m} onClick={() => setMode(m)}
+                  title={MODE_DESCS[m]}
+                  className={`px-2 py-1 rounded text-[11px] font-medium transition-colors ${
+                    mode === m ? "bg-purple-600 text-white" : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  }`}>
+                  {MODE_LABELS[m]}
+                </button>
+              ))}
+            </div>
+            <Button size="sm" variant="ghost" onClick={clearChat} title="Clear chat" className="h-7 w-7 p-0">
+              <RotateCcw className="w-3.5 h-3.5" />
             </Button>
           </div>
-        )}
+        </div>
+
+        {/* Chat messages */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+          {msgs.length === 0 && (
+            <div className="flex flex-col items-center justify-center h-full text-center space-y-4 py-12">
+              <div className="w-16 h-16 rounded-full bg-purple-600/15 flex items-center justify-center">
+                <Sparkles className="w-8 h-8 text-purple-400" />
+              </div>
+              <div>
+                <h3 className="font-semibold text-lg">XDIGITEX Coding Agent</h3>
+                <p className="text-sm text-muted-foreground mt-1 max-w-sm">
+                  Tell me what to fix, build, or diagnose. I'll SSH into your server, investigate, and work until it's done.
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-2 w-full max-w-sm text-xs">
+                {[
+                  "Fix orders stuck at pending in malabora.site",
+                  "Diagnose why my site is returning 500 errors",
+                  "Build a landing page for novaspack.com",
+                  "Check disk space and clean old logs",
+                ].map(s => (
+                  <button key={s} onClick={() => setInput(s)}
+                    className="text-left px-3 py-2 rounded-lg border border-border bg-card/40 hover:border-purple-500/40 hover:bg-purple-500/5 transition-colors text-muted-foreground">
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {msgs.map((m, i) => {
+            if (m.kind === "user") return (
+              <div key={i} className="flex justify-end">
+                <div className="max-w-[80%] bg-purple-600 text-white rounded-2xl rounded-tr-sm px-4 py-2.5 text-sm">
+                  {m.text}
+                </div>
+              </div>
+            );
+
+            if (m.kind === "think") return (
+              <div key={i} className="flex items-start gap-2">
+                <div className="w-6 h-6 rounded-full bg-zinc-800 flex items-center justify-center shrink-0 mt-0.5">
+                  <Loader2 className="w-3 h-3 text-zinc-500" />
+                </div>
+                <div className="text-xs text-zinc-500 italic bg-zinc-900/50 rounded-lg px-3 py-2 max-w-[90%]">
+                  💭 {m.text}
+                </div>
+              </div>
+            );
+
+            if (m.kind === "cmd") return (
+              <div key={i} className="ml-8">
+                <CmdBlock msg={m} onToggle={() => toggleCmd(m.index)} />
+              </div>
+            );
+
+            if (m.kind === "reply" || m.kind === "done") return (
+              <div key={i} className="flex items-start gap-2">
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+                  m.kind === "done" ? "bg-green-600/20" : "bg-purple-600/20"
+                }`}>
+                  {m.kind === "done"
+                    ? <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />
+                    : <Sparkles className="w-3 h-3 text-purple-400" />
+                  }
+                </div>
+                <div className={`max-w-[85%] rounded-2xl rounded-tl-sm px-4 py-3 text-sm whitespace-pre-wrap ${
+                  m.kind === "done"
+                    ? "bg-green-500/10 border border-green-500/20 text-green-300"
+                    : "bg-card border border-border text-foreground"
+                }`}>
+                  {m.text}
+                </div>
+              </div>
+            );
+
+            if (m.kind === "error") return (
+              <div key={i} className="flex items-start gap-2">
+                <div className="w-6 h-6 rounded-full bg-red-600/20 flex items-center justify-center shrink-0 mt-0.5">
+                  <XCircle className="w-3.5 h-3.5 text-red-400" />
+                </div>
+                <div className="max-w-[85%] bg-red-500/10 border border-red-500/20 text-red-300 rounded-2xl rounded-tl-sm px-4 py-3 text-sm">
+                  {m.text}
+                </div>
+              </div>
+            );
+
+            return null;
+          })}
+
+          {running && msgs[msgs.length - 1]?.kind === "user" && (
+            <div className="flex items-start gap-2">
+              <div className="w-6 h-6 rounded-full bg-purple-600/20 flex items-center justify-center shrink-0">
+                <Loader2 className="w-3 h-3 text-purple-400 animate-spin" />
+              </div>
+              <div className="bg-card border border-border rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-muted-foreground">
+                Connecting to server…
+              </div>
+            </div>
+          )}
+
+          <div ref={bottomRef} />
+        </div>
+
+        {/* Input bar */}
+        <div className="shrink-0 border-t border-border bg-card/60 px-4 py-3">
+          <div className="flex gap-2 items-end">
+            <Textarea
+              ref={inputRef}
+              className="flex-1 resize-none text-sm min-h-[44px] max-h-36 bg-background"
+              placeholder="Ask me to fix, build, or diagnose anything… (Enter to send, Shift+Enter for newline)"
+              value={input}
+              onChange={e => setInput(e.target.value)}
+              onKeyDown={handleKey}
+              disabled={running}
+              rows={1}
+            />
+            <Button
+              className="h-11 px-4 bg-purple-600 hover:bg-purple-500 shrink-0"
+              disabled={running || !input.trim()}
+              onClick={sendMessage}
+            >
+              {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            </Button>
+          </div>
+          <div className="mt-1.5 text-[10px] text-zinc-600 text-center">
+            Using {MODE_DESCS[mode]} · Agent will SSH into your server and work autonomously
+          </div>
+        </div>
       </DialogContent>
     </Dialog>
   );
