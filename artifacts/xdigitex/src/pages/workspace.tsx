@@ -149,6 +149,13 @@ function makeSuggestions(prompt: string, summary: string): string[] {
 
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
+function autoTitle(prompt: string): string {
+  const stop = new Set(["build","create","make","write","generate","a","an","the","for","me","please","with","using","that","has","have","in","of","and","or","i","want","need","can","you"]);
+  const words = prompt.toLowerCase().replace(/[^a-z0-9\s]/g, " ").split(/\s+/)
+    .filter(w => w.length > 1 && !stop.has(w)).slice(0, 5);
+  return words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ") || "My Project";
+}
+
 function loadWorkspace() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); }
   catch { return {}; }
@@ -219,6 +226,7 @@ export default function Workspace() {
   const [streamingRaw, setStreamingRaw] = useState("");
   const [buildStep, setBuildStep]       = useState(0);
   const [deploying, setDeploying]       = useState(false);
+  const [projectName, setProjectName]   = useState<string>(saved.projectName ?? "");
   const [copied, setCopied]             = useState(false);
   const [detectedStack, setDetectedStack] = useState<string>(saved.detectedStack ?? "");
   const [renamingFile, setRenamingFile] = useState<string | null>(null);
@@ -242,9 +250,9 @@ export default function Workspace() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify({
       buildMode, files, activeFile, logs: logs.slice(-100),
       deployments, buildHistory: buildHistory.slice(0, 20),
-      messages: messages.slice(-40), detectedStack,
+      messages: messages.slice(-40), detectedStack, projectName,
     }));
-  }, [buildMode, files, activeFile, logs, deployments, buildHistory, messages, detectedStack]);
+  }, [buildMode, files, activeFile, logs, deployments, buildHistory, messages, detectedStack, projectName]);
 
   // ─── Build step ticker ────────────────────────────────────────────────────
   useEffect(() => {
@@ -272,6 +280,7 @@ export default function Workspace() {
     setFiles([]);
     setActiveFile("");
     setDetectedStack("");
+    setProjectName("");
     setStreamingRaw("");
     setGenerating(false);
     setMessages([{ ...WELCOME_MSG, id: uid(), at: new Date().toLocaleTimeString() }]);
@@ -325,6 +334,7 @@ export default function Workspace() {
 
         const stack = detectStack(mergedFiles);
         setDetectedStack(stack);
+        if (!isUpdate) setProjectName(autoTitle(q));
         setBuildHistory(h => [{
           id: uid(), prompt: q.slice(0, 80), mode: buildMode,
           files: mergedFiles, builtAt: new Date().toLocaleString(), version: h.length + 1,
@@ -405,7 +415,7 @@ export default function Workspace() {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           html: htmlContent,
-          name: messages.find(m => m.role === "user")?.content.slice(0, 50) ?? "project",
+          name: projectName || "project",
         }),
       });
       if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -921,16 +931,33 @@ export default function Workspace() {
           <div className="h-full overflow-y-auto">
             <div className="p-4 sm:p-6 max-w-3xl space-y-5">
               {files.length > 0 && !generating && (
-                <div className="border border-border/60 rounded-xl p-4 sm:p-5 bg-card/50 space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                    <div className="flex-1">
-                      <h3 className="text-sm font-semibold">Publish to XDIGITEX Hosting</h3>
-                      <p className="text-xs text-muted-foreground mt-0.5">Get a project URL with slug based on your project name.</p>
-                    </div>
-                    <Button size="sm" className="gap-1.5 sm:shrink-0" onClick={deployToServer} disabled={deploying}>
+                <div className="border border-border/60 rounded-xl p-4 sm:p-5 bg-card/50 space-y-4">
+                  <div>
+                    <h3 className="text-sm font-semibold">Publish to XDIGITEX Hosting</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Get a public URL — slug is generated from the project name below.</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Project Name</label>
+                    <input
+                      value={projectName}
+                      onChange={e => setProjectName(e.target.value)}
+                      placeholder="e.g. Fintech Landing Page"
+                      className="w-full bg-[#1e1e1e] border border-[#333] rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/40 focus:outline-none focus:border-primary/50"
+                    />
+                    {projectName && (
+                      <p className="text-[10px] text-muted-foreground">
+                        URL slug: <span className="font-mono text-primary/70">
+                          {projectName.toLowerCase().replace(/[^a-z0-9\s-]/g, "").trim().replace(/\s+/g, "-").slice(0, 45) || "project"}
+                        </span>
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <Button size="sm" className="gap-1.5" onClick={deployToServer} disabled={deploying || !projectName.trim()}>
                       {deploying ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Rocket className="w-3.5 h-3.5" />}
                       {deploying ? "Publishing…" : "Publish Now"}
                     </Button>
+                    {!projectName.trim() && <p className="text-[11px] text-muted-foreground/60">Enter a project name to publish</p>}
                   </div>
                   {!previewDoc && <div className="flex items-start gap-2 text-[11px] text-muted-foreground/60 border-t border-border/30 pt-2"><AlertCircle className="w-3 h-3 mt-0.5 shrink-0" /><span>Only HTML/CSS/JS projects can be published. Other stacks need a server.</span></div>}
                 </div>
