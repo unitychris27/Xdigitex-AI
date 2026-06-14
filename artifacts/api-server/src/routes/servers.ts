@@ -178,22 +178,38 @@ router.post("/:id/exec", async (req, res) => {
 
 // ─── AI SSH Agent (streaming) ─────────────────────────────────────────────────
 
-const SSH_AGENT_SYSTEM_PROMPT = `You are an expert Linux/DevOps engineer and SSH automation agent.
-The user will describe a task in plain English. Your job is to produce a list of safe shell commands to accomplish it.
+const SSH_AGENT_SYSTEM_PROMPT = `You are an expert Linux/DevOps and cPanel web hosting engineer.
+The user will describe a task. You produce a JSON array of safe shell commands to accomplish it.
 
-RULES:
-- Return ONLY a JSON array of command objects, no markdown, no explanation
-- Each command object: { "cmd": "the shell command", "desc": "what this does" }
-- Commands must be safe — avoid rm -rf /, dropping databases, or irreversible destructive actions without confirmation
-- Maximum 10 commands per task
-- Prefer non-interactive commands (use -y flags, avoid editors)
-- If the task is unclear or dangerous, return: [{"cmd": "echo 'Task unclear or unsafe'", "desc": "Safety check"}]
+CRITICAL OUTPUT RULE: Your ENTIRE response must be ONLY the JSON array — no markdown, no code fences, no explanations, no text before or after.
+Start your response with [ and end with ]
 
-EXAMPLE response for "check disk space and list large files":
+Each item: { "cmd": "shell command here", "desc": "one-line description" }
+
+GENERAL RULES:
+- Maximum 12 commands
+- No rm -rf /, no DROP DATABASE without confirmation
+- Prefer non-interactive (-y, --yes, --force flags)
+- For writing/editing files, use printf or cat with heredoc — never open interactive editors
+
+WEB HOSTING / CPANEL RULES (apply when user mentions a domain, folder, website, HTML, PHP, CSS):
+- Website files live in ~/public_html/<domain>/ or ~/public_html/ — always search there
+- To check a domain folder: ls -la ~/public_html/<domain>/ or find ~/public_html/<domain> -type f
+- To read a file: cat ~/public_html/<domain>/index.html
+- To improve a webpage appearance, use printf with a complete new HTML file — write it back with: printf '%s' "NEW HTML CONTENT" > ~/public_html/<domain>/index.html
+- The improved HTML must use Bootstrap 5 CDN + Google Fonts + a professional color scheme
+- Always cat the existing file first so you can base improvements on real content
+
+"IMPROVE APPEARANCE" TASK PATTERN — use this exact 3-command pattern:
+1. {"cmd": "find ~/public_html/<domain> -type f | head -20", "desc": "List website files"}
+2. {"cmd": "cat ~/public_html/<domain>/index.html 2>/dev/null || cat ~/public_html/<domain>/index.php 2>/dev/null", "desc": "Read current homepage"}
+3. {"cmd": "printf '%s' '<!DOCTYPE html>...[full improved HTML]...' > ~/public_html/<domain>/index.html", "desc": "Write improved homepage"}
+
+EXAMPLE — "check folder novaspack.com and improve its appearance":
 [
-  {"cmd": "df -h", "desc": "Check disk usage"},
-  {"cmd": "du -sh /var/log/* 2>/dev/null | sort -rh | head -20", "desc": "Find large log files"},
-  {"cmd": "find / -type f -size +100M 2>/dev/null | head -10", "desc": "Find files over 100MB"}
+  {"cmd": "find ~/public_html/novaspack.com -type f | head -30", "desc": "List all website files"},
+  {"cmd": "cat ~/public_html/novaspack.com/index.html 2>/dev/null || cat ~/public_html/novaspack.com/index.php 2>/dev/null || echo 'No index found'", "desc": "Read current homepage content"},
+  {"cmd": "printf '%s' '<!DOCTYPE html><html lang=\"en\"><head><meta charset=\"UTF-8\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><title>Novaspack</title><link href=\"https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css\" rel=\"stylesheet\"><link href=\"https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap\" rel=\"stylesheet\"><style>body{font-family:Inter,sans-serif;background:#0f172a;color:#e2e8f0}.hero{background:linear-gradient(135deg,#7c3aed,#2563eb);padding:80px 0}.card{background:#1e293b;border:1px solid #334155}</style></head><body><nav class=\"navbar navbar-dark\" style=\"background:#1e293b\"><div class=\"container\"><a class=\"navbar-brand fw-bold\" href=\"#\">Novaspack</a></nav><section class=\"hero text-center text-white\"><div class=\"container\"><h1 class=\"display-4 fw-bold\">Welcome to Novaspack</h1><p class=\"lead\">Professional solutions for your business</p><a href=\"#contact\" class=\"btn btn-light btn-lg mt-3\">Get Started</a></div></section><section class=\"py-5\"><div class=\"container\"><div class=\"row g-4\"><div class=\"col-md-4\"><div class=\"card p-4 text-center\"><h5 class=\"text-primary\">Fast</h5><p class=\"text-secondary\">Lightning fast performance</p></div></div><div class=\"col-md-4\"><div class=\"card p-4 text-center\"><h5 class=\"text-primary\">Secure</h5><p class=\"text-secondary\">Enterprise-grade security</p></div></div><div class=\"col-md-4\"><div class=\"card p-4 text-center\"><h5 class=\"text-primary\">Reliable</h5><p class=\"text-secondary\">99.9% uptime guarantee</p></div></div></div></div></section></body></html>' > ~/public_html/novaspack.com/index.html", "desc": "Write modern improved homepage"}
 ]`;
 
 router.post("/:id/agent", async (req, res) => {
@@ -230,25 +246,37 @@ router.post("/:id/agent", async (req, res) => {
         { role: "system", content: SSH_AGENT_SYSTEM_PROMPT },
         { role: "user", content: parsed.data.task },
       ],
-      max_tokens: 1000,
+      max_tokens: 4000,
     });
 
     const raw = completion.choices[0]?.message?.content ?? "[]";
+
+    // Strip markdown code fences (```json ... ``` or ``` ... ```)
+    const stripped = raw
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```\s*$/, "")
+      .trim();
+
     let commands: { cmd: string; desc: string }[] = [];
     try {
-      const jsonMatch = raw.match(/\[[\s\S]*\]/);
-      commands = jsonMatch ? JSON.parse(jsonMatch[0]) : [];
+      // Try direct parse first
+      commands = JSON.parse(stripped);
     } catch {
-      send("error", { value: "Failed to parse AI command plan" });
+      // Fall back: extract first [...] block anywhere in the text
+      const jsonMatch = stripped.match(/\[[\s\S]*\]/);
+      if (jsonMatch) {
+        try { commands = JSON.parse(jsonMatch[0]); } catch { /* fall through */ }
+      }
+    }
+
+    if (!Array.isArray(commands) || !commands.length) {
+      send("error", { value: `AI returned no commands. Raw response: ${raw.slice(0, 400)}` });
       res.end();
       return;
     }
 
-    if (!commands.length) {
-      send("error", { value: "AI returned no commands for this task" });
-      res.end();
-      return;
-    }
+    // Sanitise — drop any entry missing cmd
+    commands = commands.filter(c => typeof c?.cmd === "string" && c.cmd.trim());
 
     send("plan", { commands });
 
