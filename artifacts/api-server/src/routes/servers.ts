@@ -255,73 +255,98 @@ router.post("/:id/agent", async (req, res) => {
   const send = (type: string, data: unknown) =>
     res.write(`data: ${JSON.stringify({ type, ...( typeof data === "object" ? data : { value: data }) })}\n\n`);
 
-  try {
-    send("status", { value: "Planning commands…" });
+  // ── helpers ─────────────────────────────────────────────────────────────────
+  const parseCommands = (raw: string): { cmd: string; desc: string }[] => {
+    const stripped = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
+    try { return JSON.parse(stripped); } catch { /* fall through */ }
+    const m = stripped.match(/\[[\s\S]*\]/);
+    if (m) { try { return JSON.parse(m[0]); } catch { /* fall through */ } }
+    return [];
+  };
 
-    const modelMap: Record<string, { provider: "openrouter" | "deepseek" | "openai"; model: string }> = {
-      "economy":    { provider: "openrouter", model: "google/gemini-2.0-flash-001" },
-      "balanced":   { provider: "deepseek",   model: "deepseek-chat" },
-      "high-power": { provider: "openai",     model: "gpt-4o" },
-    };
+  const runSSH = async (cmd: string, onChunk?: (c: string) => void) => {
+    try {
+      return await sshExec(
+        s.host, s.port, s.username, s.authType ?? "key",
+        s.privateKey, s.password, cmd, onChunk,
+      );
+    } catch (err: unknown) {
+      return { stdout: "", stderr: String(err instanceof Error ? err.message : err), code: -1 };
+    }
+  };
+
+  const modelMap: Record<string, { provider: "openrouter" | "deepseek" | "openai"; model: string }> = {
+    "economy":    { provider: "openrouter", model: "google/gemini-2.0-flash-001" },
+    "balanced":   { provider: "deepseek",   model: "deepseek-chat" },
+    "high-power": { provider: "openai",     model: "gpt-4o" },
+  };
+
+  try {
     const { provider, model } = modelMap[parsed.data.mode];
     const client = getAIClient(provider);
+    const home = `/home/${s.username}`;
+    const pubHtml = `${home}/public_html`;
+
+    // ── Phase 1: discover real server state ─────────────────────────────────
+    send("status", { value: "🔍 Discovering server state…" });
+
+    const discoveryCommands = [
+      `ls ${pubHtml}/ 2>&1 | head -40`,
+      `find ${pubHtml} -maxdepth 3 -type d 2>/dev/null | head -30`,
+      `ls ${home}/ 2>&1 | head -20`,
+    ];
+
+    const discoveryResults: string[] = [];
+    for (const cmd of discoveryCommands) {
+      const r = await runSSH(cmd);
+      discoveryResults.push(`$ ${cmd}\n${(r.stdout + r.stderr).trim()}`);
+    }
+    const discoveryOutput = discoveryResults.join("\n\n");
+    send("discovery", { output: discoveryOutput });
+    send("status", { value: "🤖 Planning actions based on real server state…" });
+
+    // ── Phase 2: AI generates actions with real context ──────────────────────
+    const actionSystemPrompt = buildSSHAgentPrompt(s.username) + `
+
+═══ REAL SERVER STATE (from live discovery — use ONLY these actual paths) ═══
+${discoveryOutput}
+
+IMPORTANT: Base every path on the discovery output above.
+- If a directory does NOT appear in the discovery, it does NOT exist. Use mkdir -p to create it first.
+- Never assume a path exists — trust only what the discovery shows.
+- Always chain mkdir -p with the write: mkdir -p /path/to/dir && printf '%s' '...' > /path/to/dir/file
+`;
 
     const completion = await client.chat.completions.create({
       model,
       messages: [
-        { role: "system", content: buildSSHAgentPrompt(s.username) },
+        { role: "system", content: actionSystemPrompt },
         { role: "user", content: parsed.data.task },
       ],
       max_tokens: 4000,
     });
 
     const raw = completion.choices[0]?.message?.content ?? "[]";
+    let commands = parseCommands(raw).filter(c => typeof c?.cmd === "string" && c.cmd.trim());
 
-    // Strip markdown code fences (```json ... ``` or ``` ... ```)
-    const stripped = raw
-      .replace(/^```(?:json)?\s*/i, "")
-      .replace(/\s*```\s*$/, "")
-      .trim();
-
-    let commands: { cmd: string; desc: string }[] = [];
-    try {
-      // Try direct parse first
-      commands = JSON.parse(stripped);
-    } catch {
-      // Fall back: extract first [...] block anywhere in the text
-      const jsonMatch = stripped.match(/\[[\s\S]*\]/);
-      if (jsonMatch) {
-        try { commands = JSON.parse(jsonMatch[0]); } catch { /* fall through */ }
-      }
-    }
-
-    if (!Array.isArray(commands) || !commands.length) {
-      send("error", { value: `AI returned no commands. Raw response: ${raw.slice(0, 400)}` });
+    if (!commands.length) {
+      send("error", { value: `AI returned no commands. Raw: ${raw.slice(0, 400)}` });
       res.end();
       return;
     }
 
-    // Sanitise — drop any entry missing cmd
-    commands = commands.filter(c => typeof c?.cmd === "string" && c.cmd.trim());
-
     send("plan", { commands });
 
+    // ── Phase 3: execute action commands ────────────────────────────────────
     for (let i = 0; i < commands.length; i++) {
       const { cmd, desc } = commands[i];
       send("step", { index: i, total: commands.length, cmd, desc });
-
-      try {
-        const result = await sshExec(
-          s.host, s.port, s.username, s.authType ?? "key",
-          s.privateKey, s.password,
-          cmd,
-          (chunk) => send("output", { index: i, chunk }),
-        );
-        send("step_done", { index: i, code: result.code, stderr: result.stderr });
-      } catch (err: unknown) {
-        send("step_error", { index: i, error: String(err instanceof Error ? err.message : err) });
+      const result = await runSSH(cmd, (chunk) => send("output", { index: i, chunk }));
+      if (result.code === -1) {
+        send("step_error", { index: i, error: result.stderr });
         break;
       }
+      send("step_done", { index: i, code: result.code, stderr: result.stderr });
     }
 
     send("done", { value: "All commands completed" });

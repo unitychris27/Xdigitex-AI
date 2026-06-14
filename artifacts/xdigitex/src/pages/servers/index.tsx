@@ -427,19 +427,24 @@ function TerminalDialog({ server, onClose }: { server: ServerRow; onClose: () =>
 function AgentDialog({ server, onClose }: { server: ServerRow; onClose: () => void }) {
   const [task, setTask]         = useState("");
   const [mode, setMode]         = useState<"economy" | "balanced" | "high-power">("balanced");
-  const [running, setRunning]   = useState(false);
-  const [plan, setPlan]         = useState<AgentStep[]>([]);
-  const [current, setCurrent]   = useState(-1);
-  const [done, setDone]         = useState(false);
-  const [lines, setLines]       = useState<TerminalLine[]>([]);
+  const [running, setRunning]         = useState(false);
+  const [phase, setPhase]             = useState<"idle" | "discovering" | "planning" | "executing" | "done">("idle");
+  const [statusMsg, setStatusMsg]     = useState("");
+  const [discovery, setDiscovery]     = useState("");
+  const [plan, setPlan]               = useState<AgentStep[]>([]);
+  const [stepsDone, setStepsDone]     = useState<Record<number, "ok" | "err">>({});
+  const [current, setCurrent]         = useState(-1);
+  const [done, setDone]               = useState(false);
+  const [lines, setLines]             = useState<TerminalLine[]>([]);
 
   const add = (l: TerminalLine) => setLines(prev => [...prev, l]);
 
   const runAgent = async () => {
     if (!task.trim() || running) return;
-    setRunning(true); setPlan([]); setCurrent(-1); setDone(false); setLines([]);
-    add({ kind: "info", text: `Task: ${task}` });
-    add({ kind: "info", text: "Planning commands…" });
+    setRunning(true);
+    setPhase("discovering");
+    setPlan([]); setStepsDone({}); setCurrent(-1); setDone(false);
+    setLines([]); setDiscovery(""); setStatusMsg("");
 
     const BASE = import.meta.env.BASE_URL?.replace(/\/$/, "") ?? "";
     try {
@@ -465,9 +470,17 @@ function AgentDialog({ server, onClose }: { server: ServerRow; onClose: () => vo
           if (!line) continue;
           try {
             const msg = JSON.parse(line);
-            if (msg.type === "plan") {
+            if (msg.type === "status") {
+              setStatusMsg(msg.value);
+              const v: string = msg.value ?? "";
+              if (v.includes("Discover")) setPhase("discovering");
+              else if (v.includes("Planning")) setPhase("planning");
+            } else if (msg.type === "discovery") {
+              setDiscovery(msg.output ?? "");
+              setPhase("planning");
+            } else if (msg.type === "plan") {
               setPlan(msg.commands);
-              add({ kind: "info", text: `Plan ready — ${msg.commands.length} command(s)` });
+              setPhase("executing");
             } else if (msg.type === "step") {
               setCurrent(msg.index);
               add({ kind: "cmd", text: `[${msg.index + 1}/${msg.total}] ${msg.cmd}` });
@@ -476,48 +489,64 @@ function AgentDialog({ server, onClose }: { server: ServerRow; onClose: () => vo
               msg.chunk.split("\n").filter(Boolean).forEach((t: string) => add({ kind: "out", text: t }));
             } else if (msg.type === "step_done") {
               const ok = msg.code === 0;
-              add({ kind: ok ? "ok" : "err", text: ok ? "✓ done" : `✗ exit ${msg.code}` });
+              setStepsDone(p => ({ ...p, [msg.index]: ok ? "ok" : "err" }));
+              add({ kind: ok ? "ok" : "err", text: ok ? "✓ done" : `✗ exit ${msg.code}${msg.stderr ? ` — ${msg.stderr.trim()}` : ""}` });
             } else if (msg.type === "step_error") {
-              add({ kind: "err", text: `✗ ${msg.error}` });
+              setStepsDone(p => ({ ...p, [msg.index ?? current]: "err" }));
+              add({ kind: "err", text: `✗ SSH error: ${msg.error}` });
             } else if (msg.type === "done") {
               add({ kind: "ok", text: "✓ All commands completed" });
-              setDone(true); setCurrent(-1);
+              setDone(true); setCurrent(-1); setPhase("done");
             } else if (msg.type === "error") {
               add({ kind: "err", text: `Error: ${msg.value}` });
+              setPhase("idle");
             }
           } catch { /* skip malformed */ }
         }
       }
     } catch (e: unknown) {
       add({ kind: "err", text: String(e instanceof Error ? e.message : e) });
+      setPhase("idle");
     } finally { setRunning(false); }
   };
 
   const modeLabels: Record<string, string> = { economy: "Fast", balanced: "Default", "high-power": "Max" };
 
+  const phaseLabel: Record<string, string> = {
+    discovering: "🔍 Discovering server…",
+    planning:    "🤖 Planning actions…",
+    executing:   "⚡ Executing…",
+    done:        "✓ Done",
+    idle:        "",
+  };
+
   return (
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Bot className="w-5 h-5 text-purple-400" />
+          <DialogTitle className="flex items-center gap-2 flex-wrap">
+            <Bot className="w-5 h-5 text-purple-400 shrink-0" />
             AI SSH Agent — {server.name}
-            <span className="font-mono text-sm text-muted-foreground font-normal">({server.username}@{server.host})</span>
+            <span className="font-mono text-xs text-muted-foreground font-normal">({server.username}@{server.host})</span>
+            {phase !== "idle" && (
+              <span className={`ml-auto text-xs px-2 py-0.5 rounded-full font-medium ${
+                phase === "done"
+                  ? "bg-green-500/15 text-green-400"
+                  : "bg-purple-500/15 text-purple-300 animate-pulse"
+              }`}>
+                {phaseLabel[phase]}
+              </span>
+            )}
           </DialogTitle>
         </DialogHeader>
 
         {/* Mode selector */}
         <div className="flex gap-2">
           {(["economy", "balanced", "high-power"] as const).map(m => (
-            <button
-              key={m}
-              onClick={() => setMode(m)}
+            <button key={m} onClick={() => setMode(m)}
               className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
-                mode === m
-                  ? "bg-purple-600 text-white"
-                  : "bg-muted text-muted-foreground hover:bg-muted/80"
-              }`}
-            >
+                mode === m ? "bg-purple-600 text-white" : "bg-muted text-muted-foreground hover:bg-muted/80"
+              }`}>
               {modeLabels[m]}
             </button>
           ))}
@@ -527,56 +556,88 @@ function AgentDialog({ server, onClose }: { server: ServerRow; onClose: () => vo
         <div className="flex gap-2">
           <Textarea
             className="resize-none text-sm min-h-[60px]"
-            placeholder="e.g. Check disk space and clean old logs older than 30 days"
+            placeholder="e.g. Fix index.php in novaspack.com  /  restart nginx  /  clean logs older than 30 days"
             value={task}
             onChange={e => setTask(e.target.value)}
             disabled={running}
             onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); runAgent(); } }}
           />
-          <Button
-            className="h-full px-4 bg-purple-600 hover:bg-purple-500"
-            disabled={running || !task.trim()}
-            onClick={runAgent}
-          >
+          <Button className="h-full px-4 bg-purple-600 hover:bg-purple-500"
+            disabled={running || !task.trim()} onClick={runAgent}>
             {running ? <Loader2 className="w-5 h-5 animate-spin" /> : <Play className="w-5 h-5" />}
           </Button>
         </div>
 
-        {/* Plan sidebar + terminal */}
-        {(plan.length > 0 || lines.length > 0) && (
-          <div className="space-y-3">
-            {plan.length > 0 && (
-              <div className="border border-border rounded-lg divide-y divide-border text-xs">
-                {plan.map((p, i) => (
-                  <div key={i} className={`flex items-start gap-2 px-3 py-2 transition-colors ${
-                    current === i ? "bg-purple-500/10" : done && i < plan.length ? "opacity-60" : ""
-                  }`}>
-                    <div className="mt-0.5 shrink-0">
-                      {current === i ? (
-                        <Loader2 className="w-3.5 h-3.5 text-purple-400 animate-spin" />
-                      ) : done || current > i ? (
-                        <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />
-                      ) : (
-                        <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
-                      )}
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-muted-foreground">{p.desc}</div>
-                      <div className="font-mono text-zinc-500 truncate">{p.cmd}</div>
-                    </div>
+        {/* Discovery output */}
+        {discovery && (
+          <details className="group">
+            <summary className="flex items-center gap-1.5 text-xs text-zinc-500 cursor-pointer select-none hover:text-zinc-300 transition-colors">
+              <RefreshCw className="w-3 h-3" />
+              Server discovery output
+              <span className="ml-auto text-zinc-600 group-open:hidden">▸ show</span>
+              <span className="ml-auto text-zinc-600 hidden group-open:inline">▾ hide</span>
+            </summary>
+            <pre className="mt-2 bg-black/80 border border-zinc-800 rounded-lg p-3 text-[11px] font-mono text-zinc-400 overflow-x-auto whitespace-pre-wrap max-h-40 overflow-y-auto">
+              {discovery}
+            </pre>
+          </details>
+        )}
+
+        {/* Plan steps */}
+        {plan.length > 0 && (
+          <div className="border border-border rounded-lg divide-y divide-border text-xs">
+            {plan.map((p, i) => {
+              const st = stepsDone[i];
+              const isActive = current === i;
+              return (
+                <div key={i} className={`flex items-start gap-2 px-3 py-2 transition-colors ${
+                  isActive ? "bg-purple-500/10" : st === "err" ? "bg-red-500/5" : ""
+                }`}>
+                  <div className="mt-0.5 shrink-0">
+                    {isActive ? (
+                      <Loader2 className="w-3.5 h-3.5 text-purple-400 animate-spin" />
+                    ) : st === "ok" ? (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />
+                    ) : st === "err" ? (
+                      <XCircle className="w-3.5 h-3.5 text-red-400" />
+                    ) : (
+                      <ChevronRight className="w-3.5 h-3.5 text-zinc-600" />
+                    )}
                   </div>
-                ))}
-              </div>
-            )}
-            <TerminalView lines={lines} loading={running && current >= 0} />
+                  <div className="min-w-0 flex-1">
+                    <div className={`${st === "err" ? "text-red-300" : "text-muted-foreground"}`}>{p.desc}</div>
+                    <div className="font-mono text-zinc-600 text-[10px] truncate mt-0.5">{p.cmd}</div>
+                  </div>
+                  {st && (
+                    <span className={`shrink-0 text-[10px] ${st === "ok" ? "text-green-500" : "text-red-400"}`}>
+                      {st === "ok" ? "done" : "failed"}
+                    </span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Terminal output */}
+        {lines.length > 0 && (
+          <TerminalView lines={lines} loading={running && current >= 0} />
+        )}
+
+        {/* Status while discovering/planning (no lines yet) */}
+        {running && lines.length === 0 && statusMsg && (
+          <div className="flex items-center gap-2 text-sm text-zinc-400 py-2">
+            <Loader2 className="w-4 h-4 animate-spin text-purple-400" />
+            {statusMsg}
           </div>
         )}
 
         {done && (
           <div className="flex items-center gap-2 text-sm text-green-400 bg-green-500/10 border border-green-500/20 rounded-lg px-4 py-2">
             <CheckCircle2 className="w-4 h-4 shrink-0" />
-            Task completed successfully
-            <Button size="sm" variant="ghost" className="ml-auto text-xs" onClick={() => { setTask(""); setPlan([]); setLines([]); setDone(false); }}>
+            Task completed
+            <Button size="sm" variant="ghost" className="ml-auto text-xs"
+              onClick={() => { setTask(""); setPlan([]); setLines([]); setDone(false); setPhase("idle"); setDiscovery(""); setStepsDone({}); }}>
               New task
             </Button>
           </div>
