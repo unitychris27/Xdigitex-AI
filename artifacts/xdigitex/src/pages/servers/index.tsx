@@ -423,8 +423,8 @@ function TerminalDialog({ server, onClose }: { server: ServerRow; onClose: () =>
 
 // ─── AI Coding Agent Chat Dialog ──────────────────────────────────────────────
 
-const MODE_LABELS: Record<string, string> = { economy: "⚡ Fast", balanced: "🧠 Default", "high-power": "🚀 Max" };
-const MODE_DESCS:  Record<string, string> = { economy: "Gemini Flash", balanced: "DeepSeek", "high-power": "GPT-4o" };
+const MODE_LABELS: Record<string, string> = { economy: "⚡ Fast", balanced: "🧠 Smart", "high-power": "🚀 Max" };
+const MODE_DESCS:  Record<string, string> = { economy: "Fastest — good for simple tasks", balanced: "Balanced speed and power", "high-power": "Most capable — best for complex builds" };
 
 function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: () => void }) {
   const [mode, setMode]         = useState<"economy" | "balanced" | "high-power">("high-power");
@@ -777,7 +777,7 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
             </Button>
           </div>
           <div className="mt-1.5 text-[10px] text-zinc-600 text-center">
-            {MODE_DESCS[mode]} · Agent SSHes into your server and works autonomously
+            {MODE_DESCS[mode]}
           </div>
         </div>
       </DialogContent>
