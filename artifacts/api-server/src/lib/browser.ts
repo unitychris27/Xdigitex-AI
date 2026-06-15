@@ -1,4 +1,28 @@
 import { chromium, type Page, type Browser } from "playwright";
+import { execSync } from "child_process";
+import { existsSync } from "fs";
+
+// ─── Auto-install Chromium if missing (runs once on first use) ───────────────
+let browserReady = false;
+function ensureBrowser(): void {
+  if (browserReady) return;
+  try {
+    // Quick check: does the executable exist?
+    const execPath = chromium.executablePath();
+    if (!existsSync(execPath)) {
+      console.log("[browser] Chromium not found, installing...");
+      execSync("npx playwright install chromium --with-deps", {
+        stdio: "inherit",
+        timeout: 120_000,
+      });
+      console.log("[browser] Chromium installed.");
+    }
+    browserReady = true;
+  } catch (e) {
+    console.error("[browser] Auto-install failed:", e);
+    // Don't throw — let launch() fail with its own message
+  }
+}
 
 // ─── Step types ───────────────────────────────────────────────────────────────
 export type BrowserStep =
@@ -75,6 +99,7 @@ export async function runBrowserSteps(
   steps: BrowserStep[],
   onResult: (r: BrowserStepResult) => void,
 ): Promise<void> {
+  ensureBrowser();
   let browser: Browser | undefined;
 
   try {
