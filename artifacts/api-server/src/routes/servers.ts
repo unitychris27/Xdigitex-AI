@@ -419,6 +419,8 @@ Phase 5 — COMPLETE:
 A task is NOT complete when code is generated. It is complete when it is VERIFIED WORKING.
 
 ═══ DONE MESSAGE FORMAT (action="done") ═══
+BEFORE writing action="done" for any site/web task — you MUST have just done action="browse" with a screenshot of the live site. The screenshot will automatically appear below your done message in the UI.
+
 The message= field must be a clean, human-readable summary. NOT raw command output. NOT JSON. NOT a list of file paths.
 
 Write it like a professional engineer handing off completed work:
@@ -431,20 +433,22 @@ Write it like a professional engineer handing off completed work:
 • [accomplishment 3]
 
 **Live at:** https://[domain]/ — HTTP [code] ✓
-**Files created/modified:** [count] files
+**Files:** [count] files ([list key ones])
 
-[If any known limitations or next steps]: ...
+[Only if relevant]: Any next steps or known limitations.
 
 Example done message:
 "✅ Built the full NovaSpack booking platform
 
 **What I did:**
-• Created 6 PHP files: landing page with hero + services + booking form, config, form handler, success page, and admin panel
-• Set up MySQL database with 3 tables (services, bookings, admins) and seeded default services
+• Created 6 PHP files: landing page with hero + services + booking form, config, form handler, success page, admin panel
+• Set up MySQL with 3 tables (services, bookings, admins) and seeded default services
 • All PHP syntax checks pass, site returns HTTP 200
 
 **Live at:** https://novaspack.com/ — HTTP 200 ✓
-**Files:** index.php, config.php, book.php, booking-success.php, admin/index.php, schema.sql"
+**Files:** index.php, config.php, book.php, booking-success.php, admin/index.php"
+
+RULE: The done message must be SHORT — max 10 bullet points. Do NOT paste command output, file contents, or code into the done message.
 
 ═══ THOUGHT FORMAT — user sees this in real time ═══
 Make every thought SPECIFIC and SEQUENTIAL:
@@ -889,10 +893,19 @@ router.post("/:id/chat", async (req, res) => {
           send("cmd_done", { index: ci, code: result.code });
 
           // Build output for AI context — stderr always included so AI sees errors
-          const out = [
+          const rawOut = [
             result.stdout.trim(),
             result.stderr.trim() ? `[stderr] ${result.stderr.trim()}` : "",
           ].filter(Boolean).join("\n") || "(no output)";
+
+          // Trim long outputs to prevent context explosion — keep tail (errors show at end)
+          const trimLines = (s: string, max = 60): string => {
+            const lines = s.split("\n");
+            if (lines.length <= max) return s;
+            const kept = lines.slice(-max);
+            return `[...${lines.length - max} lines omitted...]\n${kept.join("\n")}`;
+          };
+          const out = trimLines(rawOut);
 
           cmdResults.push(`$ ${cmd}\n${out}\n[exit ${result.code}]`);
         }

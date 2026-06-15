@@ -837,25 +837,48 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
               </div>
             );
 
-            if (m.kind === "reply" || m.kind === "done") return (
-              <div key={i} className="flex items-start gap-2">
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
-                  m.kind === "done" ? "bg-green-600/20" : "bg-purple-600/20"
-                }`}>
-                  {m.kind === "done"
-                    ? <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />
-                    : <Sparkles className="w-3 h-3 text-purple-400" />
-                  }
+            if (m.kind === "reply" || m.kind === "done") {
+              // For done messages, find the last browser screenshot in this same turn
+              const lastShot = m.kind === "done"
+                ? (() => {
+                    for (let j = i - 1; j >= 0; j--) {
+                      if (msgs[j].kind === "user") break; // stop at turn boundary
+                      if (msgs[j].kind === "browser_shot") return msgs[j] as { kind: "browser_shot"; label: string; data: string };
+                    }
+                    return null;
+                  })()
+                : null;
+
+              return (
+                <div key={i} className="flex items-start gap-2">
+                  <div className={`w-6 h-6 rounded-full flex items-center justify-center shrink-0 mt-0.5 ${
+                    m.kind === "done" ? "bg-green-600/20" : "bg-purple-600/20"
+                  }`}>
+                    {m.kind === "done"
+                      ? <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />
+                      : <Sparkles className="w-3 h-3 text-purple-400" />
+                    }
+                  </div>
+                  <div className={`max-w-[85%] rounded-2xl rounded-tl-sm px-4 py-3 text-sm ${
+                    m.kind === "done"
+                      ? "bg-green-500/10 border border-green-500/20 text-green-300"
+                      : "bg-card border border-border text-foreground"
+                  }`}>
+                    <span className="whitespace-pre-wrap">{m.text}</span>
+                    {lastShot && (
+                      <div className="mt-3 border border-green-500/20 rounded-xl overflow-hidden">
+                        <div className="px-2 py-1 bg-green-500/10 text-[10px] text-green-400/70 font-mono">{lastShot.label}</div>
+                        <img
+                          src={`data:image/jpeg;base64,${lastShot.data}`}
+                          alt={lastShot.label}
+                          className="w-full block"
+                        />
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className={`max-w-[85%] rounded-2xl rounded-tl-sm px-4 py-3 text-sm whitespace-pre-wrap ${
-                  m.kind === "done"
-                    ? "bg-green-500/10 border border-green-500/20 text-green-300"
-                    : "bg-card border border-border text-foreground"
-                }`}>
-                  {m.text}
-                </div>
-              </div>
-            );
+              );
+            }
 
             if (m.kind === "error") return (
               <div key={i} className="flex items-start gap-2">
