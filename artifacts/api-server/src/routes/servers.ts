@@ -643,6 +643,20 @@ ls -la /absolute/path/index.php
 ⚠️  Split VERY large files into 2 python3 blocks using append mode:
     with open('/path/file.php', 'a') as f: f.write(part2)  ← 'a' = append
 
+BATCH SIZE LIMITS — critical, always follow:
+❌ NEVER put more than 3 files in a single python3 block
+❌ NEVER put a file larger than ~15KB inside a python3 block — split it across 2 blocks
+❌ NEVER try to write a full 20-table SQL schema in one command — split into 2-3 parts
+✅ Write files in batches of 2-3, verify each batch, then continue with the next batch
+✅ For large SQL schemas: write 8-10 tables per run action using append mode
+✅ After EACH batch: ls -la to confirm file sizes match expectations before continuing
+
+SCHEMA WRITING PATTERN — for large SQL (>5 tables):
+Run 1: Create schema.sql with first 8 tables (write mode 'w')
+Run 2: Append next 8 tables (append mode 'a')  
+Run 3: Import full schema: mysql -u USER -p'PASS' DB < /path/schema.sql 2>&1
+This prevents mid-command truncation that leaves empty files on disk.
+
 ═══ BROWSER AGENT — control a real browser (for web UIs SSH cannot reach) ═══
 Use action="browse" when you need to click through a web interface:
 - Creating/managing MySQL databases in cPanel (cPanel web UI required)
@@ -846,7 +860,7 @@ router.post("/:id/chat", async (req, res) => {
         model,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         messages: aiMessages as any[],
-        max_tokens: 4000,
+        max_tokens: 8000,
         temperature: 0.1,
       });
 
