@@ -49,7 +49,10 @@ function sshExec(
     let stderr = "";
 
     client.on("ready", () => {
-      client.exec(command, (err, stream) => {
+      // Normalize literal \n (two chars: backslash + n) to real newlines.
+      // This happens when the AI encodes heredocs with \\n instead of \n in JSON.
+      const normalizedCommand = command.replace(/\\n/g, "\n");
+      client.exec(normalizedCommand, (err, stream) => {
         if (err) { client.end(); return reject(err); }
         stream.on("data", (d: Buffer) => {
           const s = d.toString();

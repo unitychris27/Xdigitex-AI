@@ -732,7 +732,7 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
             </div>
             <div className="min-w-0">
               <div className="font-semibold text-sm flex items-center gap-2">
-                XDIGITEX Coding Agent
+                Xdigitex AI
                 <StatusDot s={server.status} />
                 <span className="text-xs font-normal text-muted-foreground font-mono">{server.username}@{server.host}</span>
               </div>
