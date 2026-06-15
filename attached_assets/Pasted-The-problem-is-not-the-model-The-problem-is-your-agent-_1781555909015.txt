@@ -1,0 +1,409 @@
+The problem is not the model. The problem is your **agent execution strategy**.
+
+Your prompt is asking the AI to generate:
+
+* 20+ database tables
+* 100+ PHP files
+* Authentication
+* Advertiser dashboard
+* Publisher dashboard
+* Ad server
+* Wallets
+* Payments
+* AI modules
+* API docs
+* Deployment guide
+
+in **one task**.
+
+No coding agent (OpenHands, OpenDevin, Claude Code, Cursor, Roo Code, Cline, Aider) will reliably finish that in one run.
+
+What happens:
+
+```text
+User Prompt
+      ↓
+Planner creates huge plan
+      ↓
+Agent starts writing
+      ↓
+Context grows
+      ↓
+Token limit reached
+      ↓
+Agent loses state
+      ↓
+Stops halfway
+```
+
+---
+
+# Fix 1: Force Phase-Based Development
+
+Never allow:
+
+```text
+Build complete advertising network
+```
+
+Instead:
+
+```text
+PHASE 1
+
+Create:
+
+- Database schema
+- MVC framework
+- Authentication
+- Admin login
+
+Nothing else.
+
+When complete:
+- Test
+- Fix errors
+- Commit
+
+Stop.
+```
+
+Then:
+
+```text
+PHASE 2
+
+Create:
+
+- Advertiser dashboard
+- Campaign CRUD
+- Ad CRUD
+
+Nothing else.
+
+Stop.
+```
+
+Then:
+
+```text
+PHASE 3
+
+Create:
+
+- Publisher dashboard
+- Websites
+- Ad zones
+
+Stop.
+```
+
+Then:
+
+```text
+PHASE 4
+
+Create:
+
+- Tracking
+- Impressions
+- Clicks
+- Conversions
+
+Stop.
+```
+
+This alone increases success rate dramatically.
+
+---
+
+# Fix 2: Hard File Limits
+
+Add this to your system prompt:
+
+```text
+Never generate more than 20 files in a single execution.
+
+If more files are needed:
+
+1. Create first batch
+2. Verify batch
+3. Save state
+4. Ask system for next batch
+
+Continue until complete.
+```
+
+---
+
+# Fix 3: Force Task Queue
+
+Your agent should create:
+
+```text
+project_tasks
+```
+
+Example:
+
+```json
+[
+  {
+    "id":1,
+    "task":"Database Schema",
+    "status":"done"
+  },
+  {
+    "id":2,
+    "task":"Authentication",
+    "status":"running"
+  },
+  {
+    "id":3,
+    "task":"Advertiser Dashboard",
+    "status":"pending"
+  }
+]
+```
+
+When context is reloaded:
+
+```text
+Load project_tasks
+Continue unfinished task
+```
+
+instead of starting over.
+
+---
+
+# Fix 4: Add Checkpoints
+
+After every major operation:
+
+```text
+Save Snapshot
+```
+
+Store:
+
+```json
+{
+  "files_created": [
+    "controllers/AuthController.php",
+    "models/User.php"
+  ],
+  "completed_tasks":[
+    "Authentication"
+  ],
+  "next_task":"Admin Dashboard"
+}
+```
+
+When AI restarts:
+
+```text
+Restore Snapshot
+Continue
+```
+
+---
+
+# Fix 5: Force Patch Mode
+
+Currently your AI does:
+
+```text
+Rewrite whole file
+```
+
+This is terrible.
+
+Instead:
+
+```text
+User:
+Add forgot password.
+
+Agent:
+
+Files affected:
+- AuthController.php
+- login.php
+
+Patch only these files.
+
+Do not rewrite unrelated code.
+```
+
+Use an Aider-style diff approach:
+
+```diff
++ public function forgotPassword()
+{
+}
+```
+
+instead of replacing entire files.
+
+---
+
+# Fix 6: Add Autonomous Retry
+
+When command fails:
+
+```text
+Attempt 1
+Fail
+
+Read logs
+
+Attempt 2
+Fail
+
+Read logs
+
+Attempt 3
+Success
+```
+
+Many agents simply do:
+
+```text
+Fail
+Stop
+```
+
+which is why they feel dumb.
+
+---
+
+# Fix 7: Force Real Progress Tracking
+
+Show:
+
+```text
+Project Progress
+
+██████░░░░░░░░░ 35%
+
+Completed
+✓ Database
+✓ MVC
+✓ Authentication
+
+In Progress
+• Admin Dashboard
+
+Pending
+• Publisher
+• Payments
+• AI
+```
+
+instead of endless thinking messages.
+
+---
+
+# Fix 8: Limit Planning Tokens
+
+Your planner is spending thousands of tokens thinking.
+
+Add:
+
+```text
+Planner maximum:
+1000 tokens
+
+Developer maximum:
+5000 tokens
+
+Reviewer maximum:
+2000 tokens
+```
+
+Otherwise the planner consumes the whole context window.
+
+---
+
+# Fix 9: Auto-Split Large Requests
+
+When prompt exceeds complexity threshold:
+
+```text
+Complexity Score = 95/100
+
+Automatically split into:
+
+Phase 1
+Phase 2
+Phase 3
+Phase 4
+Phase 5
+
+Execute sequentially.
+```
+
+Never execute all phases together.
+
+---
+
+# Fix 10: Build Like OpenHands
+
+Study:
+
+[OpenHands](https://github.com/OpenHands/OpenHands?utm_source=chatgpt.com)
+
+Specifically copy:
+
+```text
+Planner
+↓
+Executor
+↓
+Filesystem
+↓
+Terminal
+↓
+Reviewer
+↓
+Loop
+```
+
+Your current agent appears to be:
+
+```text
+Prompt
+↓
+Think
+↓
+Write
+↓
+Context Overflow
+↓
+Stop
+```
+
+which is exactly why long prompts fail.
+
+### The rule I'd add immediately
+
+```text
+If estimated project size exceeds 50 files:
+
+DO NOT BUILD ENTIRE PROJECT.
+
+Create execution plan.
+
+Build only next phase.
+
+Verify.
+
+Save checkpoint.
+
+Stop.
+
+Wait for continuation.
+```
+
+That single rule usually fixes 70–80% of "agent started coding then stopped" problems.

@@ -13,7 +13,7 @@ import {
   Server, Plus, Terminal, Bot, Wifi, Loader2, Play, Trash2,
   CheckCircle2, XCircle, Key, Lock, Send, Sparkles,
   ChevronDown, ChevronRight, RotateCcw, X, Paperclip, FileArchive,
-  History, Zap, Clock,
+  History, Zap, Clock, FileText,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -442,6 +442,7 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
   const [input, setInput]       = useState("");
   const [running, setRunning]   = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [pastedPrompt, setPastedPrompt] = useState<{ content: string; chars: number } | null>(null);
   // Live status: what the agent is doing RIGHT NOW
   const [liveOp, setLiveOp]     = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -498,14 +499,26 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
   };
 
   const sendMessage = async () => {
-    if (!input.trim() || running) return;
-    const userText = input.trim();
+    const hasContent = input.trim() || pastedPrompt;
+    if (!hasContent || running) return;
+
+    // Full content sent to AI — pasted prompt + any extra typed text
+    const fullText = pastedPrompt
+      ? pastedPrompt.content + (input.trim() ? `\n\n${input.trim()}` : "")
+      : input.trim();
+
+    // Short display shown in chat bubble
+    const displayText = pastedPrompt
+      ? `📄 Long prompt (${pastedPrompt.chars.toLocaleString()} chars)${input.trim() ? `\n\n${input.trim()}` : ""}`
+      : fullText;
+
     setInput("");
+    setPastedPrompt(null);
     setRunning(true);
 
     // Add user message to display + AI history
-    addMsg({ kind: "user", text: userText });
-    const newHistory: AIMsg[] = [...aiHistory, { role: "user", content: userText }];
+    addMsg({ kind: "user", text: displayText });
+    const newHistory: AIMsg[] = [...aiHistory, { role: "user", content: fullText }];
     setAiHistory(newHistory);
 
     // Build rich AI history for the next conversation turn
@@ -936,6 +949,18 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
               Conversation is live — reply to continue, ask for more, or say "now fix it"
             </div>
           )}
+          {/* Pasted long-prompt chip */}
+          {pastedPrompt && (
+            <div className="mb-2 flex items-center gap-2 bg-purple-500/10 border border-purple-500/20 rounded-lg px-3 py-1.5 text-xs text-purple-300">
+              <FileText className="w-3.5 h-3.5 shrink-0 text-purple-400" />
+              <span className="flex-1 font-mono">prompt.txt — {pastedPrompt.chars.toLocaleString()} chars</span>
+              <button
+                onClick={() => setPastedPrompt(null)}
+                className="text-purple-400/60 hover:text-purple-200 transition-colors leading-none"
+                title="Remove"
+              >✕</button>
+            </div>
+          )}
           <div className="flex gap-2 items-end">
             {/* Hidden file input for zip upload */}
             <input
@@ -964,18 +989,26 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
               }`}
               placeholder={
                 running ? "Agent is working…" :
-                msgs.length > 0 ? "Reply, ask a follow-up, or say 'now fix it'…" :
+                pastedPrompt ? "Add extra instructions (optional)…" :
+                msgs.length > 0 ? "Reply, ask a follow-up, or say 'continue'…" :
                 "Ask me to fix, build, or diagnose anything… (📎 upload a ZIP to deploy files)"
               }
               value={input}
               onChange={e => setInput(e.target.value)}
               onKeyDown={handleKey}
+              onPaste={e => {
+                const text = e.clipboardData.getData("text");
+                if (text.length > 1500) {
+                  e.preventDefault();
+                  setPastedPrompt({ content: text, chars: text.length });
+                }
+              }}
               disabled={running}
               rows={1}
             />
             <Button
               className="h-11 px-4 bg-purple-600 hover:bg-purple-500 shrink-0"
-              disabled={running || !input.trim()}
+              disabled={running || (!input.trim() && !pastedPrompt)}
               onClick={sendMessage}
             >
               {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}

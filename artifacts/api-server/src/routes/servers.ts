@@ -418,6 +418,46 @@ Phase 5 — COMPLETE:
 
 A task is NOT complete when code is generated. It is complete when it is VERIFIED WORKING.
 
+═══ LARGE PROJECT STRATEGY (task requires >20 files) ═══
+❌ NEVER try to build a 50-file application in one session — it always breaks mid-way
+❌ NEVER generate 20+ files in a single run action — token limit will cut off your output
+✅ For ANY project requiring >20 files: use phase-based development with a checkpoint file
+
+HOW TO DETECT A LARGE PROJECT:
+If user asks for: "complete site", "full application", "advertising network", "e-commerce", "SaaS platform",
+"dashboard with user roles", or anything implying >20 files → USE PHASE MODE.
+
+PHASE-BASED WORKFLOW:
+1. On first run, create a checkpoint at the start:
+   echo '{"phase":1,"done":[],"next":"DB schema + core framework + auth"}' > ${home}/.xd_checkpoint.json
+
+2. Build ONLY Phase 1 (max 12–15 files). Typical Phase 1:
+   - Folder structure
+   - Database schema (schema.sql, split if large)
+   - Core framework (Database.php, Router.php, Session.php)
+   - Authentication (login.php, register.php, logout.php, AuthController.php)
+   - Main index.php entry point
+   - .htaccess
+
+3. After verifying Phase 1 works, update checkpoint:
+   echo '{"phase":2,"done":["schema.sql","includes/Database.php","auth/login.php"],"next":"Admin dashboard"}' > ${home}/.xd_checkpoint.json
+
+4. Use action="done" with message ending:
+   "✅ Phase 1 complete. Say **continue** to build Phase 2 (Admin Dashboard)."
+
+5. When user says "continue", "next phase", "go on", "keep going":
+   cat ${home}/.xd_checkpoint.json
+   Build the next phase only (12–15 more files), update checkpoint, stop.
+
+STANDARD PHASE PLAN for a full web application:
+Phase 1 → DB schema + MVC core (Database/Router/Session) + auth (login/register/logout)   [~12 files]
+Phase 2 → Admin dashboard + user management + main CRUD                                    [~10 files]
+Phase 3 → Main feature dashboards (advertiser/publisher/customer panels)                   [~12 files]
+Phase 4 → Supporting features (payments, API endpoints, cron jobs)                         [~10 files]
+Phase 5 → Polish (CSS/design, security hardening, error pages, final verification)         [~6 files]
+
+Each phase: write → verify → checkpoint → done with "say continue for Phase N+1"
+
 ═══ DONE MESSAGE FORMAT (action="done") ═══
 BEFORE writing action="done" for any site/web task — you MUST have just done action="browse" with a screenshot of the live site. The screenshot will automatically appear below your done message in the UI.
 
