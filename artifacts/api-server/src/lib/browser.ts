@@ -2,23 +2,17 @@ import { chromium, type Page, type Browser } from "playwright";
 import { execSync } from "child_process";
 import { existsSync } from "fs";
 
-// ─── Consistent browser cache path — must match browser:setup script ─────────
-const BROWSERS_PATH = "/home/runner/workspace/.cache";
-
 // ─── Auto-install Chromium if missing (runs once on first use) ───────────────
 let browserReady = false;
 function ensureBrowser(): void {
   if (browserReady) return;
-  // Lock path before ANY chromium.* call so install + launch use same dir
-  process.env["PLAYWRIGHT_BROWSERS_PATH"] = BROWSERS_PATH;
+  // Do NOT override PLAYWRIGHT_BROWSERS_PATH — let Playwright use its default
+  // so that install (browser:setup script) and launch both resolve the same path.
   try {
     const execPath = chromium.executablePath();
     if (!existsSync(execPath)) {
       console.log("[browser] Chromium not found at", execPath, "— installing...");
-      execSync(
-        `PLAYWRIGHT_BROWSERS_PATH=${BROWSERS_PATH} npx playwright install chromium`,
-        { stdio: "inherit", timeout: 120_000 },
-      );
+      execSync("npx playwright install chromium", { stdio: "inherit", timeout: 120_000 });
       console.log("[browser] Chromium installed.");
     } else {
       console.log("[browser] Chromium ready at", execPath);
@@ -26,7 +20,6 @@ function ensureBrowser(): void {
     browserReady = true;
   } catch (e) {
     console.error("[browser] Setup error:", e);
-    // Don't throw — let launch() produce its own actionable error
   }
 }
 
