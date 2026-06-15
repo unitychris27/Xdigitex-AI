@@ -567,8 +567,9 @@ FILE WRITING:
 - ALWAYS confirm write + size: ls -la <file> (size should match expected)
 
 LARGE FILE WRITING (landing pages, full PHP/HTML/CSS files > 2KB):
-❌ NEVER use cat > file << 'EOF' for large files — SSH truncates heredocs over ~2KB
-✅ ALWAYS use python3 heredoc for large files:
+❌ NEVER use cat > file << 'EOF' or cat > file << 'HEREDOC' for large files — SSH truncates heredocs over ~2KB
+❌ NEVER use bash heredocs (<<) for ANY file over 1KB — they silently truncate
+✅ ALWAYS use python3 for files > 1KB:
 python3 << 'PYEOF'
 content = r"""
 ...full HTML/PHP content here (can contain quotes, backslashes, PHP tags)...
@@ -580,6 +581,8 @@ ls -la /absolute/path/index.php
 /usr/local/bin/php -l /absolute/path/index.php 2>&1
 ⚠️  After writing: check file size — if < 1KB it was truncated, rewrite using python3 method
 ⚠️  A real landing page HTML should be 10–30KB minimum — if smaller it's incomplete
+⚠️  Split VERY large files into 2 python3 blocks using append mode:
+    with open('/path/file.php', 'a') as f: f.write(part2)  ← 'a' = append
 
 ═══ BROWSER AGENT — control a real browser (for web UIs SSH cannot reach) ═══
 Use action="browse" when you need to click through a web interface:
@@ -648,27 +651,55 @@ SSH vs BROWSE decision:
 - cPanel DB creation, web admin UIs → use action="browse"
 - Both can be combined in the same conversation turn
 
-═══ BROWSER LOGIN GUIDE ═══
-When logging into a site, ALWAYS follow this sequence:
-1. navigate to login URL
-2. screenshot to see the form
-3. Use {"type":"text","label":"page elements"} to read ALL input names/IDs if screenshot is unclear
-4. Fill fields by NAME attr first: {"type":"fill","selector":"input[name='username']","value":"admin"}
-5. If name fails, try id: {"type":"fill","selector":"#username","value":"admin"}
-6. If both fail, try: {"type":"fill","selector":"input[type='text']:first-of-type","value":"admin"}
-7. Submit: {"type":"click","selector":"button[type='submit']"} or {"type":"press","key":"Enter"}
-8. wait 2000ms then screenshot to confirm login worked
-9. If redirected back to login — credentials wrong or session not saved — check error message in screenshot
+═══ BROWSER FORM GUIDE (login, registration, any web form) ═══
 
-COMMON LOGIN SELECTORS TO TRY (in order):
-- Username: input[name='username'], input[name='user'], input[name='email'], input[name='login'], #user_login, #email
+STEP 1 — Read the page BEFORE filling anything:
+{"type":"navigate","url":"https://example.com/register.php"},
+{"type":"wait","ms":2500},
+{"type":"screenshot","label":"Registration page"},
+{"type":"text","label":"Form fields — read names and IDs"}   ← ALWAYS do this to learn selectors
+
+STEP 2 — Fill each field individually, one at a time:
+Use the EXACT field name/id you saw in the text step.
+Example for a registration form:
+{"type":"fill","selector":"input[name='full_name']","value":"John Smith"},
+{"type":"fill","selector":"input[name='email']","value":"user@example.com"},
+{"type":"fill","selector":"input[name='password']","value":"SecretPass123"},
+{"type":"fill","selector":"input[name='confirm_password']","value":"SecretPass123"},
+
+CONFIRM PASSWORD RULE: The confirm/repeat password field MUST contain the EXACT SAME value as the password field.
+Never leave confirm password blank. Always type the same password again.
+
+STEP 3 — Take a screenshot to verify all fields are filled BEFORE submitting:
+{"type":"screenshot","label":"Form filled — before submit"}
+
+STEP 4 — Submit and verify:
+{"type":"click","selector":"button[type='submit']"},
+{"type":"wait","ms":3000},
+{"type":"screenshot","label":"After form submit"}
+Check: success message or redirect = success. Error/validation message = fix the fields and retry.
+
+FIELD SELECTOR FALLBACK ORDER (try each until one works):
+1. input[name='fieldname']     ← most reliable — use EXACT name from page text
+2. #fieldname                  ← by id
+3. input[placeholder*='hint']  ← by placeholder
+4. getByLabel("Label text")    ← by associated label (backend handles this)
+
+PAGE READING RULES:
+- ALWAYS screenshot after navigate — never assume what a page looks like
+- If screenshot shows mostly blank/white — wait 2000ms then screenshot again
+- Use {"type":"text"} to read page content when screenshot is unclear or you need to find selectors
+- Read ALL error messages after form submit — they tell you exactly what to fix
+
+COMMON LOGIN SELECTORS (try in order):
+- User/Name: input[name='username'], input[name='user'], input[name='email'], input[name='login'], #user_login
 - Password: input[name='password'], input[name='pass'], #user_pass, input[type='password']
+- Confirm pw: input[name='confirm_password'], input[name='password_confirmation'], input[name='confirm'], input[name='retype_password']
 - Submit: button[type='submit'], input[type='submit'], .login-submit, #wp-submit
 
-AFTER LOGIN — verify success:
-- Screenshot should NOT show login form
-- Check URL changed (not still /login or /wp-login.php)
-- If login loop: {"type":"text","label":"page errors"} to read error messages`;
+AFTER FORM SUBMIT — verify:
+- Success: redirected to dashboard/profile OR success message shown
+- Failure: still on same page, error message visible — read it with text step and fix`;
 
 };
 

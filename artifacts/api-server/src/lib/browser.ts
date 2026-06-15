@@ -151,11 +151,18 @@ export async function runBrowserSteps(
       try {
         switch (step.type) {
 
-          case "navigate":
-            await page.goto(step.url, { waitUntil: "domcontentloaded", timeout: 30000 });
-            await page.waitForTimeout(1200);
+          case "navigate": {
+            await page.goto(step.url, { waitUntil: "load", timeout: 35000 });
+            // Wait for network to settle and JS to render (SPAs / cPanel / PHP apps)
+            await page.waitForLoadState("networkidle", { timeout: 8000 }).catch(() => {});
+            // Extra buffer for JS-rendered content + redirect chains
+            await page.waitForTimeout(1800);
+            // If body is still empty (very fast redirect), wait a bit more
+            const bodyText = await page.evaluate(() => (document.body?.innerText ?? "").trim().length).catch(() => 99);
+            if (bodyText < 20) await page.waitForTimeout(1500);
             onResult({ index: i, type: step.type, ok: true });
             break;
+          }
 
           case "screenshot": {
             const b64 = await captureJpeg(page, step.quality ?? 72);
@@ -185,13 +192,63 @@ export async function runBrowserSteps(
           }
 
           case "fill": {
-            try {
-              await page.fill(step.selector, step.value, { timeout: 10000 });
-            } catch {
-              // fallback: try by name attribute
-              await page.locator(`[name="${step.selector.replace(/[#.]/g, "")}"]`)
-                        .fill(step.value, { timeout: 6000 });
+            // Robust fill: tries 8 selector strategies in order
+            const fillValue = step.value;
+            let filled = false;
+
+            // Derive a clean key from the selector (strip CSS sigils)
+            const rawKey = step.selector
+              .replace(/^(input|textarea|select)\[?/i, "")
+              .replace(/["'\[\]()]/g, "")
+              .replace(/^[#.]/, "")
+              .replace(/=.*/, "")
+              .trim();
+
+            const candidates = [
+              step.selector,                                       // 1. exact selector as given
+              `[name="${rawKey}"]`,                               // 2. by name attr
+              `[name="${rawKey.toLowerCase()}"]`,                 // 3. lowercase name
+              `#${rawKey}`,                                       // 4. by id
+              `[id="${rawKey}"]`,                                 // 5. by id attr
+              `[placeholder*="${rawKey}" i]`,                     // 6. placeholder contains key
+              // 7. label text match — find label then its associated input
+            ];
+
+            for (const sel of candidates) {
+              try {
+                await page.fill(sel, fillValue, { timeout: 4000 });
+                filled = true;
+                break;
+              } catch { /* try next */ }
             }
+
+            // 8. Try matching by visible label text
+            if (!filled) {
+              try {
+                await page.getByLabel(rawKey, { exact: false }).first().fill(fillValue, { timeout: 5000 });
+                filled = true;
+              } catch { /* ignore */ }
+            }
+
+            // 9. Last resort: Nth visible input based on common field order hints
+            if (!filled) {
+              const fieldHints: Record<string, number> = {
+                name: 0, fullname: 0, full_name: 0, username: 0, user: 0,
+                email: 1, mail: 1,
+                password: 2, pass: 2,
+                confirm: 3, confirm_password: 3, password_confirmation: 3, retype: 3,
+              };
+              const nthIndex = fieldHints[rawKey.toLowerCase()];
+              if (nthIndex !== undefined) {
+                try {
+                  const inputs = page.locator("input:not([type='hidden']):not([type='checkbox']):not([type='radio'])");
+                  await inputs.nth(nthIndex).fill(fillValue, { timeout: 5000 });
+                  filled = true;
+                } catch { /* ignore */ }
+              }
+            }
+
+            if (!filled) throw new Error(`Could not fill field: ${step.selector} (tried 9 strategies)`);
             onResult({ index: i, type: "fill", ok: true, label: step.label });
             break;
           }

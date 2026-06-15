@@ -434,7 +434,7 @@ function TerminalDialog({ server, onClose }: { server: ServerRow; onClose: () =>
 
 // ─── AI Coding Agent Chat Dialog ──────────────────────────────────────────────
 
-const MODE_LABELS: Record<string, string> = { economy: "⚡ Fast", balanced: "🧠 Smart", "high-power": "🚀 Max" };
+const MODE_LABELS: Record<string, string> = { economy: "Fast", balanced: "Smart", "high-power": "Max" };
 const MODE_DESCS:  Record<string, string> = { economy: "Fastest — good for simple tasks", balanced: "Balanced speed and power", "high-power": "Most capable — best for complex builds" };
 
 function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: () => void }) {
@@ -1000,9 +1000,9 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
                     </span>
                   </div>
                   <div className="flex flex-wrap items-center gap-2 text-[10px]">
-                    {h.model && (
-                      <span className="px-1.5 py-0.5 rounded bg-purple-600/15 text-purple-400 font-mono">{h.model.split("/").pop()}</span>
-                    )}
+                    <span className="px-1.5 py-0.5 rounded bg-purple-600/15 text-purple-400 font-mono">
+                      {h.model ? (h.model.includes("high-power") || h.model.includes("gpt") ? "Max" : h.model.includes("balanced") || h.model.includes("deepseek") ? "Smart" : "Fast") : "AI"}
+                    </span>
                     <span className="flex items-center gap-1 text-zinc-500">
                       <Zap className="w-2.5 h-2.5 text-yellow-500/70" />
                       {h.totalTokens.toLocaleString()} tokens
