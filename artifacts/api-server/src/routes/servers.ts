@@ -532,19 +532,27 @@ BROWSE JSON FORMAT:
 {"thought":"Opening cPanel to create the database...","action":"browse","steps":[...]}
 
 AVAILABLE STEPS:
-{"type":"navigate","url":"https://..."}                        → open URL
-{"type":"screenshot","label":"Login page"}                     → capture screen (ALWAYS do after navigate)
-{"type":"click","selector":"#submit","label":"Click login"}    → click element
-{"type":"fill","selector":"#user","value":"tipmrnhl"}          → type into field
-{"type":"press","key":"Enter"}                                 → press key
-{"type":"wait","ms":1500}                                      → wait for page load
-{"type":"text","label":"Page content"}                         → extract all visible text
+{"type":"navigate","url":"https://..."}                            → open URL (always screenshot after)
+{"type":"screenshot","label":"Label"}                              → capture screen — ALWAYS after navigate + key actions
+{"type":"click","selector":"#id","label":"Describe what"}          → click element; auto-fallbacks to text match
+{"type":"fill","selector":"#input","value":"text"}                 → type into a field
+{"type":"select","selector":"select#id","value":"option_value"}    → choose from dropdown
+{"type":"press","key":"Enter"}                                     → keyboard key (Enter, Tab, Escape …)
+{"type":"wait","ms":1500}                                          → pause (max 12000ms)
+{"type":"wait_for","selector":".success","timeout":10000}          → wait until element appears
+{"type":"scroll","y":600}                                          → scroll down N px (use to reveal lazy elements)
+{"type":"hover","selector":"#menu"}                                → hover (reveals dropdowns)
+{"type":"text","label":"Page content"}                             → full page text + interactive element map (use when you need to understand layout without a screenshot)
+{"type":"html","selector":".form","label":"Form HTML"}             → raw HTML of element (for debugging selectors)
+{"type":"evaluate","script":"document.title","label":"Page title"} → run arbitrary JS, returns string
 
 RULES:
 - ALWAYS screenshot after navigate to see what loaded
-- ALWAYS screenshot after important clicks to verify the result
-- If a selector fails → take a text step to read the page → find the right selector
-- Up to 20 steps per browse action
+- ALWAYS screenshot after important clicks/form submits to verify result
+- If click fails → the error result includes an auto-screenshot + page text: read those to find correct selector
+- For DeepSeek (Smart mode): no vision → rely on text/html/evaluate steps to read page state
+- For Gemini (Fast mode) + GPT-4o (Max mode): screenshots are analyzed by the AI directly
+- Up to 20 steps per browse action; chain multiple browse actions across iterations if needed
 
 cPANEL LOGIN + CREATE DATABASE (example steps):
 [
@@ -729,6 +737,20 @@ router.post("/:id/chat", async (req, res) => {
             send("browser_text", { index: result.index, text: snippet });
           } else if (!result.ok) {
             browseLog.push(`step ${result.index}: ${result.type} FAILED — ${result.error}`);
+            // Auto-screenshot on failure — stream it so user can see what happened
+            if (result.screenshot) {
+              shotCount++;
+              const label = `Error state (step ${result.index}: ${result.type})`;
+              send("browser_shot", { index: result.index, label, data: result.screenshot });
+              if (shotCount <= 5) {
+                visionParts.push({ type: "text", text: `[${label}]` });
+                visionParts.push({ type: "image_url", image_url: { url: `data:image/jpeg;base64,${result.screenshot}`, detail: "low" } });
+              }
+            }
+            if (result.text) {
+              browseLog.push(`  auto-captured page text: ${result.text.slice(0, 400)}`);
+              visionParts.push({ type: "text", text: `Page state on failure: ${result.text.slice(0, 800)}` });
+            }
             send("browser_err", { index: result.index, type: result.type, error: result.error });
           } else {
             browseLog.push(`step ${result.index}: ${result.type} OK${result.label ? ` (${result.label})` : ""}`);
@@ -738,25 +760,30 @@ router.post("/:id/chat", async (req, res) => {
         const resultSummary = browseLog.join("\n");
         send("browser_done", { stepsDone: steps.length });
 
-        // Feed results back into AI — use vision for Max mode, text-only for others
+        // Vision capability map — check current model
+        const visionCapable: Record<string, boolean> = {
+          "gpt-4o":                      true,
+          "google/gemini-2.0-flash-001": true,
+          "deepseek-chat":               false,  // DeepSeek-V3 has no image vision
+        };
+        const hasVision = (visionCapable[model] ?? false) && visionParts.length > 0;
+
         aiMessages.push({ role: "assistant", content: raw });
-        const isVision = parsed.data.mode === "high-power" && visionParts.length > 0;
-        if (isVision) {
+        if (hasVision) {
           aiMessages.push({
             role: "user",
             content: [
-              { type: "text", text: `BROWSER RESULTS (${steps.length} steps done):\n${resultSummary}\n\nScreenshots attached. Analyze what you see and decide next steps. Continue autonomously — use browse for more UI actions or run for SSH commands.` },
+              { type: "text", text: `BROWSER RESULTS (${steps.length} steps done):\n${resultSummary}\n\nScreenshots attached — analyze what you see and decide next steps. Continue autonomously.` },
               ...visionParts,
             ],
           });
         } else {
+          // No image vision: text + interactive element map gives full page awareness
           aiMessages.push({
             role: "user",
-            content: `BROWSER RESULTS (${steps.length} steps done):\n${resultSummary}\n\nDecide next steps and continue autonomously.`,
+            content: `BROWSER RESULTS (${steps.length} steps done):\n${resultSummary}\n\nDecide next steps and continue autonomously. Add {"type":"text"} steps to read page content when you need to understand what's on screen.`,
           });
         }
-
-        send("cmd_results", { text: resultSummary });
 
       } else if (action.action === "reply") {
         send("reply", { text: action.message ?? "I need more information." });
