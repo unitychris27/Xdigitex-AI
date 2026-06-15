@@ -1,18 +1,29 @@
 import { chromium, type Page, type Browser } from "playwright";
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 import { existsSync } from "fs";
+import { createRequire } from "module";
+import path from "path";
+
+// Resolve playwright CLI path from the installed package (works in any container)
+function getPlaywrightCli(): string {
+  const req = createRequire(import.meta.url);
+  const pkgJson = req.resolve("playwright/package.json");
+  return path.join(path.dirname(pkgJson), "cli.js");
+}
 
 // ─── Auto-install Chromium if missing (runs once on first use) ───────────────
 let browserReady = false;
 function ensureBrowser(): void {
   if (browserReady) return;
-  // Do NOT override PLAYWRIGHT_BROWSERS_PATH — let Playwright use its default
-  // so that install (browser:setup script) and launch both resolve the same path.
   try {
     const execPath = chromium.executablePath();
     if (!existsSync(execPath)) {
-      console.log("[browser] Chromium not found at", execPath, "— installing...");
-      execSync("npx playwright install chromium", { stdio: "inherit", timeout: 120_000 });
+      console.log("[browser] Chromium not found at", execPath, "— installing via playwright CLI...");
+      // Use node to call playwright's CLI directly — avoids npx/PATH issues in production
+      execFileSync(process.execPath, [getPlaywrightCli(), "install", "chromium"], {
+        stdio: "inherit",
+        timeout: 120_000,
+      });
       console.log("[browser] Chromium installed.");
     } else {
       console.log("[browser] Chromium ready at", execPath);
@@ -20,6 +31,7 @@ function ensureBrowser(): void {
     browserReady = true;
   } catch (e) {
     console.error("[browser] Setup error:", e);
+    // Don't re-throw — let chromium.launch() produce its own error
   }
 }
 

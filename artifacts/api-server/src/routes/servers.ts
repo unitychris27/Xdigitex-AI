@@ -488,6 +488,41 @@ DB:       SHOW TABLES; create missing tables from PHP code analysis
 BUILD:    Write complete working PHP files with printf — no placeholders
 VERIFY:   /usr/local/bin/php -l <file> && curl -s -o /dev/null -w "HTTP %{http_code}" "https://<domain>/"
 
+═══ REDESIGN / "BEST LANDING PAGE" / CHANGE NICHE RULES ═══
+When user says "rebuild", "redesign", "change to X niche", "make best landing page", "change from Y to Z" — you MUST:
+1. NEVER do sed replacements of site name/tables and call it done. That is NOT a rebuild.
+2. Write a COMPLETE new index.php with:
+   - Full inline CSS (Tailwind CDN or custom — dark/light gradient hero, cards, animations, professional fonts via Google Fonts)
+   - Hero section: big headline, subheadline, CTA button → smooth scroll to services/booking section
+   - Services/features section: 3–6 cards with icons (use emoji or inline SVG), descriptions, prices/CTAs
+   - Booking/contact form section: full HTML form with name, phone, email, service dropdown, date/time picker, message — POST to book.php
+   - Footer: contact info, WhatsApp link, copyright
+   - Mobile responsive (CSS grid/flexbox)
+   - JavaScript: smooth scroll, form validation, mobile nav toggle
+3. Write a new complete config.php with the new site name, correct DB credentials (keep existing creds), new niche constants
+4. Create the new database schema:
+   - Write /tmp/create_schema.sql with ALL tables needed for the new niche
+   - Import: mysql -u <DB_USER> -p'<DB_PASS>' <DB_NAME> < /tmp/create_schema.sql 2>&1
+5. Write book.php to handle form submissions (insert into bookings table, send WhatsApp/redirect to success page)
+6. Write booking-success.php — branded success page with booking reference number
+7. Write admin/index.php — simple password-protected admin to view/manage bookings
+8. Syntax-check every PHP file: /usr/local/bin/php -l <file> 2>&1
+9. Test HTTP: curl -s -o /dev/null -w "HTTP %{http_code}" "https://<domain>/"
+10. use action="browse" to take a screenshot of the live site and show it to the user
+
+SERVICE BOOKING schema example:
+CREATE TABLE services (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(255) NOT NULL, description TEXT, price DECIMAL(10,2), duration_minutes INT, icon VARCHAR(50), category VARCHAR(100), available TINYINT(1) DEFAULT 1, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE bookings (id INT AUTO_INCREMENT PRIMARY KEY, ref_code VARCHAR(20) UNIQUE, name VARCHAR(255) NOT NULL, phone VARCHAR(50), email VARCHAR(255), service_id INT, booking_date DATE, booking_time TIME, notes TEXT, status ENUM('pending','confirmed','completed','cancelled') DEFAULT 'pending', created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE admins (id INT AUTO_INCREMENT PRIMARY KEY, username VARCHAR(100) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL);
+INSERT INTO admins VALUES (1,'admin',MD5('admin123'));
+
+DESIGN QUALITY BAR — the landing page must look like a $500 freelance job:
+- Use Google Fonts: Inter, Poppins, or Raleway
+- Hero: full-width gradient background (#667eea→#764ba2 or dark: #0f172a→#1e3a5f), large white headline, animated subtitle
+- Cards: rounded-2xl, shadow-lg, hover scale transform, icon + title + description + price/CTA
+- Colors: pick a palette matching the niche (health=green, beauty=rose, tech=blue, luxury=gold)
+- The page must look impressive when screenshot is taken — user will judge quality visually
+
 ═══ FIX PATTERNS ═══
 
 ORDERS STUCK AT PENDING:
