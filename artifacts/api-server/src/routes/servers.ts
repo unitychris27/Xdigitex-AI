@@ -490,6 +490,16 @@ Example done message:
 
 RULE: The done message must be SHORT — max 10 bullet points. Do NOT paste command output, file contents, or code into the done message.
 
+ERROR REPORTING IN DONE MESSAGE — mandatory if anything failed:
+If ANY command during this session returned a non-zero exit code, you MUST include at the bottom of the done message:
+
+⚠️ **Errors encountered:**
+• [command description] — [what the error was, 1 line]
+• [command description] — [what the error was, 1 line]
+
+If you fixed the errors: mark them ✓ fixed. If they remain: tell the user exactly what failed and how to proceed.
+NEVER hide errors silently — always surface them in the done message even if the overall task succeeded.
+
 ═══ THOUGHT FORMAT — user sees this in real time ═══
 Make every thought SPECIFIC and SEQUENTIAL:
 ✅ "PLAN: 1) find site root 2) read config 3) test DB 4) scan PHP files for errors 5) fix and verify"

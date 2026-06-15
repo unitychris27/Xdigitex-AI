@@ -104,14 +104,20 @@ function TerminalView({ lines, loading }: { lines: TerminalLine[]; loading?: boo
 function CmdBlock({ msg, onToggle }: { msg: Extract<ChatMsg, { kind: "cmd" }>; onToggle: () => void }) {
   const isRunning = msg.exitCode === undefined;
   const ok        = msg.exitCode === 0;
+  const failed    = !isRunning && !ok;
   const lines     = msg.output ? msg.output.split("\n").filter(l => l.trim()) : [];
-  const preview   = lines.slice(0, 4);
-  const rest      = lines.slice(4);
+  // Failed commands: show all lines expanded; success: preview first 4
+  const preview   = failed ? lines : lines.slice(0, 4);
+  const rest      = failed ? [] : lines.slice(4);
 
   return (
-    <div className="rounded-lg border border-zinc-800 bg-black/70 text-xs overflow-hidden my-1">
+    <div className={`rounded-lg border text-xs overflow-hidden my-1 ${
+      failed    ? "border-red-500/50 bg-red-950/30" :
+      isRunning ? "border-zinc-800 bg-black/70" :
+                  "border-zinc-800 bg-black/70"
+    }`}>
       {/* Command line */}
-      <div className="flex items-center gap-2 px-3 py-2 font-mono">
+      <div className={`flex items-center gap-2 px-3 py-2 font-mono ${failed ? "bg-red-900/20" : ""}`}>
         <span className="shrink-0">
           {isRunning
             ? <Loader2 className="w-3 h-3 text-purple-400 animate-spin" />
@@ -120,18 +126,18 @@ function CmdBlock({ msg, onToggle }: { msg: Extract<ChatMsg, { kind: "cmd" }>; o
               : <XCircle className="w-3 h-3 text-red-400" />}
         </span>
         <span className="text-zinc-500 shrink-0">$</span>
-        <span className="text-zinc-200 flex-1 min-w-0 truncate">{msg.cmd}</span>
+        <span className={`flex-1 min-w-0 truncate ${failed ? "text-red-200" : "text-zinc-200"}`}>{msg.cmd}</span>
         {!isRunning && (
-          <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded ${ok ? "text-green-500" : "text-red-400"}`}>
+          <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded font-bold ${ok ? "text-green-500" : "bg-red-500/20 text-red-400 border border-red-500/30"}`}>
             {ok ? "ok" : `exit ${msg.exitCode}`}
           </span>
         )}
       </div>
-      {/* Preview lines — always shown */}
+      {/* Output lines */}
       {preview.length > 0 && (
-        <div className="border-t border-zinc-800/60 px-3 py-2 space-y-0.5">
+        <div className={`border-t px-3 py-2 space-y-0.5 ${failed ? "border-red-500/20" : "border-zinc-800/60"}`}>
           {preview.map((l, i) => (
-            <div key={i} className="font-mono text-[11px] text-zinc-400 leading-relaxed break-all">
+            <div key={i} className={`font-mono text-[11px] leading-relaxed break-all ${failed ? "text-red-300" : "text-zinc-400"}`}>
               {l}
             </div>
           ))}
@@ -443,6 +449,7 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
   const [running, setRunning]   = useState(false);
   const [uploading, setUploading] = useState(false);
   const [pastedPrompt, setPastedPrompt] = useState<{ content: string; chars: number } | null>(null);
+  const [failedCmds, setFailedCmds] = useState<{ cmd: string; desc: string; exitCode: number }[]>([]);
   // Live status: what the agent is doing RIGHT NOW
   const [liveOp, setLiveOp]     = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -501,6 +508,7 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
   const sendMessage = async () => {
     const hasContent = input.trim() || pastedPrompt;
     if (!hasContent || running) return;
+    setFailedCmds([]);
 
     // Full content sent to AI — pasted prompt + any extra typed text
     const fullText = pastedPrompt
@@ -610,6 +618,14 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
             const globalIdx = localToGlobal.get(`${iterOffset}:${localIdx}`) ?? -1;
             const code      = ev.code as number ?? 0;
             if (globalIdx >= 0) updateCmdOutput(globalIdx, "", code);
+            // Track failed commands so we can surface them prominently
+            if (code !== 0 && globalIdx >= 0) {
+              setMsgs(prev => {
+                const m = prev.find(x => x.kind === "cmd" && x.index === globalIdx) as Extract<ChatMsg, { kind: "cmd" }> | undefined;
+                if (m) setFailedCmds(f => [...f, { cmd: m.cmd, desc: m.desc, exitCode: code }]);
+                return prev;
+              });
+            }
             setLiveOp("");
 
           } else if (type === "cmd_results") {
@@ -947,6 +963,27 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
             <div className="mb-2 text-[11px] text-purple-400 flex items-center gap-1.5">
               <span className="inline-block w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse" />
               Conversation is live — reply to continue, ask for more, or say "now fix it"
+            </div>
+          )}
+          {/* Failed commands sticky banner — shown after run completes if errors occurred */}
+          {!running && failedCmds.length > 0 && (
+            <div className="mb-2 rounded-lg border border-red-500/30 bg-red-950/30 px-3 py-2 text-xs">
+              <div className="flex items-center gap-1.5 text-red-400 font-semibold mb-1">
+                <XCircle className="w-3.5 h-3.5 shrink-0" />
+                {failedCmds.length} command{failedCmds.length > 1 ? "s" : ""} failed — scroll up to see details
+              </div>
+              <div className="space-y-0.5">
+                {failedCmds.map((f, i) => (
+                  <div key={i} className="font-mono text-red-300/80 truncate">
+                    <span className="text-red-500/60 mr-1">exit {f.exitCode}</span>
+                    {f.desc || f.cmd.slice(0, 80)}
+                  </div>
+                ))}
+              </div>
+              <button
+                onClick={() => setFailedCmds([])}
+                className="mt-1.5 text-[10px] text-red-500/60 hover:text-red-400"
+              >dismiss</button>
             </div>
           )}
           {/* Pasted long-prompt chip */}
