@@ -1,0 +1,309 @@
+This is actually **not a website login problem**, **not a Playwright problem**, and **not a browser automation problem**.
+
+The real error is:
+
+```text
+error while loading shared libraries:
+
+libglib-2.0.so.0:
+
+cannot open shared object file:
+No such file or directory
+```
+
+Because Chromium failed to start, Playwright never got a browser instance.
+
+Then Playwright reports:
+
+```text
+browserType.launch:
+Target page, context or browser has been closed
+```
+
+which is just the secondary error.
+
+---
+
+## What's Happening
+
+Your AI agent is trying to launch Chromium:
+
+```text
+chrome-headless-shell
+```
+
+but the operating system is missing:
+
+```text
+libglib-2.0.so.0
+```
+
+Chromium depends on it.
+
+Without it:
+
+```text
+Chromium crashes immediately
+↓
+Playwright loses browser
+↓
+Browser context closes
+↓
+Automation fails
+```
+
+---
+
+# Root Cause
+
+You're likely running:
+
+```text
+Docker Container
+Linux Sandbox
+Ubuntu VPS
+Agent Runtime
+```
+
+that doesn't have all browser dependencies installed.
+
+---
+
+# Verify
+
+SSH into the runtime and run:
+
+```bash
+ldd chrome-headless-shell
+```
+
+or:
+
+```bash
+ldd $(which chromium)
+```
+
+You'll likely see:
+
+```text
+libglib-2.0.so.0 => not found
+```
+
+---
+
+# Ubuntu Fix
+
+Install:
+
+```bash
+apt update
+
+apt install -y \
+libglib2.0-0 \
+libnss3 \
+libnspr4 \
+libatk1.0-0 \
+libatk-bridge2.0-0 \
+libcups2 \
+libdrm2 \
+libdbus-1-3 \
+libxcb1 \
+libxkbcommon0 \
+libx11-6 \
+libxcomposite1 \
+libxdamage1 \
+libxext6 \
+libxfixes3 \
+libxrandr2 \
+libgbm1 \
+libasound2
+```
+
+---
+
+# Playwright Official Fix
+
+Inside your runtime:
+
+```bash
+npx playwright install-deps
+```
+
+This installs everything Chromium needs.
+
+For Docker:
+
+```bash
+npx playwright install
+npx playwright install-deps
+```
+
+---
+
+# If Using Docker
+
+Most likely your Docker image is too minimal.
+
+Bad:
+
+```dockerfile
+FROM node:20-alpine
+```
+
+or
+
+```dockerfile
+FROM ubuntu
+```
+
+without browser dependencies.
+
+---
+
+Better:
+
+```dockerfile
+FROM mcr.microsoft.com/playwright:v1.54.0-jammy
+```
+
+or current Playwright image.
+
+It already includes:
+
+```text
+Chromium
+Firefox
+WebKit
+
+all dependencies
+```
+
+---
+
+# Why This Matters For Your AI Platform
+
+Your agent is supposed to:
+
+```text
+Browse Websites
+Login
+Deploy Apps
+Verify UI
+Test Forms
+Take Screenshots
+```
+
+All of that requires:
+
+```text
+Playwright
+↓
+Chromium
+↓
+System Libraries
+```
+
+If Chromium cannot start:
+
+```text
+AI Browser Tool
+❌ Broken
+
+Login Automation
+❌ Broken
+
+Site Testing
+❌ Broken
+
+Deployment Verification
+❌ Broken
+
+Screenshot Generation
+❌ Broken
+```
+
+---
+
+# Improvement For Your Agent
+
+Don't let the agent attempt browser actions before validating the environment.
+
+Before:
+
+```text
+Open Browser
+Login
+Browse Site
+```
+
+Agent should run:
+
+```text
+Browser Health Check
+```
+
+Example:
+
+```bash
+chromium --version
+```
+
+or
+
+```javascript
+await chromium.launch()
+```
+
+If it fails:
+
+```text
+Browser runtime unavailable.
+
+Missing dependency:
+libglib-2.0.so.0
+
+Suggested Fix:
+apt install libglib2.0-0
+
+Browser automation aborted.
+```
+
+instead of pretending it can browse.
+
+---
+
+## What You Should Add to Your Platform
+
+Add a startup health check:
+
+```text
+✓ SSH Available
+
+✓ Database Available
+
+✓ File System Available
+
+✓ Docker Available
+
+✓ Browser Available
+
+✓ Playwright Available
+```
+
+If Browser Available = false:
+
+```text
+Disable Browser Tool
+Show Dependency Error
+```
+
+This prevents the agent from repeatedly failing on tasks like:
+
+```text
+Log into admin panel
+Browse website
+Check dashboard
+Verify deployment
+```
+
+until the browser runtime is actually working.
