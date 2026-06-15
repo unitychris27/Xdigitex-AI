@@ -1,0 +1,191 @@
+🧠 Smart
+🚀 Max
+
+"browse https://malabora.site/admin username admin password admin1122"
+🪵
+I will navigate to the admin login page of the specified URL and attempt to log in using the provided credentials.
+
+browserType.launch: Target page, context or browser has been closed Browser logs: <launching> /home/runner/workspace/.cache/ms-playwright/chromium_headless_shell-1223/chrome-headless-shell-linux64/chrome-headless-shell --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,BoundaryEventDispatchTracksNodeRemoval,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,Translate,AutoDeElevate,RenderDocument,OptimizationHints,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --headless --hide-scrollbars --mute-audio --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --no-sandbox --no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage --disable-gpu --ignore-certificate-errors --disable-extensions --disable-background-networking --disable-background-timer-throttling --user-data-dir=/tmp/playwright_chromiumdev_profile-C7xt1U --remote-debugging-pipe --no-startup-window <launched> pid=88 [pid=88][err] /home/runner/workspace/.cache/ms-playwright/chromium_headless_shell-1223/chrome-headless-shell-linux64/chrome-headless-shell: error while loading shared libraries: libglib-2.0.so.0: cannot open shared object file: No such file or directory Call log: - <launching> /home/runner/workspace/.cache/ms-playwright/chromium_headless_shell-1223/chrome-headless-shell-linux64/chrome-headless-shell --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,BoundaryEventDispatchTracksNodeRemoval,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,Translate,AutoDeElevate,RenderDocument,OptimizationHints,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --headless --hide-scrollbars --mute-audio --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --no-sandbox --no-sandbox --disable-setuid-sandbox --disable-dev-shm-usage --disable-gpu --ignore-certificate-errors --disable-extensions --disable-background-networking --disable-background-timer-throttling --user-data-dir=/tmp/playwright_chromiumdev_profile-C7xt1U --remote-debugging-pipe --no-startup-window - <launched> pid=88 - [pid=88][err] /home/runner/workspace/.cache/ms-playwright/chromium_headless_shell-1223/chrome-headless-shell-linux64/chrome-headless-shell: error while loading shared libraries: libglib-2.0.so.0: cannot open shared object file: No such file or directory - [pid=88] <gracefully close start> - [pid=88] <kill> - [pid=88] <will force kill> - [pid=88] exception while trying to kill process: Error: kill ESRCH - [pid=88] <process did exit: exitCode=127, signal=null> - [pid=88] starting temporary directories cleanup - [pid=88] finished temporary directories cleanup - [pid=88] <gracefully close end>
+FIX novaspack.com rebuild to ai learning site,, best premium professional
+🔧
+PLAN: 1) Find site root for novaspack.com 2) Read existing config and files 3) Create complete AI learning platform with premium design 4) Set up database schema for courses, enrollments, users 5) Write all PHP files (index, config, enroll, success, admin) 6) Verify syntax and HTTP response
+
+$
+find /home/tipmrnhl -maxdepth 4 -type d -name 'novaspack*' 2>/dev/null
+exit 1
+/home/tipmrnhl/public_html/novaspack.com
+/home/tipmrnhl/.cpanel/ea-php-cli/public_html/novaspack.com
+/home/tipmrnhl/.cpanel/ea-php-cli/novaspack.com
+/home/tipmrnhl/novaspack.com
+$
+ls -la /home/tipmrnhl/novaspack.com/ 2>/dev/null || ls -la /home/tipmrnhl/public_html/novaspack.com/ 2>/dev/null
+ok
+total 104
+drwxr-x--- 8 tipmrnhl nobody 4096 Jun 15 04:59 .
+drwx--x--x 89 tipmrnhl tipmrnhl 4096 Jun 15 04:28 ..
+drwxr-xr-x 2 tipmrnhl tipmrnhl 4096 Jun 15 04:58 admin
+collapse
+drwxr-xr-x  2 tipmrnhl tipmrnhl  4096 Jun 14 09:59 ajax
+drwxr-xr-x  4 tipmrnhl tipmrnhl  4096 Jun 14 09:59 assets
+-rw-r--r--  1 tipmrnhl tipmrnhl  4093 Jun 14 09:59 cart.php
+-rw-r--r--  1 tipmrnhl tipmrnhl  5250 Jun 14 09:59 checkout.php
+drwxr-xr-x  2 tipmrnhl tipmrnhl  4096 Jun 14 09:59 database
+-rw-r--r--  1 tipmrnhl tipmrnhl 12678 Jun 15 04:59 error_log
+drwxr-xr-x  2 tipmrnhl tipmrnhl  4096 Jun 15 04:58 includes
+-rw-rw-r--  1 tipmrnhl tipmrnhl   269 Jun 15 04:59 index.php
+-rw-r--r--  1 tipmrnhl tipmrnhl  4636 Jun 15 04:58 index_old.php
+-rw-r--r--  1 tipmrnhl tipmrnhl  3471 Jun 14 09:59 menu.php
+-rw-r--r--  1 tipmrnhl tipmrnhl   828 Jun 14 09:59 order-success.php
+drwxr-xr-x  2 tipmrnhl tipmrnhl  4096 Jun 14 06:00 project
+-rw-r--r--  1 tipmrnhl tipmrnhl 24460 Jun 14 05:59 project (2).zip
+$
+cat /home/tipmrnhl/novaspack.com/includes/config.php 2>/dev/null || cat /home/tipmrnhl/public_html/novaspack.com/includes/config.php 2>/dev/null
+ok
+<?php
+session_start();
+// Database configuration
+define('DB_HOST', 'localhost');
+collapse
+define('DB_NAME', 'tipmrnhl_food');
+define('DB_USER', 'tipmrnhl_food');
+define('DB_PASS', 'tipmrnhl_food');
+// Site configuration
+define('SITE_NAME', 'Service Booking');
+define('SITE_URL', 'http://novaspack.com');
+define('WHATSAPP_NUMBER', '254110236146');
+// Error reporting
+error_reporting(E_ALL);
+ini_set('display_errors', 0);
+ini_set('log_errors', 1);
+?>
+$
+find /home/tipmrnhl/novaspack.com -name '*.php' 2>/dev/null | head -20
+ok
+/home/tipmrnhl/novaspack.com/menu.php
+/home/tipmrnhl/novaspack.com/cart.php
+/home/tipmrnhl/novaspack.com/index.php
+/home/tipmrnhl/novaspack.com/admin/foods.php
+collapse
+/home/tipmrnhl/novaspack.com/admin/dashboard.php
+/home/tipmrnhl/novaspack.com/admin/login.php
+/home/tipmrnhl/novaspack.com/admin/categories.php
+/home/tipmrnhl/novaspack.com/order-success.php
+/home/tipmrnhl/novaspack.com/checkout.php
+/home/tipmrnhl/novaspack.com/index_old.php
+/home/tipmrnhl/novaspack.com/ajax/cart.php
+/home/tipmrnhl/novaspack.com/includes/db.php
+/home/tipmrnhl/novaspack.com/includes/footer.php
+/home/tipmrnhl/novaspack.com/includes/functions.php
+/home/tipmrnhl/novaspack.com/includes/header.php
+/home/tipmrnhl/novaspack.com/includes/config.php
+$
+/usr/local/bin/php -v 2>&1 | head -1
+ok
+PHP 8.2.31 (cli) (built: May 10 2026 19:32:48) (NTS)
+✅
+Found site at /home/tipmrnhl/novaspack.com — it's a food ordering site. DB is tipmrnhl_food. Now I need to: 1) Read existing DB schema 2) Create new AI learning platform schema 3) Write complete new files. Let me check the existing DB tables and then build the new AI learning site.
+
+$
+mysql -u tipmrnhl_food -p'tipmrnhl_food' tipmrnhl_food -e 'SHOW TABLES;' 2>&1
+ok
+mysql: Deprecated program name. It will be removed in a future release, use '/usr/bin/mariadb' instead
+Tables_in_tipmrnhl_food
+services
+$
+cat /home/tipmrnhl/novaspack.com/includes/db.php 2>/dev/null
+ok
+<?php
+require_once 'config.php';
+try {
+$pdo = new PDO(
+collapse
+        "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4",
+        DB_USER,
+        DB_PASS,
+        [
+            PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
+            PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
+            PDO::ATTR_EMULATE_PREPARES => false
+        ]
+    );
+} catch(PDOException $e) {
+    die("Connection failed: " . $e->getMessage());
+}
+?>
+$
+cat /home/tipmrnhl/novaspack.com/index.php 2>/dev/null
+ok
+<?php include("includes/config.php"); ?>
+<?php include("includes/functions.php"); ?>
+<?php include("includes/header.php"); ?>
+<h1>Welcome to Our Service Booking Platform</h1>
+collapse
+<p>Book your services easily and quickly with us.</p>
+<?php include("includes/footer.php"); ?>
+$
+cat /home/tipmrnhl/novaspack.com/error_log 2>/dev/null | tail -30
+ok
+[15-Jun-2026 04:32:38 UTC] PHP Fatal error: Uncaught PDOException: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'tipmrnhl_food.menu_items' doesn't exist in /home/tipmrnhl/novaspack.com/index.php:10
+Stack trace:
+#0 /home/tipmrnhl/novaspack.com/index.php(10): PDO->query()
+#1 {main}
+collapse
+  thrown in /home/tipmrnhl/novaspack.com/index.php on line 10
+[15-Jun-2026 04:32:42 UTC] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'tipmrnhl_food.menu_items' doesn't exist in /home/tipmrnhl/novaspack.com/index.php:10
+Stack trace:
+#0 /home/tipmrnhl/novaspack.com/index.php(10): PDO->query()
+#1 {main}
+  thrown in /home/tipmrnhl/novaspack.com/index.php on line 10
+[15-Jun-2026 08:12:19 UTC] PHP Fatal error:  Uncaught PDOException: SQLSTATE[42S02]: Base table or view not found: 1146 Table 'tipmrnhl_food.menu_items' doesn't exist in /home/tipmrnhl/novaspack.com/index.php:10
+Stack trace:
+#0 /home/tipmrnhl/novaspack.com/index.php(10): PDO->query()
+#1 {main}
+  thrown in /home/tipmrnhl/novaspack.com/index.php on line 10
+[15-Jun-2026 08:58:33 UTC] PHP Fatal error:  Uncaught Error: Undefined constant "SITE_NAME" in /home/tipmrnhl/novaspack.com/includes/header.php:6
+Stack trace:
+#0 /home/tipmrnhl/novaspack.com/landing.php(1): include()
+#1 {main}
+  thrown in /home/tipmrnhl/novaspack.com/includes/header.php on line 6
+[15-Jun-2026 08:58:42 UTC] PHP Fatal error:  Uncaught Error: Undefined constant "SITE_NAME" in /home/tipmrnhl/novaspack.com/includes/header.php:6
+Stack trace:
+#0 /home/tipmrnhl/novaspack.com/index.php(1): include()
+#1 {main}
+  thrown in /home/tipmrnhl/novaspack.com/includes/header.php on line 6
+[15-Jun-2026 08:59:04 UTC] PHP Fatal error:  Uncaught Error: Call to undefined function getCartCount() in /home/tipmrnhl/novaspack.com/includes/header.php:25
+Stack trace:
+#0 /home/tipmrnhl/novaspack.com/index.php(2): include()
+#1 {main}
+  thrown in /home/tipmrnhl/novaspack.com/includes/header.php on line 25
+🔧
+Good — I have the full picture. The site is a broken food ordering site. I need to completely rebuild it as a premium AI learning platform. Plan: 1) Create new DB schema for AI courses 2) Write config.php with new site name 3) Write premium index.php with Tailwind CSS, hero, courses section, enrollment form 4) Write enroll.php handler 5) Write enrollment-success.php 6) Write admin panel 7) Verify everything. Let me start by creating the schema and writing all files.
+
+$
+cat > /tmp/create_ai_schema.sql << 'SQLEOF' -- AI Learning Platform Schema CREATE TABLE IF NOT EXISTS courses ( id INT AUTO_INCREMENT PRIMARY KEY, title VARCHAR(255) NOT NULL, slug VARCHAR(255) UNIQUE NOT NULL, description TEXT, long_description TEXT, price DECIMAL(10,2) NOT NULL DEFAULT 0, original_price DECIMAL(10,2) DEFAULT NULL, duration VARCHAR(100) DEFAULT 'Self-paced', level ENUM('Beginner','Intermediate','Advanced','All Levels') DEFAULT 'Beginner', category VARCHAR(100) DEFAULT 'AI & Machine Learning', curriculum TEXT, instructor VARCHAR(255) DEFAULT 'AI Expert Team', students_count INT DEFAULT 0, rating DECIMAL(2,1) DEFAULT 4.5, image_url VARCHAR(500) DEFAULT NULL, featured TINYINT(1) DEFAULT 0, available TINYINT(1) DEFAULT 1, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4; CREATE TABLE IF NOT EXISTS enrollments ( id INT AUTO_INCREMENT PRIMARY KEY, ref_code VARCHAR(20) UNIQUE NOT NULL, name VARCHAR(255) NOT NULL, email VARCHAR(255) NOT NULL, phone VARCHAR(50) DEFAULT NULL, course_id INT NOT NULL, amount_paid DECIMAL(10,2) NOT NULL, payment_method ENUM('mpesa','card','bank','other') DEFAULT 'mpesa', transaction_code VARCHAR(100) DEFAULT NULL, status ENUM('pending','confirmed','completed','cancelled') DEFAULT 'pending', notes TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, FOREIGN KEY (course_id) REFERENCES courses(id) ON DELETE CASCADE ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4; CREATE TABLE IF NOT EXISTS admins ( id INT AUTO_INCREMENT PRIMARY KEY, username VARCHAR(100) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4; -- Insert default admin INSERT IGNORE INTO admins (username, password) VALUES ('admin', MD5('admin1122')); -- Insert sample courses INSERT IGNORE INTO courses (title, slug, description, long_description, price, original_price, duration, level, category, curriculum, instructor, students_count, rating, featured) VALUES ('AI Fundamentals: Zero to Hero', 'ai-fundamentals', 'Master the basics of Artificial Intelligence from scratch. No prior experience needed.', 'This comprehensive course takes you from absolute beginner to confident AI practitioner. Learn about machine learning, neural networks, natural language processing, and computer vision through hands-on projects.', 4999, 12999, '8 Weeks', 'Beginner', 'AI & Machine Learning', 'Week 1: Introduction to AI & History\nWeek 2: Python for AI\nWeek 3: Machine Learning Basics\nWeek 4: Neural Networks\nWeek 5: Deep Learning\nWeek 6: NLP Fundamentals\nWeek 7: Computer Vision\nWeek 8: Capstone Project', 'Dr. Sarah Kimani', 1247, 4.8, 1), ('ChatGPT & Prompt Engineering Mastery', 'chatgpt-prompt-engineering', 'Unlock the full potential of ChatGPT and learn advanced prompt engineering techniques.', 'Learn how to craft powerful prompts, build AI-powered applications, and leverage ChatGPT for business automation, content creation, and problem-solving.', 3499, 8999, '4 Weeks', 'Intermediate', 'AI & Machine Learning', 'Module 1: Understanding LLMs\nModule 2: Prompt Design Principles\nModule 3: Advanced Prompting Techniques\nModule 4: Building with GPT API\nModule 5: Business Applications\nModule 6: Ethics & Best Practices', 'James Ochieng', 892, 4.7, 1), ('Python for Data Science & AI', 'python-data-science-ai', 'Learn Python programming specifically for data science and AI applications.', 'From Python basics to advanced data analysis, visualization, and machine learning with pandas, numpy, matplotlib, and scikit-learn.', 3999, 9999, '6 Weeks', 'Beginner', 'Programming', 'Week 1: Python Basics\nWeek 2: Data Structures\nWeek 3: NumPy & Pandas\nWeek 4: Data Visualization\nWeek 5: Machine Learning with scikit-learn\nWeek 6: Final Project', 'Grace Mwangi', 1563, 4.6, 1), ('Deep Learning & Neural Networks', 'deep-learning-neural-networks', 'Dive deep into neural networks, CNNs, RNNs, and transformers with TensorFlow and PyTorch.', 'Advanced course covering state-of-the-art deep learning architectures, transfer learning, GANs, and deployment of models to production.', 6999, 17999, '10 Weeks', 'Advanced', 'AI & Machine Learning', 'Week 1-2: Neural Network Fundamentals\nWeek 3-4: CNNs & Image Processing\nWeek 5-6: RNNs & Sequence Models\nWeek 7-8: Transformers & Attention\nWeek 9: GANs & Generative Models\nWeek 10: Production Deployment', 'Dr. Peter Kamau', 678, 4.9, 1); SQLEOF mysql -u tipmrnhl_food -p'tipmrnhl_food' tipmrnhl_food < /tmp/create_ai_schema.sql 2>&1
+ok
+mysql: Deprecated program name. It will be removed in a future release, use '/usr/bin/mariadb' instead
+$
+mysql -u tipmrnhl_food -p'tipmrnhl_food' tipmrnhl_food -e 'SHOW TABLES; SELECT COUNT(*) as courses FROM courses; SELECT COUNT(*) as enrollments FROM enrollments;' 2>&1
+ok
+mysql: Deprecated program name. It will be removed in a future release, use '/usr/bin/mariadb' instead
+Tables_in_tipmrnhl_food
+admins
+courses
+collapse
+enrollments
+services
+courses
+4
+enrollments
+0
+🔧
+Database schema created successfully with 4 courses and admin user. Now I need to write all the PHP files. Let me write: 1) config.php (update site name) 2) index.php (premium AI learning landing page) 3) enroll.php (form handler) 4) enrollment-success.php 5) admin/index.php (dashboard) 6) admin/login.php. I'll write them all now.
+
+$
+printf '%s' '<?php session_start(); // Database configuration define("DB_HOST", "localhost"); define("DB_NAME", "tipmrnhl_food"); define("DB_USER", "tipmrnhl_food"); define("DB_PASS", "tipmrnhl_food"); // Site configuration define("SITE_NAME", "NovaAI Academy"); define("SITE_TAGLINE", "Master Artificial Intelligence & Future-Proof Your Career"); define("SITE_URL", "https://novaspack.com"); define("WHATSAPP_NUMBER", "254110236146"); define("ADMIN_EMAIL", "admin@novaspack.com"); // Error reporting error_reporting(E_ALL); ini_set("display_errors", 0); ini_set("log_errors", 1); // DB connection function function getDB() { try { $pdo = new PDO( "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4", DB_USER, DB_PASS, [ PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC, PDO::ATTR_EMULATE_PREPARES => false ] ); return $pdo; } catch(PDOException $e) { error_log("DB Connection failed: " . $e->getMessage()); return null; } } // Generate reference code function generateRefCode() { return "NAI-" . strtoupper(substr(md5(uniqid(mt_rand(), true)), 0, 8)); } // Format currency function formatPrice($amount) { return "KSh " . number_format($amount, 0); } // Get course by slug function getCourseBySlug($slug) { $db = getDB(); if (!$db) return null; $stmt = $db->prepare("SELECT * FROM courses WHERE slug = ? AND available = 1"); $stmt->execute([$slug]); return $stmt->fetch(); } // Get all courses function getAllCourses($featured = false) { $db = getDB(); if (!$db) return []; if ($featured) { $stmt = $db->query("SELECT * FROM courses WHERE featured = 1 AND available = 1 ORDER BY id ASC"); } else { $stmt = $db->query("SELECT * FROM courses WHERE available = 1 ORDER BY featured DESC, id ASC"); } return $stmt->fetchAll(); } ?>' > /home/tipmrnhl/novaspack.com/includes/config.php
+ok
+$
+/usr/local/bin/php -l /home/tipmrnhl/novaspack.com/includes/config.php 2>&1
+ok
+No syntax errors detected in /home/tipmrnhl/novaspack.com/includes/config.php
+{"thought":"Config.php is valid. Now I need to write the premium index.php — a full AI learning landing page with Tailwind CSS, Google Fonts, hero section, featured courses, enrollment form, and all the professional design elements. This will be a large file. Let me write it now.","action":"run","commands":[{"cmd":"cat > /home/tipmrnhl/novaspack.com/index.php << 'INDEXEOF'\n<?php require_once 'includes/config.php'; ?>\n<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n    <meta charset=\"UTF-8\">\n    <meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n    <title><?= SITE_NAME ?> — <?= SITE_TAGLINE ?></title>\n    <meta name=\"description\" content=\"Master Artificial Intelligence with NovaAI Academy. Professional courses in AI, Machine Learning, Deep Learning, ChatGPT & more. Enroll now and transform your career.\">\n    <link rel=\"preconnect\" href=\"https://fonts.googleapis.com\">\n    <link rel=\"preconnect\" href=\"https://fonts.gstatic.com\" crossorigin>\n    <link href=\"https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Poppins:wght@400;500;600;700;800&display=swap\" rel=\"stylesheet\">\n    <script src=\"https://cdn.tailwindcss.com\"></script>\n    <script>\n        tailwind.config = {\n            theme: {\n                extend: {\n                    fontFamily: {\n                        'heading': ['Poppins', 'sans-serif'],\n                        'body': ['Inter', 'sans-serif']\n                    },\n                    colors: {\n                        'primary': {\n                            50: '#eef2ff',\n                            100: '#e0e7ff',\n                            200: '#c7d2fe',\n                            300: '#a5b4fc',\n                            400: '#818cf8',\n                            500: '#6366f1',\n                            600: '#4f46e5',\n                            700: '#4338ca',\n                            800: '#3730a3',\n                            900: '#312e81',\n                            950: '#1e1b4b'\n                        },\n                        'accent': {\n                            400: '#34d399',\n                            500: '#10b981',\n                            600: '#059669'\n                        }\n                    },\n                    animation: {\n                        'float': 'float 6s ease-in-out infinite',\n                        'pulse-slow': 'pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite',\n                        'gradient': 'gradient 8s ease infinite'\n                    },\n                    keyframes: {\n                        float: {\n                            '0%, 100%': { transform: 'translateY(0px)' },\n                            '50%': { transform: 'translateY(-20px)' }\n                        },\n                        gradient: {\n                            '0%, 100%': { backgroundPosition: '0% 50%' },\n                            '50%': { backgroundPosition: '100% 50%' }\n                        }\n                    }\n                }\n            }\n        }\n    </script>\n    <style>\n        body { font-family: 'Inter', sans-serif; }\n        h1, h2, h3, h4, h5, h6 { font-family: 'Poppins', sans-serif; }\n        .gradient-bg {\n            background: linear-gradient(-45deg, #1e1b4b, #312e81, #3730a3, #4338ca, #4f46e5);\n            background-size: 400% 400%;\n            animation: gradient 8s ease infinite;\n        }\n        .gradient-text {\n            background: linear-gradient(135deg, #818cf8, #34d399);\n            -webkit-background-clip: text;\n            -webkit-text-fill-color: transparent;\n            background-clip: text;\n        }\n        .glass-card {\n            background: rgba(255, 255, 255, 0.05);\n            backdrop-filter: blur(20px);\n            border: 1px solid rgba(255, 255, 255, 0.1);\n        }\n        .course-card:hover {\n            transform: translateY(-8px);\n            box-shadow: 0 25px 50px -12px rgba(99, 102, 241, 0.25);\n        }\n        .course-card {\n            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);\n        }\n        .btn-primary {\n            background: linear-gradient(135deg, #4f46e5, #6366f1);\n            transition: all 0.3s ease;\n        }\n        .btn-primary:hover {\n            transform: translateY(-2px);\n            box-shadow: 0 10px 25px -5px rgba(99, 102, 241, 0.4);\n        }\n        .btn-accent {\n            background: linear-gradient(135deg, #059669, #10b981);\n            transition: all 0.3s ease;\n        }\n        .btn-accent:hover {\n            transform: translateY(-2px);\n            box-shadow: 0 10px 25px -5px rgba(16, 185, 129, 0.4);\n        }\n        .star-rating {\n            color: #f59e0b;\n        }\n        .nav-link {\n            position: relative;\n        }\n        .nav-link::after {\n            content: '';\n            position: absolute;\n            bottom: -2px;\n            left: 0;\n            width: 0;\n            height: 2px;\n            background: linear-gradient(90deg, #818cf8, #34d399);\n            transition: width 0.3s ease;\n        }\n        .nav-link:hover::after {\n            width: 100%;\n        }\n        .mobile-menu {\n            transition: all 0.3s ease;\n        }\n        .input-field {\n            transition: all 0.3s ease;\n        }\n        .input-field:focus {\n            border-color: #6366f1;\n            box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);\n        }\n        .floating-shapes {\n            position: absolute;\n            width: 100%;\n            height: 100%;\n            overflow: hidden;\n            z-index: 0;\n        }\n        .floating-shapes span {\n            position: absolute;\n            display: block;\n            width: 20px;\n            height: 20px;\n            background: rgba(255, 255, 255, 0.05);\n            animation: float 6s infinite;\n            border-radius: 50%;\n        }\n        .floating-shapes span:nth-child(1) { left: 10%; top: 20%; width: 60px; height: 60px; animation-delay: 0s; }\n        .floating-shapes span:nth-child(2) { left: 20%; top: 60%; width: 40px; height: 40px; animation-delay: 1s; background: rgba(99, 102, 241, 0.1); }\n        .floating-shapes span:nth-child(3) { left: 70%; top: 10%; width: 80px; height: 80px; animation-delay: 2s; background: rgba(16, 185, 129, 0.05); }\n        .floating-shapes span:nth-child(4) { left: 80%; top: 70%; width: 50px; height: 50px; animation-delay: 3s; }\n        .floating-shapes span:nth-child(5) { left: 50%; top: 80%; width: 30px; height: 30px; animation-delay: 0.5s; background: rgba(99, 102, 241, 0.08); }\n        .floating-shapes span:nth-child(6) { left: 40%; top: 5%; width: 70px; height: 70px; animation-delay: 1.5s; }\n        @media (max-width: 768px) {\n            .hero-title { font-size: 2.5rem !important; }\n            .hero-subtitle { font-size: 1rem !important; }\n        }\n    </style>\n</head>\n<body class=\"bg-gray-950 text-white antialiased\">\n    <!-- Navigation -->\n    <nav class=\"fixed w-full z-50 bg-gray-950/80 backdrop-blur-xl border-b border-gray-800/50\">\n        <div class=\"max-w-7xl mx-auto px-4 sm:px-6 lg:px-8\">\n            <div class=\"flex items-center justify-between h-16 lg:h-20\">\n                <div class=\"flex items-center space-x-3\">\n                    <div class=\"w-10 h-10 rounded-xl bg-gradient-to-br from-primary-500 to-accent-500 flex items-center justify-center text-white font-bold text-lg\">NA</div>\n                    <span class=\"text-xl font-bold font-heading\">Nova<span class=\"gradient-text\">AI</span></span>\n                </div>\n                <div class=\"hidden md:flex items-center space-x-8\">\n                    <a href=\"#courses\" class=\"nav-link text-gray-300 hover:text-white transition\">Courses</a>\n                    <a href=\"#about\" class=\"nav-link text-gray-300 hover:text-white transition\">About</a>\n                    <a href=\"#enroll\" class=\"nav-link text-gray-300 hover:text-white transition\">Enroll</a>\n                    <a href=\"#contact\" class=\"nav-link text-gray-300 hover:text-white transition\">Contact</a>\n                    <a href=\"admin/login.php\" class=\"text-gray-400 hover:text-white transition text-sm\">Admin</a>\n                    <a href=\"#enroll\" class=\"btn-primary px-6 py-2.5 rounded-xl text-white font-medium text-sm\">Get Started</a>\n                </div>\n                <button id=\"mobile-menu-btn\" class=\"md:hidden text-gray-300 hover:text-white focus:outline-none\">\n                    <svg class=\"w-6 h-6\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\">\n                        <path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M4 6h16M4 12h16M4 18h16\"></path>\n                    </svg>\n                </button>\n            </div>\n        </div>\n        <div id=\"mobile-menu\" class=\"hidden md:hidden mobile-menu bg-gray-900/95 backdrop-blur-xl border-t border-gray-800\">\n            <div class=\"px-4 py-4 space-y-3\">\n                <a href=\"#courses\" class=\"block text-gray-300 hover:text-white py-2\">Courses</a>\n                <a href=\"#about\" class=\"block text-gray-300 hover:text-white py-2\">About</a>\n                <a href=\"#enroll\" class=\"block text-gray-300 hover:text-white py-2\">Enroll</a>\n                <a href=\"#contact\" class=\"block text-gray-300 hover:text-white py-2\">Contact</a>\n                <a href=\"admin/login.php\" class=\"block text-gray-400 hover:text-white py-2 text-sm\">Admin</a>\n                <a href=\"#enroll\" class=\"block btn-primary text-center px-6 py-3 rounded-xl text-white font-medium\">Get Started</a>\n            </div>\n        </div>\n    </nav>\n\n    <!-- Hero Section -->\n    <section class=\"relative min-h-screen flex items-center overflow-hidden\">\n        <div class=\"floating-shapes\">\n            <span></span><span></span><span></span><span></span><span></span><span></span>\n        </div>\n        <div class=\"gradient-bg absolute inset-0 opacity-90\"></div>\n        <div class=\"absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-30\"></div>\n        <div class=\"relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-32\">\n            <div class=\"grid lg:grid-cols-2 gap-12 items-center\">\n                <div class=\"text-center lg:text-left\">\n                    <div class=\"inline-flex items-center px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 text-sm text-gray-200 mb-6\">\n                        <span class=\"w-2 h-2 bg-accent-500 rounded-full animate-pulse mr-2\"></span>\n                        Now Enrolling — Limited Seats Available\n                    </div>\n                    <h1 class=\"hero-title text-4xl sm:text-5xl lg:text-6xl xl:text-7xl font-extrabold font-heading leading-tight mb-6\">\n                        Master <span class=\"gradient-text\">Artificial Intelligence</span><br>\n                        <span class=\"text-white/90\">Transform Your Future</span>\n                    </h1>\n                    <p class=\"hero-subtitle text-lg sm:text-xl text-gray-300 max-w-2xl mx-auto lg:mx-0 mb-8 leading-relaxed\">\n                        Join thousands of students worldwide. Learn AI, Machine Learning, Deep Learning & ChatGPT from industry experts. No prior experience required.\n                    </p>\n                    <div class=\"flex flex-col sm:flex-row gap-4 justify-center lg:justify-start\">\n                        <a href=\"#courses\" class=\"btn-primary px-8 py-4 rounded-xl text-white font-semibold text-lg inline-flex items-center justify-center gap-2\">\n                            Explore Courses\n                            <svg class=\"w-5 h-5\" fill=\"none\" stroke=\"currentColor\" viewBox=\"0 0 24 24\"><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M19 14l-7 7m0 0l-7-7m7 7V3\"></path></svg>\n                        </a>\n                        <a href=\"#enroll\" class=\"px-8 py-4 rounded-xl border border-white/30 text-white font-semibold text-lg inline-flex items-center justify-center gap-2 hover:bg-white/10 transition\">\n                            Enroll Now\n                        </a>\n                    </div>\n                    <div class=\"flex items-center gap-6 mt-8 justify-center lg:justify-start\">\n                        <div class=\"flex -space-x-2\">\n                            <div class=\"w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-pink-400 border-2 border-gray-950 flex items-center justify-center text-xs font-bold\">SK</div>\n                            <div class=\"w-10 h-10 rounded-full bg-gradient-to-br from-blue-400 to-cyan-400 border-2 border-gray-950 flex items-center justify-center text-xs font-bold\">JM</div>\n                            <div class=\"w-10 h-10 rounded-full bg-gradient-to-br from-green-400 to-emerald-400 border-2 border-gray-950 flex items-center justify-center text-xs font-bold\">GM</div>\n                            <div class=\"w-10 h-10 rounded-full bg-gradient-to-br from-amber-400 to-orange-400 border-2 border-gray-950 flex items-center justify-center text-xs font-bold\">PK</div>\n                        </div>\n                        <div class=\"text-sm text-gray-400\">\n                            <span class=\"text-white font-semibold\">4,380+</span> Students Enrolled\n                        </div>\n                    </div>\
+FIX novaspack.com rebuild to ai learning site,, best premium professio

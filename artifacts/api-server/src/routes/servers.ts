@@ -6,6 +6,11 @@ import { z } from "zod";
 import { Client } from "ssh2";
 import { getAIClient } from "../lib/ai";
 import { runBrowserSteps, type BrowserStep } from "../lib/browser";
+import AdmZip from "adm-zip";
+import multer from "multer";
+import path from "path";
+
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
 const router = Router();
 
@@ -360,9 +365,12 @@ IMPORTANT: Base every path on the discovery output above.
 
 // ─── Conversational Coding Agent (iterative loop) ────────────────────────────
 
-const CHAT_AGENT_SYSTEM = (username: string): string => {
+const CHAT_AGENT_SYSTEM = (username: string, historyLength = 1): string => {
   const home = `/home/${username}`;
-  return `You are XDIGITEX — an autonomous SSH coding agent operating on a Linux/cPanel server (user: ${username}, home: ${home}).
+  const alreadyConnected = historyLength > 1
+    ? `NOTE: You are ALREADY CONNECTED to this server. Skip any "connecting to server" announcement. Proceed directly to the task.\n\n`
+    : "";
+  return `${alreadyConnected}You are XDIGITEX — an autonomous SSH coding agent operating on a Linux/cPanel server (user: ${username}, home: ${home}).
 You are a PROJECT OPERATOR, not a chatbot. You observe, plan, execute, verify, fix, and complete. You do not stop until the task succeeds.
 
 ═══ RESPONSE FORMAT — strict JSON only ═══
@@ -399,9 +407,11 @@ Make every thought SPECIFIC and SEQUENTIAL:
 ❌ NEVER use placeholder code — write complete, working, real code
 ❌ NEVER regenerate an entire project when you can patch specific files
 ❌ NEVER stop at the first failure — read the error, fix, retry until it works
+❌ NEVER use action="done" until: PHP syntax passes + HTTP 200 confirmed + (for rebuilds) screenshot taken
 ✅ ALWAYS verify with PHP CLI and/or curl after every fix
 ✅ ALWAYS use FULL ABSOLUTE PATHS — commands run in a fresh shell each time
 ✅ If a command fails — read output → identify root cause → fix → retry
+✅ After a rebuild: use action="browse" to screenshot the live site before action="done"
 
 ═══ VERIFICATION COMMANDS (run after every fix) ═══
 PHP syntax:    /usr/local/bin/php -l <file> 2>&1
@@ -551,10 +561,24 @@ SSH KEY GENERATION:
 3. cat ${home}/.ssh/xdigitex_agent (private key — include in done message for user to save)
 
 FILE WRITING:
-- printf '%s' '<content>' > <absolute/path/file.php>
-- Large files: multiple printf '<chunk>' >> <file> calls
+- Small files (< 2KB): printf '%s' '<content>' > /absolute/path/file.php
 - After writing: /usr/local/bin/php -l <file> 2>&1 to verify syntax
-- ALWAYS confirm write worked: head -3 <file>
+- ALWAYS confirm write + size: ls -la <file> (size should match expected)
+
+LARGE FILE WRITING (landing pages, full PHP/HTML/CSS files > 2KB):
+❌ NEVER use cat > file << 'EOF' for large files — SSH truncates heredocs over ~2KB
+✅ ALWAYS use python3 heredoc for large files:
+python3 << 'PYEOF'
+content = r"""
+...full HTML/PHP content here (can contain quotes, backslashes, PHP tags)...
+"""
+with open('/absolute/path/index.php', 'w') as f:
+    f.write(content.strip())
+PYEOF
+ls -la /absolute/path/index.php
+/usr/local/bin/php -l /absolute/path/index.php 2>&1
+⚠️  After writing: check file size — if < 1KB it was truncated, rewrite using python3 method
+⚠️  A real landing page HTML should be 10–30KB minimum — if smaller it's incomplete
 
 ═══ BROWSER AGENT — control a real browser (for web UIs SSH cannot reach) ═══
 Use action="browse" when you need to click through a web interface:
@@ -628,8 +652,8 @@ router.post("/:id/chat", async (req, res) => {
   const schema = z.object({
     messages: z.array(z.object({
       role:    z.enum(["user", "assistant"]),
-      content: z.string().max(12000),
-    })).min(1).max(40),
+      content: z.string().max(20000),
+    })).min(1).max(60),
     mode: z.enum(["economy", "balanced", "high-power"]).default("high-power"),
   });
   const parsed = schema.safeParse(req.body);
@@ -671,7 +695,7 @@ router.post("/:id/chat", async (req, res) => {
   try {
     const { provider, model } = modelMap[parsed.data.mode];
     const client = getAIClient(provider);
-    const systemPrompt = CHAT_AGENT_SYSTEM(s.username);
+    const systemPrompt = CHAT_AGENT_SYSTEM(s.username, parsed.data.messages.length);
 
     type AIContent = string | Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string; detail?: string } }>;
     // Build AI conversation — content can be string or multimodal array (for vision/screenshots)
@@ -680,8 +704,8 @@ router.post("/:id/chat", async (req, res) => {
       ...parsed.data.messages.map(m => ({ role: m.role as "user" | "assistant", content: m.content })),
     ];
 
-    // Agentic loop — max 25 iterations per user turn (complex builds need more steps)
-    for (let iter = 0; iter < 25; iter++) {
+    // Agentic loop — max 40 iterations per user turn (complex builds need more steps)
+    for (let iter = 0; iter < 40; iter++) {
       const completion = await client.chat.completions.create({
         model,
         messages: aiMessages,
@@ -838,6 +862,62 @@ router.post("/:id/chat", async (req, res) => {
   } catch (err: unknown) {
     send("error", { text: String(err instanceof Error ? err.message : err) });
     res.end();
+  }
+});
+
+// ─── ZIP File Upload → extract + send to AI ──────────────────────────────────
+
+router.post("/:id/upload", upload.single("file"), async (req, res) => {
+  const [s] = await db.select().from(serversTable).where(eq(serversTable.id, parseInt(req.params.id)));
+  if (!s) return res.status(404).json({ error: "Not found" });
+  if (!req.file) return res.status(400).json({ error: "No file uploaded" });
+
+  const ext = path.extname(req.file.originalname).toLowerCase();
+  if (ext !== ".zip") return res.status(400).json({ error: "Only .zip files are supported" });
+
+  try {
+    const zip = new AdmZip(req.file.buffer);
+    const entries = zip.getEntries();
+
+    const TEXT_EXTS = new Set([".php", ".html", ".htm", ".css", ".js", ".ts", ".json", ".sql", ".txt", ".md", ".env", ".htaccess", ".xml", ".yaml", ".yml"]);
+    const IMAGE_EXTS = new Set([".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg", ".ico"]);
+
+    const files: { path: string; content: string; size: number; isImage?: boolean }[] = [];
+    let totalText = 0;
+
+    for (const entry of entries) {
+      if (entry.isDirectory) continue;
+      const entryPath = entry.entryName;
+      const entryExt = path.extname(entryPath).toLowerCase();
+      const size = entry.header.size;
+
+      if (IMAGE_EXTS.has(entryExt)) {
+        files.push({ path: entryPath, content: "[image file]", size, isImage: true });
+        continue;
+      }
+
+      if (TEXT_EXTS.has(entryExt) || entryExt === "") {
+        if (totalText < 80000) {
+          try {
+            const content = entry.getData().toString("utf8").slice(0, 8000);
+            files.push({ path: entryPath, content, size });
+            totalText += content.length;
+          } catch { files.push({ path: entryPath, content: "[binary file]", size }); }
+        } else {
+          files.push({ path: entryPath, content: "[content truncated — too many files]", size });
+        }
+      } else {
+        files.push({ path: entryPath, content: "[binary file]", size });
+      }
+    }
+
+    return res.json({
+      zipName: req.file.originalname,
+      fileCount: files.length,
+      files,
+    });
+  } catch (err: unknown) {
+    return res.status(500).json({ error: `Failed to read zip: ${err instanceof Error ? err.message : String(err)}` });
   }
 });
 

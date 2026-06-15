@@ -12,7 +12,7 @@ import { Dialog, DialogContent } from "@/components/ui/dialog";
 import {
   Server, Plus, Terminal, Bot, Wifi, Loader2, Play, Trash2,
   CheckCircle2, XCircle, Key, Lock, Send, Sparkles,
-  ChevronDown, ChevronRight, RotateCcw, X,
+  ChevronDown, ChevronRight, RotateCcw, X, Paperclip, FileArchive,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -433,8 +433,10 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
   const [mode, setMode]         = useState<"economy" | "balanced" | "high-power">("high-power");
   const [input, setInput]       = useState("");
   const [running, setRunning]   = useState(false);
+  const [uploading, setUploading] = useState(false);
   // Live status: what the agent is doing RIGHT NOW
   const [liveOp, setLiveOp]     = useState<string>("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Chat display messages
   const [msgs, setMsgs]         = useState<ChatMsg[]>([]);
@@ -589,9 +591,13 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
       }
 
       // Store full agent turn (with all command outputs) in AI history
-      // This ensures follow-up messages have full context of what was done
+      // Truncate to stay within backend max(20000) — keeps last ~15000 chars of context
       if (agentTurnParts.length) {
-        setAiHistory(h => [...h, { role: "assistant", content: agentTurnParts.join("\n\n") }]);
+        let assistantContent = agentTurnParts.join("\n\n");
+        if (assistantContent.length > 15000) {
+          assistantContent = "[...earlier output truncated...]\n\n" + assistantContent.slice(-13000);
+        }
+        setAiHistory(h => [...h, { role: "assistant", content: assistantContent }]);
       }
     } catch (e: unknown) {
       addMsg({ kind: "error", text: String(e instanceof Error ? e.message : e) });
@@ -607,6 +613,42 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
 
   const clearChat = () => {
     setMsgs([]); setAiHistory([]); cmdCounter.current = 0; setLiveOp("");
+  };
+
+  const handleZipUpload = async (file: File) => {
+    if (!file.name.endsWith(".zip")) { toast.error("Only .zip files are supported"); return; }
+    setUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch(`${BASE}/api/servers/${server.id}/upload`, { method: "POST", body: formData });
+      const data = await res.json();
+      if (data.error) { toast.error(data.error); return; }
+
+      const { zipName, fileCount, files } = data as {
+        zipName: string; fileCount: number;
+        files: { path: string; content: string; size: number; isImage?: boolean }[];
+      };
+
+      const fileList = files.map(f => `  • ${f.path} (${(f.size / 1024).toFixed(1)}KB)`).join("\n");
+      const fileContents = files
+        .filter(f => !f.isImage && f.content !== "[binary file]")
+        .map(f => `=== ${f.path} ===\n${f.content}`)
+        .join("\n\n---\n\n");
+
+      const zipMsg = `📦 Uploaded ZIP: ${zipName} (${fileCount} files)\n${fileList}\n\n${fileContents.slice(0, 12000)}`;
+
+      addMsg({ kind: "user", text: `📦 Uploaded: ${zipName} (${fileCount} files)\n${fileList}` });
+      const newHistory: AIMsg[] = [...aiHistory, { role: "user", content: zipMsg }];
+      setAiHistory(newHistory);
+      setInput(`Push these files to the server — deploy to the correct domain, verify PHP syntax and HTTP 200`);
+      toast.success(`${fileCount} files extracted from ${zipName}`);
+    } catch (e: unknown) {
+      toast.error(`Upload failed: ${e instanceof Error ? e.message : String(e)}`);
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
   };
 
   return (
@@ -791,7 +833,7 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
                 <Loader2 className="w-3 h-3 text-purple-400 animate-spin" />
               </div>
               <div className="bg-card border border-border rounded-2xl rounded-tl-sm px-4 py-3 text-sm text-muted-foreground">
-                Connecting to server…
+                {aiHistory.length > 1 ? "Working…" : "Connecting to server…"}
               </div>
             </div>
           )}
@@ -810,6 +852,26 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
             </div>
           )}
           <div className="flex gap-2 items-end">
+            {/* Hidden file input for zip upload */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".zip"
+              className="hidden"
+              onChange={e => { const f = e.target.files?.[0]; if (f) handleZipUpload(f); }}
+            />
+            {/* Zip upload button */}
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              className="h-11 w-10 p-0 shrink-0 text-zinc-400 hover:text-purple-400 hover:bg-purple-500/10"
+              disabled={running || uploading}
+              onClick={() => fileInputRef.current?.click()}
+              title="Upload ZIP file — AI will read, modify and deploy files to server"
+            >
+              {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Paperclip className="w-4 h-4" />}
+            </Button>
             <Textarea
               ref={inputRef}
               className={`flex-1 resize-none text-sm min-h-[44px] max-h-36 bg-background transition-colors ${
@@ -818,7 +880,7 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
               placeholder={
                 running ? "Agent is working…" :
                 msgs.length > 0 ? "Reply, ask a follow-up, or say 'now fix it'…" :
-                "Ask me to fix, build, or diagnose anything… (Enter to send)"
+                "Ask me to fix, build, or diagnose anything… (📎 upload a ZIP to deploy files)"
               }
               value={input}
               onChange={e => setInput(e.target.value)}
