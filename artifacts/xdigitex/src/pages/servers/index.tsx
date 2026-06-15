@@ -444,7 +444,7 @@ const MODE_LABELS: Record<string, string> = { economy: "Fast", balanced: "Smart"
 const MODE_DESCS:  Record<string, string> = { economy: "Fastest — good for simple tasks", balanced: "Balanced speed and power", "high-power": "Most capable — best for complex builds" };
 
 function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: () => void }) {
-  const [mode, setMode]         = useState<"economy" | "balanced" | "high-power">("high-power");
+  const [mode, setMode]         = useState<"economy" | "balanced" | "high-power">("balanced");
   const [input, setInput]       = useState("");
   const [running, setRunning]   = useState(false);
   const [uploading, setUploading] = useState(false);
