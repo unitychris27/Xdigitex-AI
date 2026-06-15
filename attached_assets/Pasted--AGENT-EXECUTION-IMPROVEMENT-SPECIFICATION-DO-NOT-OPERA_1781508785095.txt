@@ -1,0 +1,368 @@
+# AGENT EXECUTION IMPROVEMENT SPECIFICATION
+
+## DO NOT OPERATE AS A CHATBOT
+
+Current behavior:
+
+User sends request.
+
+AI returns text.
+
+AI sometimes generates files.
+
+Task ends.
+
+This is not acceptable.
+
+The agent must behave as an autonomous project operator.
+
+---
+
+# AGENT LOOP
+
+Every task must execute through:
+
+OBSERVE
+
+PLAN
+
+EXECUTE
+
+VERIFY
+
+FIX
+
+COMPLETE
+
+Never stop after generation.
+
+---
+
+# PROJECT AWARENESS
+
+Before every action:
+
+Load:
+
+* Current Project
+* Current Files
+* Current Deployments
+* Current Preview
+* Current History
+* Current Build State
+
+The agent must understand the project before acting.
+
+Never generate blind.
+
+---
+
+# PLANNING PHASE
+
+Before writing code:
+
+Generate execution plan.
+
+Example:
+
+User:
+Build an ecommerce site.
+
+Agent:
+
+Plan:
+
+1. Create architecture
+2. Create database
+3. Create backend
+4. Create frontend
+5. Configure deployment
+6. Verify build
+
+Proceeding...
+
+Only after plan approval continue.
+
+---
+
+# FILE-FIRST AGENT
+
+The source of truth is files.
+
+Not chat.
+
+Agent must:
+
+Read files.
+
+Modify files.
+
+Create files.
+
+Delete files.
+
+Move files.
+
+Rename files.
+
+Chat should only explain actions.
+
+Never dump entire projects into chat.
+
+---
+
+# PATCH MODE
+
+Default editing mode.
+
+Example:
+
+User:
+Change navbar color.
+
+Current behavior:
+Rewrite entire application.
+
+Forbidden.
+
+Required behavior:
+
+Load navbar file.
+
+Modify navbar only.
+
+Save navbar file.
+
+Update preview.
+
+Generate patch.
+
+Only touched files should change.
+
+---
+
+# TASK DECOMPOSITION
+
+Large requests must be split.
+
+Example:
+
+Build Uber clone.
+
+Agent automatically creates:
+
+Frontend Task
+
+Backend Task
+
+Database Task
+
+Authentication Task
+
+Deployment Task
+
+Execute independently.
+
+Merge results.
+
+Never use one giant prompt.
+
+---
+
+# VERIFICATION PHASE
+
+After every build:
+
+Run checks.
+
+Examples:
+
+HTML:
+Validate assets.
+
+React:
+Build application.
+
+Node:
+Run install.
+
+Python:
+Check imports.
+
+Docker:
+Build image.
+
+Database:
+Validate schema.
+
+Do not assume success.
+
+Verify success.
+
+---
+
+# SELF-CORRECTION
+
+If build fails:
+
+Agent must:
+
+Read error.
+
+Analyze error.
+
+Apply fix.
+
+Retry.
+
+Repeat until success or maximum retries reached.
+
+Do not stop at first failure.
+
+---
+
+# PREVIEW VALIDATION
+
+After generation:
+
+Verify:
+
+CSS loads.
+
+JS loads.
+
+Images load.
+
+Assets resolve.
+
+No broken references.
+
+Preview must reflect real deployment output.
+
+---
+
+# DEPLOYMENT VALIDATION
+
+After deployment:
+
+Open deployment URL.
+
+Run health check.
+
+Verify:
+
+200 response.
+
+Assets load.
+
+Application works.
+
+If failed:
+
+Diagnose.
+
+Repair.
+
+Redeploy.
+
+---
+
+# SSH AGENT
+
+When SSH is available:
+
+Agent may:
+
+Connect.
+
+Inspect logs.
+
+Restart services.
+
+Deploy updates.
+
+Run migrations.
+
+Check processes.
+
+Fix issues.
+
+Verify fixes.
+
+All actions logged.
+
+---
+
+# DATABASE AGENT
+
+Agent may:
+
+Inspect schema.
+
+Create tables.
+
+Run migrations.
+
+Add indexes.
+
+Repair relationships.
+
+Validate data.
+
+Always backup before destructive changes.
+
+---
+
+# MEMORY
+
+Agent must remember:
+
+Project architecture.
+
+Selected stack.
+
+Deployment targets.
+
+Database structure.
+
+Previous instructions.
+
+Previous fixes.
+
+Never ask for information already known.
+
+---
+
+# COST OPTIMIZATION
+
+Never regenerate entire project.
+
+Always prefer:
+
+Patch existing files.
+
+Modify specific components.
+
+Reuse current architecture.
+
+Avoid unnecessary token consumption.
+
+---
+
+# AUTONOMOUS SUCCESS CRITERIA
+
+A task is complete only when:
+
+Files created.
+
+Preview working.
+
+Build passing.
+
+Deployment successful.
+
+Verification complete.
+
+User request satisfied.
+
+Not when code generation finishes.
