@@ -9,6 +9,7 @@ import { runBrowserSteps, type BrowserStep } from "../lib/browser";
 import AdmZip from "adm-zip";
 import multer from "multer";
 import path from "path";
+import { serverTaskHistoryTable } from "@workspace/db";
 
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 20 * 1024 * 1024 } });
 
@@ -645,7 +646,30 @@ WORDPRESS ADMIN (example):
 SSH vs BROWSE decision:
 - File edits, cron jobs, PHP fixes → use action="run" (SSH)
 - cPanel DB creation, web admin UIs → use action="browse"
-- Both can be combined in the same conversation turn`;
+- Both can be combined in the same conversation turn
+
+═══ BROWSER LOGIN GUIDE ═══
+When logging into a site, ALWAYS follow this sequence:
+1. navigate to login URL
+2. screenshot to see the form
+3. Use {"type":"text","label":"page elements"} to read ALL input names/IDs if screenshot is unclear
+4. Fill fields by NAME attr first: {"type":"fill","selector":"input[name='username']","value":"admin"}
+5. If name fails, try id: {"type":"fill","selector":"#username","value":"admin"}
+6. If both fail, try: {"type":"fill","selector":"input[type='text']:first-of-type","value":"admin"}
+7. Submit: {"type":"click","selector":"button[type='submit']"} or {"type":"press","key":"Enter"}
+8. wait 2000ms then screenshot to confirm login worked
+9. If redirected back to login — credentials wrong or session not saved — check error message in screenshot
+
+COMMON LOGIN SELECTORS TO TRY (in order):
+- Username: input[name='username'], input[name='user'], input[name='email'], input[name='login'], #user_login, #email
+- Password: input[name='password'], input[name='pass'], #user_pass, input[type='password']
+- Submit: button[type='submit'], input[type='submit'], .login-submit, #wp-submit
+
+AFTER LOGIN — verify success:
+- Screenshot should NOT show login form
+- Check URL changed (not still /login or /wp-login.php)
+- If login loop: {"type":"text","label":"page errors"} to read error messages`;
+
 };
 
 router.post("/:id/chat", async (req, res) => {
@@ -704,14 +728,44 @@ router.post("/:id/chat", async (req, res) => {
       ...parsed.data.messages.map(m => ({ role: m.role as "user" | "assistant", content: m.content })),
     ];
 
+    // Token + time tracking across all iterations
+    let totalPromptTokens     = 0;
+    let totalCompletionTokens = 0;
+    let totalIterations       = 0;
+    const startTime = Date.now();
+
+    const flushTokens = async (summary?: string) => {
+      const durationMs = Date.now() - startTime;
+      const total = totalPromptTokens + totalCompletionTokens;
+      send("tokens", {
+        prompt: totalPromptTokens, completion: totalCompletionTokens,
+        total, iters: totalIterations, model, durationMs,
+      });
+      // Persist to history DB
+      const userTask = parsed.data.messages[parsed.data.messages.length - 1]?.content?.slice(0, 1000) ?? "";
+      await db.insert(serverTaskHistoryTable).values({
+        serverId: s.id, task: userTask, summary: summary?.slice(0, 2000) ?? "",
+        model, promptTokens: totalPromptTokens, completionTokens: totalCompletionTokens,
+        totalTokens: total, iterations: totalIterations, durationMs,
+      }).catch(() => {});
+    };
+
     // Agentic loop — max 40 iterations per user turn (complex builds need more steps)
     for (let iter = 0; iter < 40; iter++) {
       const completion = await client.chat.completions.create({
         model,
-        messages: aiMessages,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        messages: aiMessages as any[],
         max_tokens: 4000,
         temperature: 0.1,
       });
+
+      // Accumulate tokens
+      if (completion.usage) {
+        totalPromptTokens     += completion.usage.prompt_tokens     ?? 0;
+        totalCompletionTokens += completion.usage.completion_tokens ?? 0;
+      }
+      totalIterations++;
 
       const raw = completion.choices[0]?.message?.content ?? "";
       const action = parseAgentJSON(raw);
@@ -845,18 +899,45 @@ router.post("/:id/chat", async (req, res) => {
         }
 
       } else if (action.action === "reply") {
+        await flushTokens(action.message);
         send("reply", { text: action.message ?? "I need more information." });
         break;
 
       } else if (action.action === "done") {
+        // Early-done guard: if done in <4 iters on a complex task without verifying, keep going
+        const userTask = (parsed.data.messages[parsed.data.messages.length - 1]?.content ?? "").toLowerCase();
+        const isComplexTask = /build|rebuild|fix|deploy|install|setup|creat|redesign|payment|api|site|connect/i.test(userTask);
+        const doneMsg = (action.message ?? "").toLowerCase();
+        const hasVerification = /http 200|verified|working|syntax.*ok|no.*error|curl.*200|screenshot|success|live|deployed/i.test(doneMsg);
+
+        if (isComplexTask && !hasVerification && totalIterations < 5) {
+          // Agent quit too early — force it to verify
+          send("think", { text: "⚠️ Checking verification before finishing…" });
+          aiMessages.push({ role: "assistant", content: raw });
+          aiMessages.push({
+            role: "user",
+            content: `You said done but haven't shown verification. You MUST complete these steps:\n` +
+                     `1. For PHP sites: /usr/local/bin/php -l <main_file> 2>&1\n` +
+                     `2. Test live: curl -s -o /dev/null -w "HTTP %{http_code}" "https://<domain>/" 2>/dev/null\n` +
+                     `3. Take a screenshot with action="browse"\n` +
+                     `Continue now — do NOT skip these steps.`,
+          });
+          continue; // Force another iteration
+        }
+
+        await flushTokens(action.message);
         send("done", { text: action.message ?? "Task completed." });
         break;
 
       } else {
+        await flushTokens(action.message ?? raw);
         send("reply", { text: action.message ?? raw });
         break;
       }
     }
+
+    // If loop exhausted without done/reply — flush tokens anyway
+    await flushTokens("Max iterations reached").catch(() => {});
 
     res.end();
   } catch (err: unknown) {
@@ -868,7 +949,7 @@ router.post("/:id/chat", async (req, res) => {
 // ─── ZIP File Upload → extract + send to AI ──────────────────────────────────
 
 router.post("/:id/upload", upload.single("file"), async (req, res) => {
-  const [s] = await db.select().from(serversTable).where(eq(serversTable.id, parseInt(req.params.id)));
+  const [s] = await db.select().from(serversTable).where(eq(serversTable.id, parseInt(req.params.id as string)));
   if (!s) return res.status(404).json({ error: "Not found" });
   if (!req.file) return res.status(400).json({ error: "No file uploaded" });
 
@@ -919,6 +1000,18 @@ router.post("/:id/upload", upload.single("file"), async (req, res) => {
   } catch (err: unknown) {
     return res.status(500).json({ error: `Failed to read zip: ${err instanceof Error ? err.message : String(err)}` });
   }
+});
+
+// ─── Task History ─────────────────────────────────────────────────────────────
+
+router.get("/:id/history", async (req, res) => {
+  const [s] = await db.select().from(serversTable).where(eq(serversTable.id, parseInt(req.params.id)));
+  if (!s) return res.status(404).json({ error: "Not found" });
+  const rows = await db.select().from(serverTaskHistoryTable)
+    .where(eq(serverTaskHistoryTable.serverId, s.id))
+    .orderBy(serverTaskHistoryTable.id)
+    .limit(50);
+  return res.json(rows.reverse());
 });
 
 // ─── Metrics ─────────────────────────────────────────────────────────────────

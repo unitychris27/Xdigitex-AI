@@ -25,3 +25,19 @@ export const serversTable = pgTable("servers", {
 export const insertServerSchema = createInsertSchema(serversTable).omit({ id: true, createdAt: true, updatedAt: true });
 export type InsertServer = z.infer<typeof insertServerSchema>;
 export type Server = typeof serversTable.$inferSelect;
+
+export const serverTaskHistoryTable = pgTable("server_task_history", {
+  id:               serial("id").primaryKey(),
+  serverId:         integer("server_id").references(() => serversTable.id, { onDelete: "cascade" }).notNull(),
+  task:             text("task").notNull(),
+  summary:          text("summary"),
+  model:            text("model"),
+  promptTokens:     integer("prompt_tokens").notNull().default(0),
+  completionTokens: integer("completion_tokens").notNull().default(0),
+  totalTokens:      integer("total_tokens").notNull().default(0),
+  iterations:       integer("iterations").notNull().default(0),
+  durationMs:       integer("duration_ms").notNull().default(0),
+  createdAt:        timestamp("created_at").defaultNow().notNull(),
+});
+
+export type ServerTaskHistory = typeof serverTaskHistoryTable.$inferSelect;

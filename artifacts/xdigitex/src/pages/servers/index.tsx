@@ -13,6 +13,7 @@ import {
   Server, Plus, Terminal, Bot, Wifi, Loader2, Play, Trash2,
   CheckCircle2, XCircle, Key, Lock, Send, Sparkles,
   ChevronDown, ChevronRight, RotateCcw, X, Paperclip, FileArchive,
+  History, Zap, Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -38,7 +39,14 @@ type ChatMsg =
   | { kind: "browser_err";  index: number; type: string; error: string }
   | { kind: "reply";        text: string }
   | { kind: "done";         text: string }
-  | { kind: "error";        text: string };
+  | { kind: "error";        text: string }
+  | { kind: "tokens";       prompt: number; completion: number; total: number; iters: number; model: string; durationMs: number };
+
+interface TaskHistoryRow {
+  id: number; serverId: number; task: string; summary: string | null;
+  model: string | null; promptTokens: number; completionTokens: number;
+  totalTokens: number; iterations: number; durationMs: number; createdAt: string;
+}
 
 // AI conversation history (sent to backend)
 interface AIMsg { role: "user" | "assistant"; content: string; }
@@ -442,6 +450,26 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
   const [msgs, setMsgs]         = useState<ChatMsg[]>([]);
   // AI conversation history (clean role/content for backend)
   const [aiHistory, setAiHistory] = useState<AIMsg[]>([]);
+  // Build history panel
+  const [showHistory, setShowHistory]   = useState(false);
+  const [taskHistory, setTaskHistory]   = useState<TaskHistoryRow[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+
+  const loadHistory = async () => {
+    setHistoryLoading(true);
+    try {
+      const r = await fetch(`${BASE}/api/servers/${server.id}/history`);
+      const data = await r.json() as TaskHistoryRow[];
+      setTaskHistory(Array.isArray(data) ? data : []);
+    } catch { /* ignore */ } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const openHistory = () => {
+    setShowHistory(true);
+    void loadHistory();
+  };
 
   const bottomRef  = useRef<HTMLDivElement>(null);
   const inputRef   = useRef<HTMLTextAreaElement>(null);
@@ -582,6 +610,18 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
             agentTurnParts.push(`[agent message] ${text}`);
             setLiveOp("");
 
+          } else if (type === "tokens") {
+            addMsg({
+              kind: "tokens",
+              prompt: ev.prompt as number ?? 0,
+              completion: ev.completion as number ?? 0,
+              total: ev.total as number ?? 0,
+              iters: ev.iters as number ?? 0,
+              model: ev.model as string ?? "",
+              durationMs: ev.durationMs as number ?? 0,
+            });
+            agentTurnParts.push(`[tokens] ${ev.total} total / ${ev.iters} steps / ${((ev.durationMs as number) / 1000).toFixed(1)}s`);
+
           } else if (type === "error") {
             const text = ev.text as string ?? "Unknown error";
             addMsg({ kind: "error", text });
@@ -652,6 +692,7 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
   };
 
   return (
+    <>
     <Dialog open onOpenChange={onClose}>
       <DialogContent className="max-w-3xl h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
         {/* Header */}
@@ -696,6 +737,9 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
                 </button>
               ))}
             </div>
+            <Button size="sm" variant="ghost" onClick={openHistory} title="Build history" className="h-7 w-7 p-0">
+              <History className="w-3.5 h-3.5" />
+            </Button>
             <Button size="sm" variant="ghost" onClick={clearChat} title="Clear chat" className="h-7 w-7 p-0">
               <RotateCcw className="w-3.5 h-3.5" />
             </Button>
@@ -824,6 +868,24 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
               </div>
             );
 
+            if (m.kind === "tokens") return (
+              <div key={i} className="flex justify-center py-1">
+                <div className="flex items-center gap-2 text-[10px] text-zinc-500 bg-zinc-900/60 border border-zinc-800 rounded-full px-3 py-1">
+                  <Zap className="w-2.5 h-2.5 text-yellow-500/70 shrink-0" />
+                  <span>{m.iters} steps</span>
+                  <span className="text-zinc-700">·</span>
+                  <span>{m.prompt.toLocaleString()} in</span>
+                  <span className="text-zinc-700">·</span>
+                  <span>{m.completion.toLocaleString()} out</span>
+                  <span className="text-zinc-700">·</span>
+                  <span className="font-medium text-zinc-400">{m.total.toLocaleString()} tokens</span>
+                  <span className="text-zinc-700">·</span>
+                  <Clock className="w-2.5 h-2.5 text-zinc-600 shrink-0" />
+                  <span>{(m.durationMs / 1000).toFixed(1)}s</span>
+                </div>
+              </div>
+            );
+
             return null;
           })}
 
@@ -902,5 +964,72 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* ── Build History Sheet ── */}
+    <Sheet open={showHistory} onOpenChange={setShowHistory}>
+      <SheetContent side="right" className="w-[420px] sm:w-[520px] flex flex-col p-0">
+        <SheetHeader className="px-5 py-4 border-b border-border shrink-0">
+          <SheetTitle className="flex items-center gap-2 text-base">
+            <History className="w-4 h-4 text-purple-400" />
+            Build History — {server.name}
+          </SheetTitle>
+        </SheetHeader>
+        <div className="flex-1 overflow-y-auto px-4 py-3">
+          {historyLoading ? (
+            <div className="flex items-center justify-center h-32 text-muted-foreground">
+              <Loader2 className="w-5 h-5 animate-spin mr-2" />Loading…
+            </div>
+          ) : taskHistory.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-32 text-center text-muted-foreground text-sm gap-2">
+              <History className="w-8 h-8 opacity-30" />
+              No tasks run yet on this server.
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {taskHistory.map(h => (
+                <div key={h.id} className="rounded-lg border border-border bg-card p-3 space-y-2">
+                  <div className="flex items-start gap-2">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground line-clamp-2">{h.task}</p>
+                      {h.summary && (
+                        <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-2">{h.summary}</p>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-zinc-500 shrink-0 mt-0.5">
+                      {new Date(h.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 text-[10px]">
+                    {h.model && (
+                      <span className="px-1.5 py-0.5 rounded bg-purple-600/15 text-purple-400 font-mono">{h.model.split("/").pop()}</span>
+                    )}
+                    <span className="flex items-center gap-1 text-zinc-500">
+                      <Zap className="w-2.5 h-2.5 text-yellow-500/70" />
+                      {h.totalTokens.toLocaleString()} tokens
+                    </span>
+                    <span className="text-zinc-600">·</span>
+                    <span className="text-zinc-500">{h.iterations} steps</span>
+                    <span className="text-zinc-600">·</span>
+                    <span className="flex items-center gap-0.5 text-zinc-500">
+                      <Clock className="w-2.5 h-2.5" />
+                      {(h.durationMs / 1000).toFixed(1)}s
+                    </span>
+                    <span className="text-zinc-600">·</span>
+                    <span className="text-zinc-600">{h.promptTokens.toLocaleString()} in / {h.completionTokens.toLocaleString()} out</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <SheetFooter className="px-5 py-3 border-t border-border shrink-0">
+          <Button size="sm" variant="outline" onClick={loadHistory} disabled={historyLoading} className="w-full">
+            {historyLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin mr-2" /> : <RotateCcw className="w-3.5 h-3.5 mr-2" />}
+            Refresh
+          </Button>
+        </SheetFooter>
+      </SheetContent>
+    </Sheet>
+    </>
   );
 }

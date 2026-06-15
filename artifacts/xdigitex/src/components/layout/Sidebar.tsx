@@ -62,9 +62,10 @@ interface SidebarProps {
 
 export function Sidebar({ onClose }: SidebarProps) {
   const [location] = useLocation();
-  const { isAdmin } = useAuth();
+  const { isAdmin, user } = useAuth();
 
   const visiblePlatformNav = platformNav.filter(item => !item.adminOnly || isAdmin);
+  const isPremium = (user as { plan?: string } | null)?.plan === "premium";
 
   return (
     <div className="flex h-full w-64 flex-col bg-sidebar border-r border-sidebar-border text-sidebar-foreground shrink-0">
@@ -104,6 +105,28 @@ export function Sidebar({ onClose }: SidebarProps) {
           ))}
         </nav>
       </div>
+
+      {/* XDIGITEX AI Stamp — shown to non-premium users as upgrade CTA */}
+      {!isPremium && (
+        <div className="p-3 border-t border-sidebar-border shrink-0">
+          <a
+            href="/billing"
+            onClick={onClose}
+            className="flex items-center gap-2.5 rounded-lg px-3 py-2.5 bg-purple-600/10 border border-purple-500/20 hover:bg-purple-600/20 hover:border-purple-500/40 transition-all group cursor-pointer"
+          >
+            <div className="w-6 h-6 rounded bg-gradient-to-br from-purple-500 to-violet-600 text-white flex items-center justify-center text-[9px] font-black shrink-0 shadow-sm">
+              XD
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-[11px] font-bold text-purple-300 leading-tight">XDIGITEX AI</div>
+              <div className="text-[10px] text-zinc-500 group-hover:text-purple-400 transition-colors leading-tight">
+                Upgrade to Premium ↗
+              </div>
+            </div>
+            <span className="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse shrink-0" />
+          </a>
+        </div>
+      )}
     </div>
   );
 }
