@@ -30,12 +30,15 @@ interface ServerRow {
 
 // Display message types for the chat UI
 type ChatMsg =
-  | { kind: "user";   text: string }
-  | { kind: "think";  text: string }
-  | { kind: "cmd";    index: number; cmd: string; desc: string; output: string; exitCode?: number; open?: boolean }
-  | { kind: "reply";  text: string }
-  | { kind: "done";   text: string }
-  | { kind: "error";  text: string };
+  | { kind: "user";         text: string }
+  | { kind: "think";        text: string }
+  | { kind: "cmd";          index: number; cmd: string; desc: string; output: string; exitCode?: number; open?: boolean }
+  | { kind: "browser_shot"; index: number; label: string; data: string }
+  | { kind: "browser_text"; index: number; text: string }
+  | { kind: "browser_err";  index: number; type: string; error: string }
+  | { kind: "reply";        text: string }
+  | { kind: "done";         text: string }
+  | { kind: "error";        text: string };
 
 // AI conversation history (sent to backend)
 interface AIMsg { role: "user" | "assistant"; content: string; }
@@ -516,6 +519,33 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
             addMsg({ kind: "think", text });
             agentTurnParts.push(`[thinking] ${text}`);
 
+          } else if (type === "browser_start") {
+            setLiveOp(`Opening browser (${ev.stepCount} steps)…`);
+
+          } else if (type === "browser_shot") {
+            const index = ev.index as number;
+            const label = ev.label as string ?? "Screenshot";
+            const data  = ev.data  as string ?? "";
+            setLiveOp(`Browser: ${label}`);
+            addMsg({ kind: "browser_shot", index, label, data });
+            agentTurnParts.push(`[browser screenshot] ${label}`);
+
+          } else if (type === "browser_text") {
+            const index = ev.index as number;
+            const text  = ev.text  as string ?? "";
+            addMsg({ kind: "browser_text", index, text });
+            agentTurnParts.push(`[browser page text] ${text.slice(0, 200)}`);
+
+          } else if (type === "browser_err") {
+            const index = ev.index as number;
+            const btype = ev.type  as string ?? "";
+            const error = ev.error as string ?? "";
+            addMsg({ kind: "browser_err", index, type: btype, error });
+            agentTurnParts.push(`[browser error] ${btype}: ${error}`);
+
+          } else if (type === "browser_done") {
+            setLiveOp("");
+
           } else if (type === "cmd_start") {
             const localIdx  = ev.index as number;
             const globalIdx = cmdCounter.current++;
@@ -686,6 +716,34 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
                 </div>
               );
             }
+
+            if (m.kind === "browser_shot") return (
+              <div key={i} className="ml-2 space-y-1.5">
+                <div className="flex items-center gap-2 text-xs text-zinc-400">
+                  <span className="text-base">🌐</span>
+                  <span className="font-medium">{m.label}</span>
+                </div>
+                <img
+                  src={`data:image/png;base64,${m.data}`}
+                  alt={m.label}
+                  className="rounded-lg border border-zinc-700 max-w-full shadow-lg"
+                  style={{ maxHeight: 420, objectFit: "contain" }}
+                />
+              </div>
+            );
+
+            if (m.kind === "browser_text") return (
+              <div key={i} className="ml-2 text-xs text-zinc-400 bg-zinc-900/60 rounded-lg px-3 py-2 border border-zinc-800 max-w-[90%]">
+                <span className="text-zinc-500 mr-1">📄 Page text:</span>
+                <span className="whitespace-pre-wrap">{m.text.slice(0, 400)}{m.text.length > 400 ? "…" : ""}</span>
+              </div>
+            );
+
+            if (m.kind === "browser_err") return (
+              <div key={i} className="ml-2 text-xs text-red-400 bg-red-900/20 rounded-lg px-3 py-2 border border-red-800/40">
+                <span className="font-mono">🌐 {m.type} failed: {m.error}</span>
+              </div>
+            );
 
             if (m.kind === "cmd") return (
               <div key={i} className="ml-8">

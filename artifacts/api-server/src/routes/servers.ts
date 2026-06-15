@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { Client } from "ssh2";
 import { getAIClient } from "../lib/ai";
+import { runBrowserSteps, type BrowserStep } from "../lib/browser";
 
 const router = Router();
 
@@ -518,7 +519,66 @@ FILE WRITING:
 - printf '%s' '<content>' > <absolute/path/file.php>
 - Large files: multiple printf '<chunk>' >> <file> calls
 - After writing: /usr/local/bin/php -l <file> 2>&1 to verify syntax
-- ALWAYS confirm write worked: head -3 <file>`;
+- ALWAYS confirm write worked: head -3 <file>
+
+═══ BROWSER AGENT — control a real browser (for web UIs SSH cannot reach) ═══
+Use action="browse" when you need to click through a web interface:
+- Creating/managing MySQL databases in cPanel (cPanel web UI required)
+- WordPress admin panel actions
+- Any admin dashboard that requires clicking
+- Verifying a live website visually
+
+BROWSE JSON FORMAT:
+{"thought":"Opening cPanel to create the database...","action":"browse","steps":[...]}
+
+AVAILABLE STEPS:
+{"type":"navigate","url":"https://..."}                        → open URL
+{"type":"screenshot","label":"Login page"}                     → capture screen (ALWAYS do after navigate)
+{"type":"click","selector":"#submit","label":"Click login"}    → click element
+{"type":"fill","selector":"#user","value":"tipmrnhl"}          → type into field
+{"type":"press","key":"Enter"}                                 → press key
+{"type":"wait","ms":1500}                                      → wait for page load
+{"type":"text","label":"Page content"}                         → extract all visible text
+
+RULES:
+- ALWAYS screenshot after navigate to see what loaded
+- ALWAYS screenshot after important clicks to verify the result
+- If a selector fails → take a text step to read the page → find the right selector
+- Up to 20 steps per browse action
+
+cPANEL LOGIN + CREATE DATABASE (example steps):
+[
+  {"type":"navigate","url":"https://<host>:2083"},
+  {"type":"screenshot","label":"cPanel login"},
+  {"type":"fill","selector":"input[name='user']","value":"<cpanel_username>"},
+  {"type":"fill","selector":"input[name='pass']","value":"<cpanel_password>"},
+  {"type":"click","selector":"button[type='submit']"},
+  {"type":"wait","ms":2000},
+  {"type":"screenshot","label":"After login"},
+  {"type":"navigate","url":"https://<host>:2083/execute/Mysql/create_database?name=<dbname>"},
+  {"type":"text","label":"Create DB result"}
+]
+
+CPANEL UAPI (alternative — use these SSH commands instead of browser when possible):
+uapi Mysql create_database name=<db> 2>&1
+uapi Mysql create_user name=<user> password='<pass>' 2>&1
+uapi Mysql set_privileges_on_database user=<user> database=<db> privileges=ALL 2>&1
+
+WORDPRESS ADMIN (example):
+[
+  {"type":"navigate","url":"https://<domain>/wp-admin/"},
+  {"type":"screenshot","label":"WP login page"},
+  {"type":"fill","selector":"#user_login","value":"<username>"},
+  {"type":"fill","selector":"#user_pass","value":"<password>"},
+  {"type":"click","selector":"#wp-submit"},
+  {"type":"wait","ms":2000},
+  {"type":"screenshot","label":"WP dashboard"}
+]
+
+SSH vs BROWSE decision:
+- File edits, cron jobs, PHP fixes → use action="run" (SSH)
+- cPanel DB creation, web admin UIs → use action="browse"
+- Both can be combined in the same conversation turn`;
 };
 
 router.post("/:id/chat", async (req, res) => {
@@ -570,8 +630,9 @@ router.post("/:id/chat", async (req, res) => {
     const client = getAIClient(provider);
     const systemPrompt = CHAT_AGENT_SYSTEM(s.username);
 
-    // Build AI conversation — convert our messages into OpenAI format
-    const aiMessages: { role: "system" | "user" | "assistant"; content: string }[] = [
+    type AIContent = string | Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string; detail?: string } }>;
+    // Build AI conversation — content can be string or multimodal array (for vision/screenshots)
+    const aiMessages: { role: "system" | "user" | "assistant"; content: AIContent }[] = [
       { role: "system", content: systemPrompt },
       ...parsed.data.messages.map(m => ({ role: m.role as "user" | "assistant", content: m.content })),
     ];
@@ -640,6 +701,62 @@ router.post("/:id/chat", async (req, res) => {
 
         // Also stream results summary so frontend can add to history
         send("cmd_results", { text: resultText });
+
+      } else if (action.action === "browse" && Array.isArray(action.steps) && action.steps.length) {
+        const steps = (action.steps as BrowserStep[]).slice(0, 20);
+        const browseLog: string[] = [];
+        const visionParts: Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string; detail?: string } }> = [];
+        let shotCount = 0;
+
+        send("browser_start", { stepCount: steps.length });
+
+        await runBrowserSteps(steps, (result) => {
+          if (result.screenshot) {
+            shotCount++;
+            const label = result.label ?? `Screenshot ${shotCount}`;
+            // Stream screenshot to frontend
+            send("browser_shot", { index: result.index, label, data: result.screenshot });
+            // Queue for vision message to AI (max 5 images to save tokens)
+            if (shotCount <= 5) {
+              visionParts.push({ type: "text", text: `[${label}]` });
+              visionParts.push({ type: "image_url", image_url: { url: `data:image/png;base64,${result.screenshot}`, detail: "low" } });
+            }
+            browseLog.push(`step ${result.index}: screenshot — ${label}`);
+          } else if (result.text) {
+            const snippet = result.text.slice(0, 800);
+            browseLog.push(`step ${result.index}: page text — ${snippet}`);
+            visionParts.push({ type: "text", text: `Page text: ${snippet}` });
+            send("browser_text", { index: result.index, text: snippet });
+          } else if (!result.ok) {
+            browseLog.push(`step ${result.index}: ${result.type} FAILED — ${result.error}`);
+            send("browser_err", { index: result.index, type: result.type, error: result.error });
+          } else {
+            browseLog.push(`step ${result.index}: ${result.type} OK${result.label ? ` (${result.label})` : ""}`);
+          }
+        });
+
+        const resultSummary = browseLog.join("\n");
+        send("browser_done", { stepsDone: steps.length });
+
+        // Feed results back into AI — use vision for Max mode, text-only for others
+        aiMessages.push({ role: "assistant", content: raw });
+        const isVision = parsed.data.mode === "high-power" && visionParts.length > 0;
+        if (isVision) {
+          aiMessages.push({
+            role: "user",
+            content: [
+              { type: "text", text: `BROWSER RESULTS (${steps.length} steps done):\n${resultSummary}\n\nScreenshots attached. Analyze what you see and decide next steps. Continue autonomously — use browse for more UI actions or run for SSH commands.` },
+              ...visionParts,
+            ],
+          });
+        } else {
+          aiMessages.push({
+            role: "user",
+            content: `BROWSER RESULTS (${steps.length} steps done):\n${resultSummary}\n\nDecide next steps and continue autonomously.`,
+          });
+        }
+
+        send("cmd_results", { text: resultSummary });
 
       } else if (action.action === "reply") {
         send("reply", { text: action.message ?? "I need more information." });
