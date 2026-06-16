@@ -737,54 +737,45 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
       <DialogContent className="max-w-3xl w-full h-[100dvh] sm:h-[90vh] flex flex-col p-0 gap-0 overflow-hidden rounded-none sm:rounded-lg"
         style={{ maxHeight: "100dvh" }}>
         {/* Header */}
-        <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card/80 shrink-0">
-          <div className="flex items-center gap-2 flex-1 min-w-0">
-            <div className="w-8 h-8 rounded-full bg-purple-600/20 flex items-center justify-center shrink-0">
-              <Sparkles className="w-4 h-4 text-purple-400" />
+        <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border bg-card/80 shrink-0">
+          <div className="w-7 h-7 rounded-full bg-purple-600/20 flex items-center justify-center shrink-0">
+            <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="font-semibold text-sm flex items-center gap-1.5 leading-none">
+              Xdigitex AI
+              <StatusDot s={server.status} />
             </div>
-            <div className="min-w-0">
-              <div className="font-semibold text-sm flex items-center gap-2">
-                Xdigitex AI
-                <StatusDot s={server.status} />
-                <span className="text-xs font-normal text-muted-foreground font-mono">{server.username}@{server.host}</span>
-              </div>
-              <div className="text-[11px] truncate">
-                {running ? (
-                  <span className="text-purple-400 flex items-center gap-1.5 min-w-0">
-                    <Loader2 className="w-3 h-3 animate-spin shrink-0" />
-                    <span className="truncate">{liveOp ? liveOp : "Thinking…"}</span>
-                  </span>
-                ) : msgs.length > 0 ? (
-                  <span className="text-green-400 flex items-center gap-1.5">
-                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse shrink-0" />
-                    Ready — type your next message ↓
-                  </span>
-                ) : (
-                  <span className="text-muted-foreground">Ready — ask me to fix, build, or diagnose anything</span>
-                )}
-              </div>
+            <div className="text-[10px] truncate mt-0.5">
+              {running ? (
+                <span className="text-purple-400 flex items-center gap-1 min-w-0">
+                  <Loader2 className="w-2.5 h-2.5 animate-spin shrink-0" />
+                  <span className="truncate">{liveOp ? liveOp : "Thinking…"}</span>
+                </span>
+              ) : (
+                <span className="text-muted-foreground font-mono truncate">{server.username}@{server.host}</span>
+              )}
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {/* Mode selector */}
-            <div className="flex gap-1">
-              {(["economy", "balanced", "high-power"] as const).map(m => (
-                <button key={m} onClick={() => setMode(m)}
-                  title={MODE_DESCS[m]}
-                  className={`px-2 py-1 rounded text-[11px] font-medium transition-colors ${
-                    mode === m ? "bg-purple-600 text-white" : "bg-muted text-muted-foreground hover:bg-muted/80"
-                  }`}>
-                  {MODE_LABELS[m]}
-                </button>
-              ))}
-            </div>
-            <Button size="sm" variant="ghost" onClick={openHistory} title="Build history" className="h-7 w-7 p-0">
-              <History className="w-3.5 h-3.5" />
-            </Button>
-            <Button size="sm" variant="ghost" onClick={clearChat} title="Clear chat" className="h-7 w-7 p-0">
-              <RotateCcw className="w-3.5 h-3.5" />
-            </Button>
+          {/* Mode selector — abbreviated on mobile */}
+          <div className="flex gap-0.5 shrink-0">
+            {(["economy", "balanced", "high-power"] as const).map(m => (
+              <button key={m} onClick={() => setMode(m)}
+                title={MODE_DESCS[m]}
+                className={`px-1.5 py-1 rounded text-[10px] font-medium transition-colors ${
+                  mode === m ? "bg-purple-600 text-white" : "bg-muted text-muted-foreground hover:bg-muted/80"
+                }`}>
+                <span className="hidden sm:inline">{MODE_LABELS[m]}</span>
+                <span className="sm:hidden">{MODE_LABELS[m].slice(0,3).toUpperCase()}</span>
+              </button>
+            ))}
           </div>
+          <Button size="sm" variant="ghost" onClick={openHistory} title="History" className="h-7 w-7 p-0 shrink-0">
+            <History className="w-3.5 h-3.5" />
+          </Button>
+          <Button size="sm" variant="ghost" onClick={clearChat} title="Clear" className="h-7 w-7 p-0 shrink-0">
+            <RotateCcw className="w-3.5 h-3.5" />
+          </Button>
         </div>
 
         {/* Chat messages */}

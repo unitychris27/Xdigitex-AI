@@ -1,0 +1,276 @@
+What your logs show is a classic agent failure mode: it is **pretending to diagnose failures without ever reading the actual failure output**.
+
+Notice the sequence:
+
+1. Agent reports failures:
+
+   * `exit 1: Check procurement-plans.php for fiscal_year column reference`
+   * `exit 1: Check procurement_plans table schema`
+   * `exit 7: Check if homepage returns HTTP 200`
+   * etc.
+
+2. Prompt tells it:
+
+   > "Read the error output shown above. Fix only the root cause."
+
+3. Agent responds:
+
+   > "Let me read the error output"
+
+4. Then runs:
+
+   ```bash
+   cat procurement-plans.php
+   mysql ... DESCRIBE procurement_plans
+   grep fiscal_year ...
+   ```
+
+   instead of reading the stderr/stdout from the failed commands.
+
+The agent never obtained the actual failure reason.
+
+---
+
+## Likely Root Cause
+
+Your agent is treating:
+
+```text
+exit 1
+exit 7
+```
+
+as if they were the errors themselves.
+
+They are not.
+
+For example:
+
+### Exit 1
+
+Could mean:
+
+```bash
+grep fiscal_year file.php
+```
+
+returned:
+
+```text
+(no matches)
+```
+
+which is perfectly normal.
+
+Or:
+
+```bash
+mysql ...
+```
+
+returned:
+
+```text
+Access denied
+```
+
+Or:
+
+```text
+Unknown database
+```
+
+All produce different fixes.
+
+---
+
+### Exit 7
+
+For curl:
+
+```bash
+curl http://localhost:8080
+```
+
+Exit 7 means:
+
+```text
+Failed to connect
+```
+
+Possible causes:
+
+* nginx not running
+* wrong port
+* firewall
+* Docker networking
+* localhost binding issue
+
+The exit code alone is insufficient.
+
+---
+
+## Why It Keeps Looping
+
+Your agent workflow probably looks like:
+
+```text
+Task fails
+↓
+Store only exit code
+↓
+LLM asked to diagnose
+↓
+LLM has no stderr
+↓
+LLM guesses
+↓
+Runs exploratory commands
+↓
+More failures
+↓
+Another diagnose prompt
+↓
+Loop
+```
+
+This is extremely common in SSH agents.
+
+---
+
+## What The Agent Actually Needed
+
+Instead of storing:
+
+```json
+{
+  "command": "mysql ...",
+  "exit_code": 1
+}
+```
+
+store:
+
+```json
+{
+  "command": "mysql ...",
+  "exit_code": 1,
+  "stdout": "...",
+  "stderr": "ERROR 1045 Access denied..."
+}
+```
+
+Then feed that into the repair prompt.
+
+Example:
+
+```text
+Command:
+mysql -u tenders_user ...
+
+Exit Code:
+1
+
+STDERR:
+ERROR 1146 (42S02):
+Table 'tenders_db.procurement_plans' doesn't exist
+```
+
+Now the model can actually diagnose.
+
+---
+
+## Another Issue I See
+
+Your agent is violating its own instruction:
+
+> Fix only the root cause
+
+Yet it immediately launches **7 new investigative commands**:
+
+```bash
+cat procurement-plans.php
+mysql DESCRIBE ...
+grep ...
+grep ...
+grep ...
+```
+
+without first determining the root cause.
+
+That expands the state space and creates more failures.
+
+---
+
+## Better Failure-Recovery Prompt
+
+Instead of:
+
+```text
+Diagnose the root cause of each failure.
+Read the error output shown above.
+Fix only the root cause.
+```
+
+Use:
+
+```text
+For every failed command:
+
+1. Examine the captured stdout/stderr.
+2. Identify the immediate cause of failure.
+3. Determine whether the failure is:
+   - expected/no-op
+   - environment issue
+   - code issue
+   - dependency issue
+4. Propose exactly one corrective action.
+5. Do not run exploratory commands unless the error output
+   explicitly requires additional information.
+6. Ignore exit codes without stderr context.
+```
+
+---
+
+## Architecture Fix
+
+For SSH coding agents, store failures as:
+
+```json
+{
+  "command": "...",
+  "cwd": "...",
+  "exit_code": 1,
+  "stdout": "...",
+  "stderr": "...",
+  "timestamp": "...",
+  "task_id": "..."
+}
+```
+
+Then when asking the LLM to recover, provide:
+
+```text
+FAILED COMMANDS
+
+Command:
+...
+
+Exit:
+...
+
+Stdout:
+...
+
+Stderr:
+...
+```
+
+not just:
+
+```text
+exit 1
+exit 7
+```
+
+Without stderr, the model is effectively blind and will keep generating investigation loops exactly like the one shown in your logs.

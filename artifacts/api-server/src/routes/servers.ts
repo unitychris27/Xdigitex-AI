@@ -676,20 +676,25 @@ Make every thought SPECIFIC and SEQUENTIAL:
 ✅ Save ${home}/.xd_workspace.json after every completed objective
 
 ═══ VERIFICATION COMMANDS (run after every fix) ═══
-PHP syntax:    /usr/local/bin/php -l <file> 2>&1
-PHP execute:   /usr/local/bin/php -f <file> 2>&1 | head -20
-DB connection: /usr/local/bin/php -r "\$c=mysqli_connect('localhost','<user>','<pass>','<db>'); echo \$c?'DB OK':'FAIL: '.mysqli_connect_error();" 2>&1
-HTTP check:    curl -s -o /dev/null -w "HTTP %{http_code}" "https://<domain>/" 2>/dev/null
+PHP syntax:    php -l <file> 2>&1
+PHP execute:   php -f <file> 2>&1 | head -20
+DB connection: php -r "\$c=mysqli_connect('localhost','<user>','<pass>','<db>'); echo \$c?'DB OK':'FAIL: '.mysqli_connect_error();" 2>&1
+HTTP check:    curl -s -o /dev/null -w "HTTP %{http_code}" "http://localhost:<port>/" 2>/dev/null
 Crontab:       crontab -l 2>/dev/null
 Process list:  ps aux | grep -E "php|node|pm2|nginx|apache" | head -10
+Find PHP path: which php 2>/dev/null || find /usr -name 'php' -type f 2>/dev/null | head -3
 
 ═══ SELF-CORRECTION (when something fails) ═══
-- exit code non-zero → read full output → fix root cause → retry
-- PHP fatal error → read file → fix with sed or printf → /usr/local/bin/php -l to verify → re-run
-- DB access denied → read config.php → check credentials → test again
-- DB table missing → scan PHP for table names → CREATE TABLE → retry
-- curl 403/404 → check .htaccess → check vhost → check file permissions: ls -la <siteroot>/
-- "command not found" → try /usr/local/bin/php, /usr/bin/php, which php
+- exit code non-zero → read the FULL stdout+stderr output shown above → identify exact error → fix root cause → retry
+  DO NOT run more exploratory commands unless the error message explicitly says info is missing.
+  DO NOT guess — the answer is always in the output shown above.
+- exit 7 (curl) → connection refused → check: systemctl status nginx apache2 2>/dev/null; ps aux | grep -E "nginx|apache"
+- PHP "not found" → run: which php || find /usr -name php -type f | head -3 → use the full path found
+- PHP fatal error → grep -n "require\|include\|function" the failing file → fix the broken line with sed → php -l to verify
+- DB access denied → grep -n "DB_\|mysqli\|PDO\|connect" /path/to/config.php → check credentials → test again
+- DB table missing → grep -rn "FROM <tablename>" /path/to/site/ → CREATE TABLE → retry
+- curl 403/404 → check .htaccess → check vhost config → ls -la <siteroot>/
+- blank page (HTTP 200 but no body) → php -f /path/to/page.php 2>&1 | head -30 → read the error → fix it
 - "No such file" → use find to locate → update ALL references to use correct path
 - PM2 app crashed → pm2 restart <app> 2>&1 || pm2 start <entry> --name <app> 2>&1
 ✅ Loop: observe error → fix → verify → if still failing → try different approach → never give up
