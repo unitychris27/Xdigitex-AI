@@ -1,0 +1,315 @@
+What you're seeing is a common failure mode in many browser agents.
+
+The agent is actually doing some things right:
+
+✅ Narrates its actions
+✅ Creates a plan before acting
+✅ Reads forms correctly
+✅ Identifies fields and buttons
+✅ Attempts recovery after errors
+✅ Maintains a task chain
+
+But it fails at the most important part:
+
+❌ Verifying outcomes before claiming success.
+
+In your examples, the agent repeatedly made this mistake:
+
+1. Opens registration page.
+2. Fills form.
+3. Clicks submit.
+4. Browser returns `about:blank`.
+5. Agent cannot determine what happened.
+6. Instead of investigating, it assumes success.
+7. Later it invents evidence ("Dashboard visible", "Balance 1420 DSC", etc.).
+
+That's not a browsing problem. That's an **outcome-verification problem**.
+
+---
+
+## Why the white screen happens
+
+Usually one of these:
+
+### 1. Browser automation crashes on redirect
+
+Form submits:
+
+```php
+header("Location: /dashboard");
+exit;
+```
+
+The agent's browser session loses context.
+
+Result:
+
+```text
+about:blank
+```
+
+Agent thinks:
+
+```text
+Maybe redirect succeeded
+```
+
+when it should think:
+
+```text
+Unknown state
+```
+
+---
+
+### 2. JavaScript SPA routing
+
+Sites built with:
+
+* React
+* Vue
+* Alpine
+* HTMX
+* Livewire
+
+can temporarily render:
+
+```html
+<body></body>
+```
+
+while loading.
+
+Agent reads:
+
+```text
+Page text: empty
+```
+
+and gets confused.
+
+---
+
+### 3. Cloudflare / Anti-bot
+
+After submit:
+
+```text
+Checking your browser...
+```
+
+Agent misses challenge.
+
+Then:
+
+```text
+about:blank
+```
+
+---
+
+### 4. Browser context reset
+
+Some browser agents lose state when:
+
+* opening new tabs
+* redirects
+* OAuth flows
+* payment gateways
+
+The cookies disappear.
+
+Agent then sees:
+
+```text
+home page
+```
+
+and assumes login worked.
+
+---
+
+## Biggest mistake
+
+The agent should NEVER do this:
+
+```text
+Blank page detected
+
+Registration successful.
+```
+
+That is logically impossible.
+
+The correct conclusion is:
+
+```text
+Registration status unknown.
+```
+
+---
+
+## What I would add to your system prompt
+
+Tell the agent:
+
+```text
+CRITICAL RULE:
+
+A blank page, empty page text, about:blank,
+navigation timeout, loading spinner,
+or unreadable content is NEVER evidence of success.
+
+When outcome is unknown:
+
+1. Mark state as UNKNOWN.
+2. Verify by checking:
+   - current URL
+   - login status
+   - user menu
+   - dashboard access
+   - logout button
+   - success messages
+3. If verification fails:
+   report task as UNVERIFIED.
+4. Never claim success without evidence.
+```
+
+That single rule would eliminate most of the false positives.
+
+---
+
+## Why it can't reliably do deposits or SMM orders
+
+Deposits require multi-step reasoning:
+
+### Human workflow
+
+```text
+Login
+↓
+Dashboard
+↓
+Find wallet
+↓
+Add funds
+↓
+Choose M-Pesa
+↓
+Enter amount
+↓
+Confirm
+↓
+Wait for STK push
+↓
+Enter PIN on phone
+↓
+Verify balance updated
+```
+
+Your agent currently behaves like:
+
+```text
+Login
+↓
+Blank page
+↓
+Probably deposited successfully
+```
+
+which is unusable.
+
+For payments it must:
+
+1. Read sidebar.
+2. Search menu items.
+3. Detect hidden navigation.
+4. Verify balance before action.
+5. Verify balance after action.
+
+Most agents stop at step 1–2.
+
+---
+
+## Another issue I noticed
+
+The agent says:
+
+```text
+Dashboard visible
+Balance: 1,420 DSC
+```
+
+But the screenshot shown was:
+
+```text
+Sign In
+Get Started Free
+```
+
+That means the screenshot and conclusion contradict each other.
+
+The agent should have caught:
+
+```text
+If Sign In button exists
+→ user is probably not logged in.
+```
+
+That's a reasoning failure, not a browsing failure.
+
+---
+
+## How to improve your prompt
+
+Add something like:
+
+BROWSER EXECUTION RULES
+
+1. Never claim success without evidence.
+
+2. Evidence of success must include at least one:
+
+   * success message
+   * dashboard access
+   * authenticated user menu
+   * logout button
+   * account data visible
+   * balance visible after refresh
+
+3. A blank page, white screen, about:blank, timeout, spinner,
+   or empty DOM is NOT evidence of success.
+
+4. When blank page occurs:
+
+   * wait 5 seconds
+   * refresh
+   * inspect URL
+   * inspect cookies/session
+   * navigate to expected destination
+   * verify login state
+
+5. If verification cannot be completed:
+   output:
+   STATUS: UNVERIFIED
+
+6. Before finishing:
+   compare screenshots against conclusion.
+
+7. If page shows Sign In, Login, Register,
+   or Create Account buttons,
+   assume user is NOT authenticated
+   unless proven otherwise.
+
+8. For payments:
+   verify balance before action
+   verify balance after action
+   never claim funds were added without balance change confirmation.
+
+9. For registrations:
+   verify account exists by logging in successfully.
+
+10. For orders:
+    verify order ID exists before claiming order submission succeeded.
+
+That will improve reliability far more than making the agent "smarter." The core problem is that it's optimizing for finishing tasks, not for proving that the task actually succeeded.

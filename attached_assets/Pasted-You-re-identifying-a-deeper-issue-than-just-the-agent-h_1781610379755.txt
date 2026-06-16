@@ -1,0 +1,319 @@
+You're identifying a deeper issue than just "the agent hit a white screen."
+
+There are actually **two separate problems**:
+
+### Problem 1: Reliability
+
+You want:
+
+```text
+Build site
+↓
+Configure database
+↓
+Create admin
+↓
+Test login
+↓
+Test dashboard
+↓
+Fix errors
+↓
+Retest
+↓
+Verify everything works
+↓
+Share proof
+↓
+Done
+```
+
+But many agents do:
+
+```text
+Build site
+↓
+Create files
+↓
+Encounter error
+↓
+Assume success
+↓
+Move on
+↓
+Claim complete
+```
+
+That produces sites that are 60–80% built but never fully validated.
+
+---
+
+### Problem 2: Scalability
+
+Even if you improve the prompt, you're asking a single conversational agent to:
+
+* architect a SaaS
+* write thousands of files
+* browse
+* debug
+* test
+* deploy
+* verify
+
+all inside one context window.
+
+Eventually it hits:
+
+* token limits
+* context compression
+* forgotten decisions
+* execution timeouts
+
+The larger the project, the worse it gets.
+
+---
+
+## Why one giant prompt is the wrong architecture
+
+Your LinkForge prompt is effectively:
+
+```text
+Build Bitly
++ Rebrandly
++ QR platform
++ Analytics suite
++ Team management
++ API
++ Billing
++ Admin panel
++ Installer
++ Blog
++ SEO system
+```
+
+That's not a prompt.
+
+That's a software project.
+
+A professional team would split that into:
+
+* Product architect
+* Backend engineer
+* Frontend engineer
+* Database engineer
+* QA tester
+* DevOps engineer
+
+An AI agent should be split similarly.
+
+---
+
+## Better architecture
+
+Instead of:
+
+```text
+One agent
+```
+
+Use:
+
+```text
+Planner Agent
+    ↓
+Builder Agent
+    ↓
+QA Agent
+    ↓
+Browser Verification Agent
+    ↓
+Fix Agent
+```
+
+The QA agent's only job is:
+
+```text
+Prove it works.
+```
+
+Not build.
+
+Not code.
+
+Not explain.
+
+Just verify.
+
+---
+
+## What "complete" should mean
+
+The agent should not say:
+
+```text
+Project completed.
+```
+
+until all checks pass.
+
+Example:
+
+```text
+CHECKLIST
+
+[✓] Database created
+[✓] Tables exist
+[✓] Admin user created
+[✓] Login works
+[✓] Registration works
+[✓] Password reset works
+[✓] Dashboard loads
+[✓] Analytics loads
+[✓] API endpoint returns JSON
+[✓] Stripe test payment works
+[✓] Cron jobs run
+[✓] No PHP errors
+
+STATUS:
+VERIFIED
+```
+
+If even one fails:
+
+```text
+STATUS:
+NOT VERIFIED
+```
+
+---
+
+## Screenshots are not enough
+
+A screenshot proves:
+
+```text
+Page rendered.
+```
+
+It does not prove:
+
+```text
+Database connected.
+```
+
+or
+
+```text
+Login session works.
+```
+
+or
+
+```text
+Analytics records clicks.
+```
+
+For a site build, I'd require:
+
+```text
+SCREENSHOT
++
+HTTP response check
++
+Database query check
++
+User flow test
++
+Error log check
+```
+
+before completion.
+
+---
+
+## The workload issue you mentioned
+
+This is important.
+
+If many users are asking:
+
+```text
+Build me:
+- SMM panel
+- CRM
+- SaaS
+- LMS
+- AI platform
+```
+
+and every request launches a massive autonomous build process, then eventually:
+
+* browser sessions pile up
+* contexts become huge
+* retries multiply
+* verification loops consume tokens
+
+and the system becomes expensive and unstable.
+
+The solution is not a bigger prompt.
+
+The solution is **task decomposition**.
+
+For example:
+
+```text
+Task 1:
+Generate architecture
+
+Task 2:
+Generate database
+
+Task 3:
+Generate authentication
+
+Task 4:
+Generate dashboard
+
+Task 5:
+Run tests
+
+Task 6:
+Deploy
+
+Task 7:
+Verify
+```
+
+Each task has its own context and verification.
+
+---
+
+## The rule I'd add above everything else
+
+If I were designing an autonomous web-building agent, I'd make this the highest-priority instruction:
+
+COMPLETION RULE
+
+The task is not complete because files were created.
+
+The task is complete only when:
+
+1. All required components exist.
+2. The application runs without fatal errors.
+3. Database connectivity is verified.
+4. Authentication is verified.
+5. Core user flows are verified.
+6. Screenshots are captured.
+7. Error logs are checked.
+8. Verification evidence is recorded.
+
+If verification cannot be performed,
+the task status must be:
+
+UNVERIFIED
+
+and never:
+
+COMPLETED.
+
+That single rule would eliminate most of the "I built it" claims for projects that were never actually tested end-to-end.

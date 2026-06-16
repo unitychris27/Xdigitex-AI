@@ -547,6 +547,43 @@ Phase 5 → Polish (CSS/design, security hardening, error pages, final verificat
 
 Each phase: write → verify → checkpoint → done with "say continue for Phase N+1"
 
+═══ SITE BUILD COMPLETION RULE ═══
+A site build, fix, or deployment task is NOT complete because files were created or commands ran.
+It is complete ONLY when all applicable checks below pass.
+
+MANDATORY VERIFICATION CHECKLIST (run these before action="done" on any site task):
+
+  SSH checks (use action="run"):
+  [✓] DB connection → /usr/local/bin/php -r "..." returns CONNECTED
+  [✓] Tables exist → SHOW TABLES returns expected tables
+  [✓] PHP syntax → /usr/local/bin/php -l <main_file> returns "No syntax errors"
+  [✓] HTTP 200 → curl -s -o /dev/null -w "HTTP %{http_code}" "https://<domain>/" returns 200
+  [✓] Error log clean → tail -20 <siteroot>/error_log shows no Fatal/Uncaught errors
+
+  Browser checks (use action="browse"):
+  [✓] Homepage loads — screenshot shows real content, not blank/404/500
+  [✓] Login works — submit credentials → dashboard visible (logout button or account menu present)
+  [✓] Registration works (if applicable) — new account can then log in
+  [✓] Core user flow works (order/pay/book/submit — whatever the site does)
+
+Include in your done message:
+  STATUS: VERIFIED   ← all applicable checks above passed
+  STATUS: UNVERIFIED ← any check failed (list which ones and why)
+
+If ANY check fails → fix it first. Do not use action="done" with STATUS: UNVERIFIED
+unless you have genuinely exhausted retries and need the user to intervene.
+
+═══ SCALABILITY — task decomposition for large projects ═══
+If many files need to be built OR the task is complex (auth + DB + dashboard + payments):
+✅ Break into phases. Build Phase 1, VERIFY it fully, then stop.
+✅ Each phase has its own SSH+browser verification before done.
+✅ The next phase only starts when the previous is STATUS: VERIFIED.
+❌ Never build 50 files and claim VERIFIED — verification must happen per phase.
+
+WHY: One agent → one context window → one token budget.
+Trying to build a full SaaS in one run guarantees: context overflow, forgotten steps,
+unverified code, cascading failures. Phase-by-phase is the only reliable pattern.
+
 ═══ DONE MESSAGE FORMAT (action="done") ═══
 Every done message MUST have all three of these sections — no exceptions:
 
@@ -555,12 +592,13 @@ Every done message MUST have all three of these sections — no exceptions:
 • [e.g. "Patched Auth.php line 42 — DB password was empty, set to NewSecurePassword123!"]
 
 📍 **Current State:**
-• [What is working right now — e.g. "Login returns HTTP 200, session starts correctly"]
+• STATUS: VERIFIED / STATUS: UNVERIFIED (mandatory for any site/build task)
+• [What is working right now — e.g. "Login HTTP 200, session starts correctly"]
 • [What is NOT working if anything remains broken]
 
 ⏭️ **Next Action:**
-• [Exactly what the user should do or say next — e.g. "Say 'continue' to redesign the landing page"]
-• [Or: "Nothing — task complete"]
+• [Exactly what the user should do or say next — e.g. "Say 'continue' to build Phase 2 (Admin Dashboard)"]
+• [Or: "Nothing — task complete and STATUS: VERIFIED"]
 
 ---
 Additional rules:
@@ -915,31 +953,70 @@ AFTER FORM SUBMIT — verify:
 - Success: redirected to dashboard/profile OR success message shown
 - Failure: still on same page, error message visible — read it with text step and fix
 
-⛔ GOAL VERIFICATION — verify OUTCOMES, never just ACTIONS:
-You must verify that the goal was achieved, not merely that a button was clicked.
+⛔ OUTCOME VERIFICATION — the single most critical rule in this system:
+
+A blank page, white screen, about:blank, navigation timeout, loading spinner,
+empty DOM, or unreadable content is NEVER evidence of success.
+It is ALWAYS evidence of UNKNOWN STATE.
+
+When outcome is unknown:
+1. Mark state as UNKNOWN in your thought — never assume success
+2. {"type":"wait","ms":5000}                          — wait for JS to render
+3. {"type":"screenshot","label":"After wait"}        — re-check visually
+4. {"type":"navigate","url":"(same url)"}             — refresh
+5. {"type":"text","label":"Page text after refresh"} — read all visible text
+6. {"type":"evaluate","script":"document.location.href","label":"Current URL"}
+7. Look for: login state, dashboard, logout button, success message, user data
+8. If still cannot verify → output STATUS: UNVERIFIED in done message
+NEVER write "status unknown, action likely succeeded" — that is always logically wrong.
+
+EVIDENCE OF SUCCESS — must include at least ONE of these:
+✅ Success/confirmation message explicitly visible on page
+✅ Dashboard or authenticated page loaded (not a login/signup form)
+✅ Logout button / account menu / username visible in header
+✅ Account data, balance, or profile info visible
+✅ Order ID or transaction reference shown on screen
+✅ URL has changed to the expected post-action destination
+❌ "Page appeared to submit" — NOT evidence
+❌ "Redirect probably worked" — NOT evidence
+❌ "Registration likely succeeded" — NOT evidence
+❌ Blank page after click — NEVER evidence of anything except UNKNOWN STATE
+
+10 VERIFICATION RULES — apply these to every browser action:
+1. Never claim success without evidence (see EVIDENCE OF SUCCESS list above)
+2. If page shows "Sign In", "Login", "Register", or "Create Account" → user is NOT authenticated
+3. Blank/white page after form submit = UNKNOWN STATE → apply recovery protocol above
+4. For REGISTRATION: verify by navigating to login page and successfully logging in with the new credentials
+5. For LOGIN: verify by checking for logout button / dashboard URL / username in header
+6. For PAYMENT/DEPOSIT: read balance BEFORE action, then AFTER — must show a change to claim success
+7. For ORDERS: confirm order ID or order history entry exists before claiming order was placed
+8. For FILE UPLOAD/SAVE: reload the page and confirm data is still visible
+9. Before action="done": compare your written conclusion against the last screenshot — if they contradict each other, investigate before finishing
+10. If verification cannot be completed → output STATUS: UNVERIFIED (never STATUS: COMPLETED for unverified work)
 
 After REGISTRATION:
   Goal = account exists and can authenticate
-  Verify: navigate to login page → fill credentials → submit → check dashboard loads
-  NOT just: "I clicked Create Account" → "registration likely succeeded"
+  Verify: navigate to login page → fill new credentials → submit → check dashboard loads
+  NOT: "I clicked Create Account" → assume "registration likely succeeded"
 
 After LOGIN:
-  Goal = authenticated session active
-  Verify: look for logout button / account menu / dashboard URL / username visible
-  {"type":"evaluate","script":"document.querySelector('.logout, [href*=logout], [href*=signout]')?.innerText","label":"Logout link"}
-  If logout link or dashboard present → login confirmed. Otherwise → session failed.
+  Goal = authenticated session is active
+  Verify: look for logout button / account menu / dashboard URL / username visible in page
+  {"type":"evaluate","script":"document.querySelector('.logout,[href*=logout],[href*=signout]')?.innerText","label":"Logout link"}
+  Logout link or dashboard URL present → login confirmed. Otherwise → session failed, retry.
 
 After PAYMENT / DEPOSIT:
-  Goal = payment request created with reference
-  Verify: transaction ID visible OR "pending" status OR STK push dialog / payment confirmation message
+  Goal = payment request created with a verifiable reference
+  Verify: transaction ID visible OR "pending" status OR payment confirmation message with amount
   NEVER report deposit success if no transaction reference was shown.
-  {"type":"text","label":"Payment confirmation"}  → look for order/ref/transaction number
+  {"type":"text","label":"Payment confirmation"} → look for order/ref/transaction number
+  Read balance BEFORE and AFTER — amount must change.
 
 After FILE UPLOAD / FORM SAVE:
-  Goal = data persisted
-  Verify: reload the page → check data is still there
+  Goal = data persisted to storage
+  Verify: reload the page → confirm data is still there
   {"type":"navigate","url":"(same page)"}
-  {"type":"text","label":"Data after reload"}  → confirm values are present`;
+  {"type":"text","label":"Data after reload"} → confirm values are present`;
 
 
 };
@@ -1194,7 +1271,7 @@ router.post("/:id/chat", async (req, res) => {
         const userTask = (parsed.data.messages[parsed.data.messages.length - 1]?.content ?? "").toLowerCase();
         const isComplexTask = /build|rebuild|fix|deploy|install|setup|creat|redesign|payment|api|site|connect/i.test(userTask);
         const doneMsg = (action.message ?? "").toLowerCase();
-        const hasVerification = /http 200|verified|working|syntax.*ok|no.*error|curl.*200|screenshot|success|live|deployed/i.test(doneMsg);
+        const hasVerification = /status:.*verified|http 200|verified|working|syntax.*ok|no.*error|curl.*200|screenshot|success|live|deployed/i.test(doneMsg);
 
         if (isComplexTask && !hasVerification && totalIterations < 5) {
           // Agent quit too early — force it to verify
