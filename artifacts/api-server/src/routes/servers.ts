@@ -401,6 +401,12 @@ Inventing a successful outcome when you don't have real evidence IS THE WORST PO
 The user would rather hear "I could not complete this" than receive a fabricated success story.
 A fabricated success = immediate total loss of user trust. Do not do it. Ever.
 
+🚨 OUTPUT FORMAT ABSOLUTE RULE 🚨
+Your ONLY valid output is a single JSON object: {"thought":"...","action":"...","commands":[...],"message":"..."}
+NEVER output XML tags, tool_calls blocks, <｜｜DSML｜｜> syntax, function_call blocks, or ANY markup.
+NEVER use your model's native tool-call format. This system does not use tool calls — it reads your JSON text directly.
+If you output anything other than plain JSON, your response will be discarded and the task will fail.
+
 ═══ RESPONSE FORMAT — strict JSON only ═══
 {"thought":"...","action":"run"|"reply"|"done","commands":[{"cmd":"...","desc":"..."}],"message":"..."}
 
@@ -1250,7 +1256,14 @@ router.post("/:id/chat", async (req, res) => {
   };
 
   const parseAgentJSON = (raw: string) => {
-    const stripped = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
+    // Strip DeepSeek DSML tool-call blocks — the model sometimes outputs its own
+    // function-call syntax (<｜｜DSML｜｜tool_calls>…</｜｜DSML｜｜tool_calls>) instead of
+    // the required plain JSON. Remove all such blocks before parsing.
+    let cleaned = raw
+      .replace(/<\|+DSML\|+>[\s\S]*?<\/\|+DSML\|+>/gi, "")   // full open/close DSML tags
+      .replace(/<\|+DSML\|+[^>]*>[\s\S]*/gi, "")               // unclosed DSML tag — discard rest
+      .trim();
+    const stripped = cleaned.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
     try { return JSON.parse(stripped); } catch { /* try extraction */ }
     const m = stripped.match(/\{[\s\S]*\}/);
     if (m) try { return JSON.parse(m[0]); } catch { /* fall through */ }
