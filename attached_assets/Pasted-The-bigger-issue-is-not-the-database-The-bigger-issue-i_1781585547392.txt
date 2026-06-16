@@ -1,0 +1,430 @@
+The bigger issue is not the database. The bigger issue is your agent is getting stuck, burning context, and trying to do too much in one run.
+
+Looking at that output:
+
+```json
+{
+  "thought":"Database is now created with all 18 tables. Now I need to:
+  1) Fix login DB connection
+  2) Create admin user
+  3) Redesign landing page
+  ..."
+}
+```
+
+Then it starts:
+
+```bash
+cat Database.php
+cat Auth.php
+test DB
+insert roles
+create admin
+generate hash
+```
+
+and eventually:
+
+```text
+127,913 tokens
+165.5s
+11 commands failed
+```
+
+That is exactly why agents fail.
+
+## Root Cause
+
+Your agent is acting like:
+
+> "I will solve everything at once."
+
+Instead it should act like:
+
+> "One task → verify → next task."
+
+OpenHands, Manus, Devin and Replit Agent all work because they break work into small verified loops.
+
+Your agent is currently:
+
+1. Reading files
+2. Reading configs
+3. Reading middleware
+4. Testing MySQL
+5. Creating users
+6. Modifying code
+7. Building UI
+
+all in one execution.
+
+That destroys context.
+
+---
+
+# Fix #1: Hard Limit Agent Planning
+
+Add system rule:
+
+```text
+NEVER create plans longer than 5 steps.
+
+If task exceeds 5 steps:
+
+STOP
+COMPLETE CURRENT STEP
+VERIFY
+CONTINUE
+
+Do not attempt entire project in one execution.
+```
+
+Bad:
+
+```text
+Build advertising network.
+Create DB.
+Create UI.
+Create API.
+Create Auth.
+Create Admin.
+Create Publisher.
+Create Payments.
+```
+
+Good:
+
+```text
+Current Goal:
+Fix login issue
+
+Step 1:
+Read Auth.php
+
+Step 2:
+Read Database.php
+
+Step 3:
+Find error
+
+Step 4:
+Patch error
+
+Step 5:
+Verify login
+```
+
+Then stop.
+
+---
+
+# Fix #2: Maximum Command Budget
+
+Add:
+
+```text
+Maximum commands per run: 15
+
+If more than 15 commands are required:
+
+STOP
+Report findings
+Request next execution cycle
+```
+
+Manus does this.
+
+Devin does this.
+
+Otherwise agent loops forever.
+
+---
+
+# Fix #3: Context Compression
+
+After every task:
+
+Generate:
+
+```json
+{
+  "completed":[
+    "fixed auth login",
+    "created admin"
+  ],
+  "pending":[
+    "landing page redesign"
+  ]
+}
+```
+
+Store it.
+
+Next run loads summary only.
+
+Not 100,000 tokens of history.
+
+---
+
+# Fix #4: Prevent Massive File Reads
+
+I see:
+
+```bash
+cat Database.php
+cat Auth.php
+```
+
+Then later:
+
+```bash
+cat entire project
+```
+
+This kills context.
+
+Rule:
+
+```text
+Never read entire files over 500 lines.
+
+Use:
+
+head
+tail
+grep
+sed
+
+Read only relevant sections.
+```
+
+Example:
+
+```bash
+grep login Auth.php
+```
+
+instead of:
+
+```bash
+cat Auth.php
+```
+
+---
+
+# Fix #5: Autonomous Repair Loop
+
+What you want is:
+
+```text
+Login server
+
+See error
+
+Fix error
+
+Run app
+
+See next error
+
+Fix error
+
+Repeat
+```
+
+Prompt:
+
+```text
+When an error is detected:
+
+1. Identify root cause.
+2. Patch smallest possible code.
+3. Re-run.
+4. Verify.
+
+Never redesign unrelated code.
+
+Never rewrite entire files.
+
+Never rewrite working modules.
+```
+
+Currently your agent rewrites everything.
+
+That's why token usage explodes.
+
+---
+
+# Fix #6: Workspace Memory
+
+Your agent should save:
+
+```json
+workspace_state.json
+```
+
+Example:
+
+```json
+{
+  "project":"NovaSpack",
+  "files_created":247,
+  "last_task":"Fix Login",
+  "last_completed":"Database Connection Fixed",
+  "next_task":"Create Admin User"
+}
+```
+
+After crash:
+
+```text
+Resume from workspace_state.json
+```
+
+instead of starting over.
+
+---
+
+# Fix #7: SSH Agent Mode
+
+For SSH work use:
+
+```text
+Execution Mode:
+SERVER_OPERATOR
+```
+
+Rules:
+
+```text
+You have SSH access.
+
+Always inspect first.
+
+pwd
+ls
+git status
+
+before editing anything.
+
+Never assume paths.
+
+Verify every command result.
+
+Do not continue after failed command.
+
+Fix failure first.
+```
+
+Your log shows:
+
+```text
+11 commands failed
+```
+
+but the agent continued.
+
+That should never happen.
+
+Rule:
+
+```text
+If command exits non-zero:
+
+STOP
+
+Investigate failure
+
+Do not continue with next task
+```
+
+---
+
+# Fix #8: Token Limits Per Mode
+
+Fast:
+
+```text
+4k max output
+```
+
+Smart:
+
+```text
+8k max output
+```
+
+Max:
+
+```text
+20k max output
+```
+
+Hard stop after limit.
+
+Current run hit:
+
+```text
+127,913 tokens
+```
+
+which is absurd for an autonomous coding task.
+
+---
+
+# Fix #9: Reference Architecture
+
+For an OpenHands-style coding agent, study:
+
+* [OpenHands](https://github.com/OpenHands/OpenHands?utm_source=chatgpt.com)
+* [SWE-agent](https://github.com/SWE-agent/SWE-agent?utm_source=chatgpt.com)
+* [OpenDevin](https://github.com/OpenDevin/OpenDevin?utm_source=chatgpt.com)
+* [Aider](https://github.com/Aider-AI/aider?utm_source=chatgpt.com)
+
+The most important pattern they all use:
+
+```text
+Observe
+Plan
+Execute
+Verify
+Summarize
+Repeat
+```
+
+not:
+
+```text
+Observe
+Build entire company
+Crash
+```
+
+### Recommended Improvement Prompt
+
+```text
+You are an autonomous software engineer.
+
+Rules:
+
+- Complete only ONE objective at a time.
+- Maximum 5 planning steps.
+- Maximum 15 commands per execution.
+- Stop immediately after failed commands.
+- Never rewrite entire files unless requested.
+- Patch only affected code.
+- Verify every change.
+- Save workspace state after each completed task.
+- Compress memory into summaries.
+- Never read large files completely.
+- Use grep, head, tail, sed first.
+- Never continue after verification failure.
+- Always produce:
+  Completed
+  Current State
+  Next Action
+
+Goal:
+Be reliable before being intelligent.
+```
+
+That single change will improve your agent more than switching from DeepSeek to GPT or Claude.
