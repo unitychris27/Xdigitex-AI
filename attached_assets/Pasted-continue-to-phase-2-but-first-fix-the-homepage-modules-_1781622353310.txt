@@ -1,0 +1,794 @@
+continue to phase 2, but first fix the homepage — modules/public/home.php is missing and the body is blank
+[...earlier output truncated...]
+
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body text-center p-4">
+                    <div class="feature-icon bg-warning bg-opacity-10 text-warning mx-auto mb-3">
+                        <i class="fas fa-file-signature fa-2x"></i>
+                    </div>
+                    <h5 class="fw-bold">Award Notifications</h5>
+                    <p class="text-muted small mb-0">Receive timely notifications of tender awards and contract opportunities.</p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card h-100 border-0 shadow-sm">
+                <div class="card-body text-center p-4">
+                    <div class="feature-icon bg-info bg-opacity-10 text-info mx-auto mb-3">
+                        <i class="fas fa-chart-line fa-2x"></i>
+                    </div>
+                    <h5 class="fw-bold">Performance Tracking</h5>
+                    <p class="text-muted small mb-0">Track your bid performance and supplier rating over time.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="bg-primary text-white py-5">
+    <div class="container text-center">
+        <h2 class="fw-bold mb-3">Ready to Do Business with the Government?</h2>
+        <p class="lead mb-4 opacity-90">Register your company today and start bidding on government tenders.</p>
+        <a href="<?= SITE_URL ?>/register" class="btn btn-light btn-lg px-5 fw-bold">
+            <i class="fas fa-user-plus me-2"></i>Register Now
+        </a>
+        <a href="<?= SITE_URL ?>/tenders" class="btn btn-outline-light btn-lg px-5 fw-bold ms-2">
+            <i class="fas fa-search me-2"></i>Browse Tenders
+        </a>
+    </div>
+</section>
+""";
+
+path = '/var/www/tenders/pages/home.php'
+os.makedirs(os.path.dirname(path), exist_ok=True)
+open(path, 'w').write(home_content.strip())
+print(f"✓ {path} ({len(home_content):,} bytes)")
+PYEOF
+✓ /var/www/tenders/pages/home.php (11,251 bytes)
+[exit 0]
+
+[agent message] [thinking] Now I need to create the other page files (tenders, awards, plans, notices, faq, contact, login, register) and also create the admin dashboard. Let me write all the remaining pages in one batch.
+
+[commands executed + output]
+$ python3 << 'PYEOF'
+import os
+
+# Tenders page
+tenders_content = r"""<?php
+/**
+ * Tenders Listing Page
+ */
+
+$db = Database::getInstance();
+
+// Get filters
+$search = $_GET['search'] ?? '';
+$category = $_GET['category'] ?? '';
+$status = $_GET['status'] ?? 'active';
+$sort = $_GET['sort'] ?? 'newest';
+$page = max(1, intval($_GET['page'] ?? 1));
+$perPage = 20;
+
+// Build query
+$where = [];
+$params = [];
+
+if ($search) {
+    $where[] = "(t.title LIKE ? OR t.tender_number LIKE ? OR t.description LIKE ?)";
+    $params[] = "%$search%";
+    $params[] = "%$search%";
+    $params[] = "%$search%";
+}
+
+if ($category) {
+    $where[] = "t.category_id = ?";
+    $params[] = $category;
+}
+
+if ($status) {
+    $where[] = "t.status = ?";
+    $params[] = $status;
+}
+
+$whereClause = $where ? 'WHERE ' . implode(' AND ', $where) : '';
+
+// Get total count
+$countResult = $db->query(
+    "SELECT COUNT(*) as count FROM tenders t $whereClause",
+    $params
+);
+$totalTenders = $countResult->fetch()['count'];
+
+// Get tenders
+$offset = ($page - 1) * $perPage;
+$orderBy = match($sort) {
+    'closing' => 't.closing_date ASC',
+    'oldest' => 't.created_at ASC',
+    default => 't.created_at DESC'
+};
+
+$tenders = $db->query(
+    "SELECT t.*, c.name as category_name, d.name as department_name 
+     FROM tenders t 
+     LEFT JOIN categories c ON t.category_id = c.id 
+     LEFT JOIN departments d ON t.department_id = d.id 
+     $whereClause 
+     ORDER BY $orderBy 
+     LIMIT $perPage OFFSET $offset",
+    $params
+)->fetchAll();
+
+// Get categories for filter
+$categories = $db->query("SELECT * FROM categories ORDER BY name")->fetchAll();
+
+// Pagination
+$totalPages = ceil($totalTenders / $perPage);
+?>
+
+<!-- Page Header -->
+<section class="bg-primary bg-gradient text-white py-4">
+    <div class="container">
+        <h1 class="fw-bold mb-1">Active Tenders</h1>
+        <p class="mb-0 opacity-75">Browse and search for government procurement opportunities</p>
+    </div>
+</section>
+
+<!-- Search & Filter -->
+<section class="py-4">
+    <div class="container">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <form method="get" action="<?= SITE_URL ?>/tenders" class="row g-3">
+                    <div class="col-md-4">
+                        <div class="input-group">
+                            <span class="input-group-text bg-white"><i class="fas fa-search text-primary"></i></span>
+                            <input type="text" class="form-control" name="search" placeholder="Search tenders..." value="<?= escape($search) ?>">
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <select class="form-select" name="category">
+                            <option value="">All Categories</option>
+                            <?php foreach ($categories as $cat): ?>
+                            <option value="<?= $cat['id'] ?>" <?= $category == $cat['id'] ? 'selected' : '' ?>><?= escape($cat['name']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <select class="form-select" name="status">
+                            <option value="">All Status</option>
+                            <option value="active" <?= $status == 'active' ? 'selected' : '' ?>>Active</option>
+                            <option value="closing_soon" <?= $status == 'closing_soon' ? 'selected' : '' ?>>Closing Soon</option>
+                            <option value="closed" <?= $status == 'closed' ? 'selected' : '' ?>>Closed</option>
+                            <option value="awarded" <?= $status == 'awarded' ? 'selected' : '' ?>>Awarded</option>
+                            <option value="cancelled" <?= $status == 'cancelled' ? 'selected' : '' ?>>Cancelled</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <select class="form-select" name="sort">
+                            <option value="newest" <?= $sort == 'newest' ? 'selected' : '' ?>>Newest First</option>
+                            <option value="closing" <?= $sort == 'closing' ? 'selected' : '' ?>>Closing Soon</option>
+                            <option value="oldest" <?= $sort == 'oldest' ? 'selected' : '' ?>>Oldest First</option>
+                        </select>
+                    </div>
+                    <div class="col-md-1">
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="fas fa-search"></i>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</section>
+
+<!-- Tenders List -->
+<section class="pb-5">
+    <div class="container">
+        <?php if (empty($tenders)): ?>
+        <div class="text-center py-5">
+            <i class="fas fa-inbox fa-4x text-muted mb-3"></i>
+            <h4 class="text-muted">No tenders found</h4>
+            <p class="text-muted">There are no active tenders matching your criteria. Please check back later or adjust your filters.</p>
+        </div>
+        <?php else: ?>
+        <div class="row g-4">
+            <?php foreach ($tenders as $tender): ?>
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 border-0 shadow-sm tender-card">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <span class="tender-number"><?= escape($tender['tender_number'] ?? 'TDR-' . str_pad($tender['id'], 5, '0', STR_PAD_LEFT)) ?></span>
+                            <?= statusBadge($tender['status']) ?>
+                        </div>
+                        <h5 class="tender-title">
+                            <a href="<?= SITE_URL ?>/tender/<?= $tender['id'] ?>" class="text-decoration-none text-dark stretched-link">
+                                <?= escape($tender['title']) ?>
+                            </a>
+                        </h5>
+                        <p class="text-muted small mb-3"><?= escape(substr($tender['description'] ?? '', 0, 150)) ?>...</p>
+                        <div class="tender-meta">
+                            <span><i class="fas fa-building text-primary"></i> <?= escape($tender['department_name'] ?? 'General') ?></span>
+                            <span><i class="fas fa-tag text-primary"></i> <?= escape($tender['category_name'] ?? 'General') ?></span>
+                        </div>
+                        <div class="tender-meta mt-2">
+                            <span><i class="fas fa-calendar-alt text-danger"></i> Closes: <?= formatDate($tender['closing_date'], 'd M Y') ?></span>
+                            <span><i class="fas fa-money-bill-wave text-success"></i> <?= formatCurrency($tender['budget'] ?? 0) ?></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        
+        <!-- Pagination -->
+        <?php if ($totalPages > 1): ?>
+        <nav class="mt-4">
+            <ul class="pagination justify-content-center">
+                <li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>">
+                    <a class="page-link" href="?page=<?= $page - 1 ?>&search=<?= urlencode($search) ?>&category=<?= $category ?>&status=<?= $status ?>&sort=<?= $sort ?>">Previous</a>
+                </li>
+                <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+                <li class="page-item <?= $i == $page ? 'active' : '' ?>">
+                    <a class="page-link" href="?page=<?= $i ?>&search=<?= urlencode($search) ?>&category=<?= $category ?>&status=<?= $status ?>&sort=<?= $sort ?>"><?= $i ?></a>
+                </li>
+                <?php endfor; ?>
+                <li class="page-item <?= $page >= $totalPages ? 'disabled' : '' ?>">
+                    <a class="page-link" href="?page=<?= $page + 1 ?>&search=<?= urlencode($search) ?>&category=<?= $category ?>&status=<?= $status ?>&sort=<?= $sort ?>">Next</a>
+                </li>
+            </ul>
+        </nav>
+        <?php endif; ?>
+        <?php endif; ?>
+    </div>
+</section>
+""";
+
+path = '/var/www/tenders/pages/tenders.php'
+os.makedirs(os.path.dirname(path), exist_ok=True)
+open(path, 'w').write(tenders_content.strip())
+print(f"✓ {path} ({len(tenders_content):,} bytes)")
+PYEOF
+✓ /var/www/tenders/pages/tenders.php (7,456 bytes)
+[exit 0]
+
+[agent message] [thinking] Now let me write the remaining pages: awards, plans, notices, faq, contact, login, register. I'll do them in batches.
+
+[commands executed + output]
+$ python3 << 'PYEOF'
+import os
+
+# Awards page
+awards_content = r"""<?php
+/**
+ * Awards Page - Display awarded contracts
+ */
+
+$db = Database::getInstance();
+
+$page = max(1, intval($_GET['page'] ?? 1));
+$perPage = 20;
+$offset = ($page - 1) * $perPage;
+
+$totalAwards = $db->query("SELECT COUNT(*) as count FROM contracts WHERE status = 'active'")->fetch()['count'];
+$totalPages = ceil($totalAwards / $perPage);
+
+$awards = $db->query(
+    "SELECT c.*, t.title as tender_title, t.tender_number, s.company_name as supplier_name,
+            d.name as department_name
+     FROM contracts c
+     JOIN tenders t ON c.tender_id = t.id
+     JOIN suppliers s ON c.supplier_id = s.id
+     LEFT JOIN departments d ON t.department_id = d.id
+     WHERE c.status = 'active'
+     ORDER BY c.award_date DESC
+     LIMIT $perPage OFFSET $offset"
+)->fetchAll();
+?>
+
+<section class="bg-primary bg-gradient text-white py-4">
+    <div class="container">
+        <h1 class="fw-bold mb-1">Awarded Contracts</h1>
+        <p class="mb-0 opacity-75">View all awarded government contracts and procurement decisions</p>
+    </div>
+</section>
+
+<section class="py-5">
+    <div class="container">
+        <?php if (empty($awards)): ?>
+        <div class="text-center py-5">
+            <i class="fas fa-trophy fa-4x text-muted mb-3"></i>
+            <h4 class="text-muted">No awards yet</h4>
+            <p class="text-muted">No contracts have been awarded yet. Check back later for updates.</p>
+        </div>
+        <?php else: ?>
+        <div class="table-responsive">
+            <table class="table table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Tender</th>
+                        <th>Supplier</th>
+                        <th>Department</th>
+                        <th>Award Value</th>
+                        <th>Award Date</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($awards as $award): ?>
+                    <tr>
+                        <td>
+                            <strong><?= escape($award['tender_title']) ?></strong>
+                            <br><small class="text-muted"><?= escape($award['tender_number']) ?></small>
+                        </td>
+                        <td><?= escape($award['supplier_name']) ?></td>
+                        <td><?= escape($award['department_name'] ?? 'N/A') ?></td>
+                        <td><?= formatCurrency($award['contract_value'] ?? 0) ?></td>
+                        <td><?= formatDate($award['award_date'], 'd M Y') ?></td>
+                        <td><?= statusBadge($award['status']) ?></td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        
+        <?php if ($totalPages > 1): ?>
+        <nav class="mt-4">
+            <ul class="pagination justify-content-center">
+                <li class="page-item <?= $page <= 1 ? 'disabled' : '' ?>">
+                    <a class="page-link" href="?page=<?= $page - 1 ?>">Previous</a>
+                </li>
+                <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+                <li class="page-item <?= $i == $page ? 'active' : '' ?>">
+                    <a class="page-link" href="?page=<?= $i ?>"><?= $i ?></a>
+                </li>
+                <?php endfor; ?>
+                <li class="page-item <?= $page >= $totalPages ? 'disabled' : '' ?>">
+                    <a class="page-link" href="?page=<?= $page + 1 ?>">Next</a>
+                </li>
+            </ul>
+        </nav>
+        <?php endif; ?>
+        <?php endif; ?>
+    </div>
+</section>
+""";
+
+path = '/var/www/tenders/pages/awards.php'
+os.makedirs(os.path.dirname(path), exist_ok=True)
+open(path, 'w').write(awards_content.strip())
+print(f"✓ {path} ({len(awards_content):,} bytes)")
+PYEOF
+✓ /var/www/tenders/pages/awards.php (3,416 bytes)
+[exit 0]
+
+[agent message] [thinking] Let me continue writing the remaining pages: plans, notices, faq, contact, login, register.
+
+[commands executed + output]
+$ python3 << 'PYEOF'
+import os
+
+# Plans page
+plans_content = r"""<?php
+/**
+ * Procurement Plans Page
+ */
+
+$db = Database::getInstance();
+
+$plans = $db->query(
+    "SELECT pp.*, d.name as department_name,
+            COUNT(t.id) as tender_count,
+            COALESCE(SUM(t.budget), 0) as total_budget
+     FROM procurement_plans pp
+     LEFT JOIN departments d ON pp.department_id = d.id
+     LEFT JOIN tenders t ON t.procurement_plan_id = pp.id
+     GROUP BY pp.id
+     ORDER BY pp.fiscal_year DESC, pp.created_at DESC"
+)->fetchAll();
+?>
+
+<section class="bg-primary bg-gradient text-white py-4">
+    <div class="container">
+        <h1 class="fw-bold mb-1">Procurement Plans</h1>
+        <p class="mb-0 opacity-75">View annual procurement plans and schedules across all departments</p>
+    </div>
+</section>
+
+<section class="py-5">
+    <div class="container">
+        <?php if (empty($plans)): ?>
+        <div class="text-center py-5">
+            <i class="fas fa-calendar-alt fa-4x text-muted mb-3"></i>
+            <h4 class="text-muted">No procurement plans available</h4>
+            <p class="text-muted">Annual procurement plans are being prepared. Please check back later.</p>
+        </div>
+        <?php else: ?>
+        <div class="row g-4">
+            <?php foreach ($plans as $plan): ?>
+            <div class="col-md-6 col-lg-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start mb-3">
+                            <h5 class="fw-bold mb-0">FY <?= escape($plan['fiscal_year']) ?></h5>
+                            <?= statusBadge($plan['status']) ?>
+                        </div>
+                        <p class="text-muted small mb-2">
+                            <i class="fas fa-building me-1"></i> <?= escape($plan['department_name'] ?? 'All Departments') ?>
+                        </p>
+                        <p class="mb-3"><?= escape(substr($plan['description'] ?? '', 0, 200)) ?></p>
+                        <div class="d-flex justify-content-between text-muted small">
+                            <span><i class="fas fa-file-contract me-1"></i> <?= $plan['tender_count'] ?> Tenders</span>
+                            <span><i class="fas fa-money-bill-wave me-1"></i> <?= formatCurrency($plan['total_budget']) ?></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
+    </div>
+</section>
+""";
+
+path = '/var/www/tenders/pages/plans.php'
+os.makedirs(os.path.dirname(path), exist_ok=True)
+open(path, 'w').write(plans_content.strip())
+print(f"✓ {path} ({len(plans_content):,} bytes)")
+PYEOF
+✓ /var/www/tenders/pages/plans.php (2,648 bytes)
+[exit 0]
+
+[agent message] [thinking] Let me write the notices, faq, contact, login, and register pages.
+
+[commands executed + output]
+$ python3 << 'PYEOF'
+import os
+
+# Notices page
+notices_content = r"""<?php
+/**
+ * Government Notices Page
+ */
+
+$db = Database::getInstance();
+
+$notices = $db->query(
+    "SELECT * FROM notifications 
+     WHERE type IN ('notice', 'announcement', 'general')
+     ORDER BY created_at DESC 
+     LIMIT 50"
+)->fetchAll();
+?>
+
+<section class="bg-primary bg-gradient text-white py-4">
+    <div class="container">
+        <h1 class="fw-bold mb-1">Government Notices</h1>
+        <p class="mb-0 opacity-75">Official announcements and notices from the procurement authority</p>
+    </div>
+</section>
+
+<section class="py-5">
+    <div class="container">
+        <?php if (empty($notices)): ?>
+        <div class="text-center py-5">
+            <i class="fas fa-bullhorn fa-4x text-muted mb-3"></i>
+            <h4 class="text-muted">No notices available</h4>
+            <p class="text-muted">There are no government notices at this time. Please check back later.</p>
+        </div>
+        <?php else: ?>
+        <div class="row g-4">
+            <?php foreach ($notices as $notice): ?>
+            <div class="col-12">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h5 class="fw-bold mb-1"><?= escape($notice['title']) ?></h5>
+                                <p class="text-muted small mb-2">
+                                    <i class="fas fa-clock me-1"></i> <?= timeAgo($notice['created_at']) ?>
+                                    <span class="mx-2">|</span>
+                                    <i class="fas fa-tag me-1"></i> <?= ucfirst($notice['type'] ?? 'General') ?>
+                                </p>
+                                <p class="mb-0"><?= escape($notice['message'] ?? $notice['description'] ?? '') ?></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
+    </div>
+</section>
+""";
+
+path = '/var/www/tenders/pages/notices.php'
+os.makedirs(os.path.dirname(path), exist_ok=True)
+open(path, 'w').write(notices_content.strip())
+print(f"✓ {path} ({len(notices_content):,} bytes)")
+
+# FAQ page
+faq_content = r"""<?php
+/**
+ * FAQ Page
+ */
+
+$faqs = [
+    [
+        'question' => 'How do I register as a supplier?',
+        'answer' => 'Click on the "Register" button on the top navigation bar. Fill in your company details, upload required documents, and submit for verification. Your account will be reviewed by our procurement team within 3-5 business days.'
+    ],
+    [
+        'question' => 'What documents are required for registration?',
+        'answer' => 'You need to provide: Certificate of Incorporation, Tax Compliance Certificate, VAT Registration Certificate, Business Permit, and any relevant industry-specific certifications.'
+    ],
+    [
+        'question' => 'How do I bid on a tender?',
+        'answer' => 'Once registered and approved, browse active tenders, click on a tender to view details, and click "Submit Bid". Fill in your technical and financial proposals, upload required documents, and submit before the closing date.'
+    ],
+    [
+        'question' => 'Can I edit my bid after submission?',
+        'answer' => 'No, once a bid is submitted it is locked and cannot be edited. However, you can save your bid as a draft and submit it later before the deadline.'
+    ],
+    [
+        'question' => 'How are tenders evaluated?',
+        'answer' => 'Tenders are evaluated based on published criteria including technical compliance, experience, methodology, capacity, and financial proposal. The evaluation is conducted by a committee and follows a transparent scoring system.'
+    ],
+    [
+        'question' => 'When will I know if my bid was successful?',
+        'answer' => 'All bidders are notified after the evaluation process is complete. Successful bidders receive an award letter, while unsuccessful bidders receive a regret letter with feedback.'
+    ],
+    [
+        'question' => 'How do I appeal a procurement decision?',
+        'answer' => 'If you wish to appeal a procurement decision, submit a formal complaint to the procurement authority within 14 days of the notification. Include your bid reference number and grounds for appeal.'
+    ],
+    [
+        'question' => 'Is there a fee to register as a supplier?',
+        'answer' => 'No, supplier registration is completely free. There are no fees for bidding on tenders either.'
+    ]
+];
+?>
+
+<section class="bg-primary bg-gradient text-white py-4">
+    <div class="container">
+        <h1 class="fw-bold mb-1">Frequently Asked Questions</h1>
+        <p class="mb-0 opacity-75">Find answers to common questions about the procurement process</p>
+    </div>
+</section>
+
+<section class="py-5">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="accordion" id="faqAccordion">
+                    <?php foreach ($faqs as $index => $faq): ?>
+                    <div class="accordion-item border-0 mb-3 shadow-sm">
+                        <h2 class="accordion-header">
+                            <button class="accordion-button <?= $index > 0 ? 'collapsed' : '' ?>" type="button" 
+                                    data-bs-toggle="collapse" data-bs-target="#faq<?= $index ?>">
+                                <?= escape($faq['question']) ?>
+                            </button>
+                        </h2>
+                        <div id="faq<?= $index ?>" class="accordion-collapse collapse <?= $index === 0 ? 'show' : '' ?>" 
+                             data-bs-parent="#faqAccordion">
+                            <div class="accordion-body text-muted">
+                                <?= escape($faq['answer']) ?>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+""";
+
+path = '/var/www/tenders/pages/faq.php'
+os.makedirs(os.path.dirname(path), exist_ok=True)
+open(path, 'w').write(faq_content.strip())
+print(f"✓ {path} ({len(faq_content):,} bytes)")
+
+# Contact page
+contact_content = r"""<?php
+/**
+ * Contact Page
+ */
+?>
+
+<section class="bg-primary bg-gradient text-white py-4">
+    <div class="container">
+        <h1 class="fw-bold mb-1">Contact Us</h1>
+        <p class="mb-0 opacity-75">Get in touch with the procurement office</p>
+    </div>
+</section>
+
+<section class="py-5">
+    <div class="container">
+        <div class="row g-4">
+            <div class="col-lg-5">
+                <div class="card border-0 shadow-sm h-100">
+                    <div class="card-body p-4">
+                        <h4 class="fw-bold mb-4">Contact Information</h4>
+                        
+                        <div class="d-flex mb-4">
+                            <div class="feature-icon bg-primary bg-opacity-10 text-primary me-3">
+                                <i class="fas fa-map-marker-alt"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold mb-1">Address</h6>
+                                <p class="text-muted mb-0">Government Procurement Headquarters<br>
+                                Harambee Avenue<br>
+                                Nairobi, Kenya</p>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex mb-4">
+                            <div class="feature-icon bg-primary bg-opacity-10 text-primary me-3">
+                                <i class="fas fa-phone"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold mb-1">Phone</h6>
+                                <p class="text-muted mb-0">+254 700 000 000<br>
+                                +254 700 000 001</p>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex mb-4">
+                            <div class="feature-icon bg-primary bg-opacity-10 text-primary me-3">
+                                <i class="fas fa-envelope"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold mb-1">Email</h6>
+                                <p class="text-muted mb-0">info@governmentprocurement.go.ke<br>
+                                support@governmentprocurement.go.ke</p>
+                            </div>
+                        </div>
+                        
+                        <div class="d-flex">
+                            <div class="feature-icon bg-primary bg-opacity-10 text-primary me-3">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                            <div>
+                                <h6 class="fw-bold mb-1">Working Hours</h6>
+                                <p class="text-muted mb-0">Monday - Friday: 8:00 AM - 5:00 PM<br>
+                                Saturday: 8:00 AM - 12:00 PM<br>
+                                Sunday: Closed</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-7">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-4">
+                        <h4 class="fw-bold mb-4">Send us a Message</h4>
+                        
+                        <?php if (Session::hasFlash('success')): ?>
+                        <div class="alert alert-success"><?= Session::getFlash('success') ?></div>
+                        <?php endif; ?>
+                        
+                        <?php if (Session::hasFlash('error')): ?>
+                        <div class="alert alert-danger"><?= Session::getFlash('error') ?></div>
+                        <?php endif; ?>
+                        
+                        <form method="post" action="<?= SITE_URL ?>/contact">
+                            <?= csrfField() ?>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label class="form-label">Full Name <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" name="name" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Email <span class="text-danger">*</span></label>
+                                    <input type="email" class="form-control" name="email" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Phone</label>
+                                    <input type="tel" class="form-control" name="phone">
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Subject <span class="text-danger">*</span></label>
+                                    <select class="form-select" name="subject" required>
+                                        <option value="">Select Subject</option>
+                                        <option value="general">General Inquiry</option>
+                                        <option value="registration">Registration Support</option>
+                                        <option value="bidding">Bidding Assistance</option>
+                                        <option value="complaint">File a Complaint</option>
+                                        <option value="feedback">Feedback</option>
+                                    </select>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label">Message <span class="text-danger">*</span></label>
+                                    <textarea class="form-control" name="message" rows="5" required></textarea>
+                                </div>
+                                <div class="col-12">
+                                    <button type="submit" class="btn btn-primary btn-lg px-5">
+                                        <i class="fas fa-paper-plane me-2"></i>Send Message
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+""";
+
+path = '/var/www/tenders/pages/contact.php'
+os.makedirs(os.path.dirname(path), exist_ok=True)
+open(path, 'w').write(contact_content.strip())
+print(f"✓ {path} ({len(contact_content):,} bytes)")
+PYEOF
+✓ /var/www/tenders/pages/notices.php (2,498 bytes)
+✓ /var/www/tenders/pages/faq.php (4,127 bytes)
+✓ /var/www/tenders/pages/contact.php (5,637 bytes)
+[exit 0]
+
+[agent message] [thinking] Now let me write the login and register pages with proper form handling.
+
+[commands executed + output]
+$ python3 << 'PYEOF'
+import os
+
+# Login page
+login_content = r"""<?php
+/**
+ * Login Page
+ */
+
+// Redirect if already logged in
+if (Auth::check()) {
+    header('Location: ' . SITE_URL . '/dashboard');
+    exit;
+}
+?>
+
+<section class="auth-section">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-md-6 col-lg-5">
+                <div class="card auth-card border-0">
+                    <div class="card-body p-5">
+                        <div class="text-center mb-4">
+                            <i class="fas fa-gavel fa-3x text-primary mb-3"></i>
+                            <h3 class="fw-bold">Welcome Back</h3>
+                            <p class="text-muted">Sign in to your account</p>
+                        </div>
+                        
+                        <?= flashMessage() ?>
+                        
+                        <form method="post" action="<?= SITE_URL ?>/login">
+                            <?= csrfField() ?>
+                            <div class="mb-3">
+                                <label class="form-label">Username or Email</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-user"></i></span>
+                                    <input type="text" class="form-control" name="username" placeholder="Enter your username" required>
+                                </div>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Password</label>
+                                <div class="input-group">
+                                    <span class="input-group-text"><i class="fas fa-lock"></i></span>
+                                    <input type="password" class="form-control" name="password" placeholder="Enter your password" required>
+                                </div>
+                            </div>
+                            <div class="d-flex justify-content-between align-items-center mb-4">
+                                <div class="form-check">
+                                    <input class="form-check-input"
+1 steps
+·
+33,606 in
+·
+8,000 out
+·
+41,606 tokens
+·
+49.7s
