@@ -185,8 +185,18 @@ export async function runBrowserSteps(
               } catch { /* ignore */ }
             }
             if (!clicked) throw new Error(`Element not found: ${step.selector}`);
-            await page.waitForLoadState("domcontentloaded", { timeout: 8000 }).catch(() => {});
-            await page.waitForTimeout(700);
+            // Wait for navigation/network to settle — critical for form submissions and SPA transitions.
+            // domcontentloaded fires instantly on SPAs with empty <div id="app">; networkidle is required.
+            await page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
+            await page.waitForTimeout(1500);
+            // If body is still blank (SPA still rendering), wait extra time and re-check
+            const bodyLenAfterClick = await page.evaluate(
+              () => (document.body?.innerText ?? "").trim().length
+            ).catch(() => 99);
+            if (bodyLenAfterClick < 30) {
+              await page.waitForTimeout(3000);
+              await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+            }
             onResult({ index: i, type: "click", ok: true, label: step.label });
             break;
           }
@@ -295,7 +305,33 @@ export async function runBrowserSteps(
           case "text": {
             const text = await extractPageText(page);
             const elements = await extractInteractiveElements(page).catch(() => "");
-            const combined = `=== PAGE TEXT ===\n${text}\n\n=== INTERACTIVE ELEMENTS ===\n${elements}`;
+
+            // Detect blank/SPA pages and provide explicit diagnostic signal so the agent
+            // knows to trigger the blank-page recovery protocol rather than guessing success.
+            let blankDiag = "";
+            if (!text.trim()) {
+              const [currentUrl, readyState, htmlLen, consoleErrors] = await Promise.all([
+                page.evaluate(() => document.location.href).catch(() => "unknown"),
+                page.evaluate(() => document.readyState).catch(() => "unknown"),
+                page.evaluate(() => document.body?.innerHTML?.length ?? 0).catch(() => 0),
+                page.evaluate(() => {
+                  // Check for visible error indicators
+                  const errEls = document.querySelectorAll('[class*="error"],[class*="alert"],[role="alert"]');
+                  return Array.from(errEls).map(e => (e as HTMLElement).innerText?.trim()).filter(Boolean).slice(0, 3).join(" | ") || "none";
+                }).catch(() => "unknown"),
+              ]);
+              blankDiag = [
+                "",
+                "⚠️  BLANK PAGE DETECTED — this is an error condition, not a success.",
+                `    URL now: ${currentUrl}`,
+                `    readyState: ${readyState}`,
+                `    body HTML bytes: ${htmlLen}`,
+                `    error elements: ${consoleErrors}`,
+                "    → Apply blank-page recovery protocol before concluding success or failure.",
+              ].join("\n");
+            }
+
+            const combined = `=== PAGE TEXT ===\n${text}${blankDiag}\n\n=== INTERACTIVE ELEMENTS ===\n${elements}`;
             onResult({ index: i, type: "text", ok: true, text: combined, label: step.label });
             break;
           }
