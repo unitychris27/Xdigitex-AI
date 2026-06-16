@@ -903,7 +903,7 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
                       download={fileName}
                       className="inline-flex items-center gap-1.5 mt-2 mr-2 px-3 py-1.5 rounded-lg bg-blue-500/20 border border-blue-500/40 text-blue-300 hover:bg-blue-500/30 transition-colors text-xs font-semibold no-underline cursor-pointer"
                     >
-                      ⬇ {fileName}
+                      {fileName}
                     </a>
                   );
                   last = match.index + match[0].length;
