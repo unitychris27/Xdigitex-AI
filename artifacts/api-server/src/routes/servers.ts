@@ -236,7 +236,14 @@ The improved HTML/PHP MUST include Bootstrap 5 CDN + Google Fonts + professional
 ═══ GENERAL RULES ═══
 - Max 10 commands
 - No rm -rf /, no DROP DATABASE, no destructive irreversible actions
-- Use non-interactive flags (-y, --yes)
+- NEVER run commands that wait for user input (y/n prompts). Always use non-interactive flags:
+  • apt/apt-get: always prepend DEBIAN_FRONTEND=noninteractive and add -y
+    CORRECT:   DEBIAN_FRONTEND=noninteractive apt-get install -y nginx
+    WRONG:     apt-get install nginx   ← will hang waiting for y/n
+  • snap: add --classic or --yes as appropriate
+  • mysql_secure_installation: never run it — configure mysql directly via SQL
+  • certbot: always use --non-interactive --agree-tos -m email@example.com
+  • npm/pip/composer: always add -y or --yes where available
 - Never open vi/nano/vim — write files with printf only
 
 EXAMPLE for "fix novaspack.com its index.php":

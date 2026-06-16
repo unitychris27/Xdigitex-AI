@@ -734,7 +734,8 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
   return (
     <>
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl h-[90vh] flex flex-col p-0 gap-0 overflow-hidden">
+      <DialogContent className="max-w-3xl w-full h-[100dvh] sm:h-[90vh] flex flex-col p-0 gap-0 overflow-hidden rounded-none sm:rounded-lg"
+        style={{ maxHeight: "100dvh" }}>
         {/* Header */}
         <div className="flex items-center gap-3 px-4 py-3 border-b border-border bg-card/80 shrink-0">
           <div className="flex items-center gap-2 flex-1 min-w-0">
