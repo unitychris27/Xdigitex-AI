@@ -882,12 +882,35 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
               const lastShot = m.kind === "done"
                 ? (() => {
                     for (let j = i - 1; j >= 0; j--) {
-                      if (msgs[j].kind === "user") break; // stop at turn boundary
+                      if (msgs[j].kind === "user") break;
                       if (msgs[j].kind === "browser_shot") return msgs[j] as { kind: "browser_shot"; label: string; data: string };
                     }
                     return null;
                   })()
                 : null;
+
+              // Parse [DOWNLOAD:/path/to/file:filename.ext] markers in done messages
+              const renderText = (text: string) => {
+                const MARKER = /\[DOWNLOAD:([^\]:]+):([^\]]+)\]/g;
+                const parts: React.ReactNode[] = [];
+                let last = 0; let k = 0; let match: RegExpExecArray | null;
+                while ((match = MARKER.exec(text)) !== null) {
+                  if (match.index > last) parts.push(<span key={k++} className="whitespace-pre-wrap">{text.slice(last, match.index)}</span>);
+                  const [, filePath, fileName] = match;
+                  parts.push(
+                    <a key={k++}
+                      href={`${BASE}/api/servers/${server.id}/sftp-download?path=${encodeURIComponent(filePath)}`}
+                      download={fileName}
+                      className="inline-flex items-center gap-1.5 mt-2 mr-2 px-3 py-1.5 rounded-lg bg-blue-500/20 border border-blue-500/40 text-blue-300 hover:bg-blue-500/30 transition-colors text-xs font-semibold no-underline cursor-pointer"
+                    >
+                      ⬇ {fileName}
+                    </a>
+                  );
+                  last = match.index + match[0].length;
+                }
+                if (last < text.length) parts.push(<span key={k++} className="whitespace-pre-wrap">{text.slice(last)}</span>);
+                return parts;
+              };
 
               return (
                 <div key={i} className="flex items-start gap-2">
@@ -904,7 +927,7 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
                       ? "bg-green-500/10 border border-green-500/20 text-green-300"
                       : "bg-card border border-border text-foreground"
                   }`}>
-                    <span className="whitespace-pre-wrap">{m.text}</span>
+                    {renderText(m.text)}
                     {lastShot && (
                       <div className="mt-3 border border-green-500/20 rounded-xl overflow-hidden">
                         <div className="px-2 py-1 bg-green-500/10 text-[10px] text-green-400/70 font-mono">{lastShot.label}</div>
@@ -976,6 +999,36 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
               Conversation is live — reply to continue, ask for more, or say "now fix it"
             </div>
           )}
+          {/* Quick action chips */}
+          {!running && msgs.length > 0 && (() => {
+            const lastDone = [...msgs].reverse().find(m => m.kind === "done");
+            const phaseMatch = lastDone?.text.match(/[Pp]hase\s*(\d+)/);
+            const nextPhase = phaseMatch ? parseInt(phaseMatch[1]) + 1 : null;
+            return (
+              <div className="mb-2 flex flex-wrap gap-1.5">
+                {nextPhase && nextPhase <= 10 && (
+                  <button
+                    onClick={() => sendMessage(`Continue to Phase ${nextPhase}`)}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-purple-500/15 border border-purple-500/30 text-purple-300 hover:bg-purple-500/25 hover:border-purple-400/50 transition-colors text-[11px] font-semibold"
+                  >
+                    ▶ Continue Phase {nextPhase}
+                  </button>
+                )}
+                <button
+                  onClick={() => sendMessage("Create a ZIP backup of the entire project site files and give me a download link.")}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-zinc-800/80 border border-zinc-700 text-zinc-300 hover:border-blue-500/40 hover:text-blue-300 transition-colors text-[11px] font-medium"
+                >
+                  📦 Download ZIP
+                </button>
+                <button
+                  onClick={() => sendMessage("Dump the database to a .sql file in /tmp/ and give me a download link.")}
+                  className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-zinc-800/80 border border-zinc-700 text-zinc-300 hover:border-blue-500/40 hover:text-blue-300 transition-colors text-[11px] font-medium"
+                >
+                  🗄 Download SQL
+                </button>
+              </div>
+            );
+          })()}
           {/* Failed commands sticky banner — shown after run completes if errors occurred */}
           {!running && failedCmds.length > 0 && (
             <div className="mb-2 rounded-lg border border-red-500/30 bg-red-950/30 px-3 py-2 text-xs">

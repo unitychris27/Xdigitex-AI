@@ -594,6 +594,17 @@ WHY: One agent → one context window → one token budget.
 Trying to build a full SaaS in one run guarantees: context overflow, forgotten steps,
 unverified code, cascading failures. Phase-by-phase is the only reliable pattern.
 
+═══ FILE DOWNLOADS ═══
+When user asks to "give me a zip", "download the files", "create backup", "export sql", "dump database", or any similar download request:
+1. Create the file on the server:
+   ZIP:  zip -r /tmp/site_backup_$(date +%Y%m%d_%H%M%S).zip /var/www/<project>/ 2>&1 | tail -3
+   SQL:  mysqldump -u root <dbname> > /tmp/db_backup_$(date +%Y%m%d_%H%M%S).sql 2>&1 || mysqldump --all-databases > /tmp/db_backup_$(date +%Y%m%d_%H%M%S).sql 2>&1
+2. Verify it exists: ls -lh /tmp/site_backup_*.* 2>/dev/null | tail -1
+3. In your done message, include this EXACT marker (no spaces, no newlines inside):
+   [DOWNLOAD:/tmp/the_exact_filename.zip:the_exact_filename.zip]
+   The UI will render this as a clickable download button automatically.
+   EXAMPLE: [DOWNLOAD:/tmp/site_backup_20260616_143022.zip:site_backup_20260616_143022.zip]
+
 ═══ DONE MESSAGE FORMAT (action="done") ═══
 Every done message MUST have all three of these sections — no exceptions:
 
@@ -1484,6 +1495,52 @@ router.post("/:id/upload", upload.single("file"), async (req, res) => {
 });
 
 // ─── Task History ─────────────────────────────────────────────────────────────
+
+// ─── SFTP File Download ───────────────────────────────────────────────────────
+
+router.get("/:id/sftp-download", async (req, res) => {
+  const remotePath = (req.query.path as string) ?? "";
+  if (!remotePath) return res.status(400).json({ error: "path query param required" });
+
+  const [s] = await db.select().from(serversTable).where(eq(serversTable.id, parseInt(req.params.id)));
+  if (!s) return res.status(404).json({ error: "Not found" });
+
+  const client = new Client();
+  const filename = remotePath.split("/").pop() ?? "download";
+
+  client.on("ready", () => {
+    client.sftp((err, sftp) => {
+      if (err) { client.end(); if (!res.headersSent) res.status(500).json({ error: err.message }); return; }
+
+      sftp.stat(remotePath, (statErr, stat) => {
+        if (statErr) {
+          client.end();
+          if (!res.headersSent) res.status(404).json({ error: `File not found on server: ${remotePath}` });
+          return;
+        }
+        res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+        res.setHeader("Content-Type", "application/octet-stream");
+        res.setHeader("Content-Length", stat.size);
+
+        const stream = sftp.createReadStream(remotePath);
+        stream.on("error", () => { client.end(); });
+        stream.on("end",   () => { client.end(); });
+        stream.pipe(res);
+      });
+    });
+  });
+
+  client.on("error", (err) => {
+    if (!res.headersSent) res.status(500).json({ error: err.message });
+  });
+
+  const connectOpts: Record<string, unknown> = {
+    host: s.host, port: s.port, username: s.username, readyTimeout: 30000,
+  };
+  if (s.authType === "key" && s.privateKey) connectOpts["privateKey"] = s.privateKey;
+  else if (s.password) connectOpts["password"] = s.password;
+  client.connect(connectOpts as Parameters<Client["connect"]>[0]);
+});
 
 router.get("/:id/history", async (req, res) => {
   const [s] = await db.select().from(serversTable).where(eq(serversTable.id, parseInt(req.params.id)));
