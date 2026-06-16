@@ -1256,13 +1256,26 @@ router.post("/:id/chat", async (req, res) => {
   };
 
   const parseAgentJSON = (raw: string) => {
-    // Strip DeepSeek DSML tool-call blocks — the model sometimes outputs its own
-    // function-call syntax (<｜｜DSML｜｜tool_calls>…</｜｜DSML｜｜tool_calls>) instead of
-    // the required plain JSON. Remove all such blocks before parsing.
-    let cleaned = raw
-      .replace(/<\|+DSML\|+>[\s\S]*?<\/\|+DSML\|+>/gi, "")   // full open/close DSML tags
-      .replace(/<\|+DSML\|+[^>]*>[\s\S]*/gi, "")               // unclosed DSML tag — discard rest
-      .trim();
+    // Strip DeepSeek DSML tool-call blocks — DeepSeek-V3 sometimes outputs its own
+    // function-call syntax using full-width Unicode pipes ｜｜ (U+FF5C), not ASCII |.
+    // Pattern: <｜｜DSML｜｜invoke ...> or <｜｜DSML｜｜tool_calls> (with any pipe variant)
+    // Strategy: if "DSML" appears anywhere in the response, extract only the JSON
+    // object that appears BEFORE the first DSML tag — everything after is discarded.
+    // Detect DeepSeek DSML bleed — the string "DSML" only appears in their
+    // internal tool-call syntax, never in valid JSON. If we see it anywhere,
+    // keep only what came before that point (the model may have prefixed a
+    // JSON object before the DSML block). If the block starts at position 0
+    // the whole response is DSML and we return nothing usable.
+    let cleaned = raw;
+    const dsmlIdx = raw.indexOf("DSML");
+    if (dsmlIdx === 0) {
+      cleaned = "";
+    } else if (dsmlIdx > 0) {
+      // Walk back to the nearest '<' or '｜' before "DSML" to drop the tag start
+      let cut = dsmlIdx;
+      while (cut > 0 && !"<｜|".includes(raw[cut - 1]!)) cut--;
+      cleaned = raw.slice(0, Math.max(0, cut - 1)).trim();
+    }
     const stripped = cleaned.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
     try { return JSON.parse(stripped); } catch { /* try extraction */ }
     const m = stripped.match(/\{[\s\S]*\}/);
@@ -1333,8 +1346,13 @@ router.post("/:id/chat", async (req, res) => {
       const action = parseAgentJSON(raw);
 
       if (!action) {
-        // AI returned plain text — treat as reply
-        send("reply", { text: raw || "Unexpected response from AI." });
+        // If the model leaked DSML syntax, give a clean error rather than spewing raw markup
+        if (raw.includes("DSML")) {
+          send("reply", { text: "⚠️ The AI model produced an invalid internal format (DSML tool-call syntax). Please retry — switching to Economy or High-Power mode avoids this issue." });
+        } else {
+          // AI returned plain text — treat as reply
+          send("reply", { text: raw || "Unexpected response from AI." });
+        }
         break;
       }
 
