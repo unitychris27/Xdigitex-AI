@@ -145,6 +145,22 @@ export async function runBrowserSteps(
     const page: Page = await context.newPage();
     page.setDefaultTimeout(20000);
 
+    // Intercept new-tab navigations (target="_blank" links, window.open() calls).
+    // Instead of losing focus to a blank tab, redirect the CURRENT page to that URL.
+    // This prevents the "URL now: about:blank" failure mode in the text/screenshot steps.
+    context.on("page", async (newPage) => {
+      try {
+        // Give the new page a moment to resolve its URL
+        await newPage.waitForLoadState("domcontentloaded", { timeout: 3000 }).catch(() => {});
+        const targetUrl = newPage.url();
+        await newPage.close().catch(() => {});
+        if (targetUrl && targetUrl !== "about:blank" && targetUrl !== "about:newtab") {
+          await page.goto(targetUrl, { waitUntil: "load", timeout: 30000 }).catch(() => {});
+          await page.waitForLoadState("networkidle", { timeout: 8000 }).catch(() => {});
+        }
+      } catch { /* ignore — main page stays intact */ }
+    });
+
     for (let i = 0; i < steps.length; i++) {
       const step = steps[i];
 
@@ -160,6 +176,12 @@ export async function runBrowserSteps(
             // If body is still empty (very fast redirect), wait a bit more
             const bodyText = await page.evaluate(() => (document.body?.innerText ?? "").trim().length).catch(() => 99);
             if (bodyText < 20) await page.waitForTimeout(1500);
+            // Strip target="_blank" from all links and forms so clicks stay on the same page.
+            // This prevents the "URL now: about:blank" failure when links open new tabs.
+            await page.evaluate(() => {
+              document.querySelectorAll('[target="_blank"],[target="_new"]').forEach(el => el.removeAttribute("target"));
+              document.querySelectorAll("form[target]").forEach(el => el.removeAttribute("target"));
+            }).catch(() => {});
             onResult({ index: i, type: step.type, ok: true });
             break;
           }

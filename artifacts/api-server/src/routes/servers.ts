@@ -1006,7 +1006,12 @@ router.post("/:id/chat", async (req, res) => {
     let totalIterations       = 0;
     const startTime = Date.now();
 
+    // Guard: flushTokens must only fire ONCE per request — prevents double-emit when both
+    // a done/reply handler and the post-loop fallback both try to flush.
+    let tokensFlushed = false;
     const flushTokens = async (summary?: string) => {
+      if (tokensFlushed) return;
+      tokensFlushed = true;
       const durationMs = Date.now() - startTime;
       const total = totalPromptTokens + totalCompletionTokens;
       send("tokens", {
