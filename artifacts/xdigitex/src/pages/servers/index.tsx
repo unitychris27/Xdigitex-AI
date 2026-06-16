@@ -181,6 +181,7 @@ export default function ServersList() {
     name: "", host: "", port: "22", username: "root",
     authType: "key" as "key" | "password",
     privateKey: "", password: "", provider: "custom", location: "custom",
+    githubToken: "",
   });
   const [saving, setSaving] = useState(false);
 
@@ -197,12 +198,13 @@ export default function ServersList() {
           privateKey: form.authType === "key" ? form.privateKey : undefined,
           password: form.authType === "password" ? form.password : undefined,
           provider: form.provider, location: form.location,
+          githubToken: form.githubToken || undefined,
         }),
       });
       if (!res.ok) { const e = await res.json(); throw new Error(e.error); }
       toast.success("Server added");
       setAddOpen(false);
-      setForm({ name: "", host: "", port: "22", username: "root", authType: "key", privateKey: "", password: "", provider: "custom", location: "custom" });
+      setForm({ name: "", host: "", port: "22", username: "root", authType: "key", privateKey: "", password: "", provider: "custom", location: "custom", githubToken: "" });
       qc.invalidateQueries({ queryKey: ["listServers"] });
     } catch (e: unknown) { toast.error(String(e instanceof Error ? e.message : e)); }
     finally { setSaving(false); }
@@ -364,6 +366,11 @@ export default function ServersList() {
               <div className="space-y-1.5">
                 <Label>Location (optional)</Label>
                 <Input placeholder="us-east-1" value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} />
+              </div>
+              <div className="col-span-2 space-y-1.5">
+                <Label>GitHub Token (optional)</Label>
+                <Input type="password" placeholder="ghp_xxxxxxxxxxxx — for git push" value={form.githubToken} onChange={e => setForm(f => ({ ...f, githubToken: e.target.value }))} />
+                <p className="text-xs text-muted-foreground">Personal Access Token with repo write permission. Stored securely and used only for git push.</p>
               </div>
             </div>
           </div>

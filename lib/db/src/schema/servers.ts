@@ -18,6 +18,7 @@ export const serversTable = pgTable("servers", {
   privateKey: text("private_key"),
   password: text("password"),
   privateKeyHash: text("private_key_hash"),
+  githubToken: text("github_token"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

@@ -1,0 +1,343 @@
+Xdigitex AI
+Opening browser (9 steps)…
+Fast
+Smart
+Max
+
+
+try signing up, https://digitexsmartsolutions.com/ ,, after success, click buy coins, enter amount 30, proceed, enter my number 0748571920 when on pesapal page, ill receive stkpush i enter my pin,,
+⚡
+Starting the signup process on digitexsmartsolutions.com. First, I'll navigate to the site and check the registration page.
+
+🌐
+Homepage
+Homepage
+📄 Page text:=== PAGE TEXT ===
+Digitex SMM
+
+Login
+
+Get Started
+
+Africa's #1 SMM Panel
+
+Grow Faster WithDigitex SMM
+
+High-speed Instagram, TikTok, YouTube and Facebook services at the lowest prices. Instant delivery, real results.
+
+Create Free Account
+
+Sign In
+
+Continue with Google
+
+3,399+
+
+Services
+
+21,000+
+
+Orders Fulfilled
+
+620+
+
+Happy Users
+
+All Major Platforms Covered
+
+Instagram
+
+TikTok
+
+YouTube
+
+Facebook
+…
+🔍
+I see 'Get Started' and 'Create Free Account' buttons. Let me click 'Create Free Account' to start registration.
+
+🌐
+Screenshot 1
+Screenshot 1
+🌐
+Registration page
+Registration page
+📄 Page text:=== PAGE TEXT ===
+
+⚠️  BLANK PAGE DETECTED — this is an error condition, not a success.
+    URL now: about:blank
+    readyState: complete
+    body HTML bytes: 0
+    error elements: none
+    → Apply blank-page recovery protocol before concluding success or failure.
+
+=== INTERACTIVE ELEMENTS ===
+⚡
+The register link led to about:blank. Let me try clicking 'Create Free Account' button and also check the page source for the correct registration URL.
+
+🌐
+Homepage reloaded
+Homepage reloaded
+📄 Page text:=== PAGE TEXT ===
+Digitex SMM
+
+Login
+
+Get Started
+
+Africa's #1 SMM Panel
+
+Grow Faster WithDigitex SMM
+
+High-speed Instagram, TikTok, YouTube and Facebook services at the lowest prices. Instant delivery, real results.
+
+Create Free Account
+
+Sign In
+
+Continue with Google
+
+3,399+
+
+Services
+
+21,000+
+
+Orders Fulfilled
+
+620+
+
+Happy Users
+
+All Major Platforms Covered
+
+Instagram
+
+TikTok
+
+YouTube
+
+Facebook
+…
+⚡
+Let me click 'Create Free Account' button and also check the HTML to find the correct registration URL.
+
+🌐
+Screenshot 1
+Screenshot 1
+🌐
+After clicking Create Free Account
+After clicking Create Free Account
+📄 Page text:=== PAGE TEXT ===
+
+⚠️  BLANK PAGE DETECTED — this is an error condition, not a success.
+    URL now: about:blank
+    readyState: complete
+    body HTML bytes: 0
+    error elements: none
+    → Apply blank-page recovery protocol before concluding success or failure.
+
+=== INTERACTIVE ELEMENTS ===
+⚡
+The buttons might be using JavaScript or have specific hrefs. Let me check the HTML source and try common registration URLs.
+
+📄 Page text:
+        <img src="https://image2url.com/r2/default/images/1771313939118-5df25212-9567-47ef-a046-01c9c148061f.png" alt="Digitex SMM">
+        <span>Digitex <em>SMM</em></span>
+    
+📄 Page text:=== PAGE TEXT ===
+Digitex SMM
+
+Login
+
+Get Started
+
+Africa's #1 SMM Panel
+
+Grow Faster WithDigitex SMM
+
+High-speed Instagram, TikTok, YouTube and Facebook services at the lowest prices. Instant delivery, real results.
+
+Create Free Account
+
+Sign In
+
+Continue with Google
+
+3,399+
+
+Services
+
+21,000+
+
+Orders Fulfilled
+
+620+
+
+Happy Users
+
+All Major Platforms Covered
+
+Instagram
+
+TikTok
+
+YouTube
+
+Facebook
+…
+🔍
+Let me get the HTML of all anchor tags to find the actual href values, and also try common registration URLs.
+
+🌐
+Register page attempt
+Register page attempt
+📖
+The /register page loaded. Let me read the page content to see the registration form fields.
+
+📄 Page text:=== PAGE TEXT ===
+
+⚠️  BLANK PAGE DETECTED — this is an error condition, not a success.
+    URL now: about:blank
+    readyState: complete
+    body HTML bytes: 0
+    error elements: none
+    → Apply blank-page recovery protocol before concluding success or failure.
+
+=== INTERACTIVE ELEMENTS ===
+🌐
+Register page full view
+Register page full view
+⚡
+The /register page is blank too. Let me check the HTML output from the anchor tags query, and try other common URLs like /signup, /auth/register, and also the login page.
+
+🌐
+Login page
+Login page
+📄 Page text:=== PAGE TEXT ===
+404
+Not Found
+
+The resource requested could not be found on this server!
+
+Proudly powered by LiteSpeed Web ServerPlease be advised that LiteSpeed Technologies Inc. is not a web hosting company and, as such, has no control over content found on this site.
+
+=== INTERACTIVE ELEMENTS ===
+⚡
+Login returns 404. Let me check the homepage HTML for the actual button URLs, and try /signup.
+
+📄 Page text:
+
+<!-- NAV -->
+<nav>
+    <a href="index.php" class="nav-brand">
+        <img src="https://image2url.com/r2/default/images/1771313939118-5df25212-9567-47ef-a046-01c9c148061f.png" alt="Digitex SMM">
+        <span>Digitex <em>SMM</em></span>
+    </a>
+    <div class="nav-links">
+        <a href="login.php" class="hide-mob">Login</a>
+        <a href="signup.php" class="btn-nav">Get Started</a>
+    </di…
+🌐
+Signup page
+Signup page
+🪵
+The links point to signup.php and login.php (not /signup or /login). Let me navigate to signup.php.
+
+🌐
+Signup page
+Signup page
+📄 Page text:=== PAGE TEXT ===
+Create Your Account
+
+Free signup • Instant access • Secure panel
+
+Username
+
+Email
+
+Password
+
+Show
+
+Confirm Password
+
+Create Account
+
+OR
+
+Continue with Google
+
+Already have an account? Login
+
+1
+
+Digitex AI Support
+
+Online — replies instantly
+
+✕
+
+Hi! 👋 I'm Digitex AI Support.I can help with order status, refunds, login issues, service advice and deposit help.Just describe your iss…
+⚡
+I can see the signup form with fields: Username, Email, Password, Confirm Password. Let me fill in test credentials and create an account.
+
+🌐
+Screenshot 1
+Screenshot 1
+🌐
+Screenshot 2
+Screenshot 2
+🌐
+Screenshot 3
+Screenshot 3
+🌐
+Screenshot 4
+Screenshot 4
+🌐
+Form filled
+Form filled
+🌐
+Screenshot 6
+Screenshot 6
+🌐
+After registration submit
+After registration submit
+🐛
+Let me read the page content after registration submit to see if it was successful or if there's an error.
+
+📄 Page text:=== PAGE TEXT ===
+
+⚠️  BLANK PAGE DETECTED — this is an error condition, not a success.
+    URL now: about:blank
+    readyState: complete
+    body HTML bytes: 0
+    error elements: none
+    → Apply blank-page recovery protocol before concluding success or failure.
+
+=== INTERACTIVE ELEMENTS ===
+🌐
+Current page state
+Current page state
+🐛
+The form submit led to about:blank. This might be a JavaScript form submission issue. Let me try using evaluate to submit the form, and also check if there's a specific form action.
+
+📄 Page text:
+
+        <label>Username</label>
+        <input type="text" name="username" placeholder="Choose username" required="">
+
+        <label>Email</label>
+        <input type="email" name="email" placeholder="Enter email address" required="">
+
+        <div class="password-wrapper">
+            <label>Password</label>
+            <input type="password" id="password" name="password" placeholder="Create p…
+🌐
+Signup page reloaded
+Signup page reloaded
+⚡
+Now I have the correct field names: username, email, password, password_confirm. Let me fill them properly and submit.
+
+you even didint finish, the moment you clicked the link yoou were to read and choose correct tab not to hullucinate or assume /register /sign up,, read get started, on that page fill form, submit simple than coilling hitting blank pages,, time wastage
+Working…

@@ -27,6 +27,7 @@ const serverInput = z.object({
   port: z.number().optional(),
   provider: z.string().optional(),
   location: z.string().optional(),
+  githubToken: z.string().optional(),
 });
 
 const serverUpdate = z.object({
@@ -88,7 +89,7 @@ function sshExec(
 
 router.get("/", async (_req, res) => {
   const servers = await db.select().from(serversTable);
-  return res.json(servers.map(({ privateKey: _k, password: _p, privateKeyHash: _h, ...s }) => s));
+  return res.json(servers.map(({ privateKey: _k, password: _p, privateKeyHash: _h, githubToken: _g, ...s }) => s));
 });
 
 router.post("/", async (req, res) => {
@@ -106,6 +107,7 @@ router.post("/", async (req, res) => {
     port: d.port ?? 22,
     provider: d.provider ?? "custom",
     location: d.location ?? "custom",
+    githubToken: d.githubToken ?? null,
     status: "offline",
   }).returning();
   await db.insert(activityTable).values({
@@ -113,7 +115,7 @@ router.post("/", async (req, res) => {
     description: `Server "${server.name}" added`,
     user: "Admin",
   });
-  const { privateKey: _k, password: _p, privateKeyHash: _h, ...safe } = server;
+  const { privateKey: _k, password: _p, privateKeyHash: _h, githubToken: _g, ...safe } = server;
   return res.status(201).json(safe);
 });
 
@@ -376,13 +378,16 @@ IMPORTANT: Base every path on the discovery output above.
 
 // ─── Conversational Coding Agent (iterative loop) ────────────────────────────
 
-const CHAT_AGENT_SYSTEM = (username: string, historyLength = 1): string => {
+const CHAT_AGENT_SYSTEM = (username: string, historyLength = 1, githubToken?: string | null): string => {
   // root's real home is /root, not /home/root — every workspace/checkpoint write uses this path
   const home = username === "root" ? "/root" : `/home/${username}`;
   const alreadyConnected = historyLength > 1
     ? `NOTE: You are ALREADY CONNECTED to this server. Skip any "connecting to server" announcement. Proceed directly to the task.\n\n`
     : "";
-  return `${alreadyConnected}You are Xdigitex AI — an autonomous SSH coding agent operating on a Linux/cPanel server (user: ${username}, home: ${home}).
+  const githubSection = githubToken
+    ? `\n═══ GITHUB PUSH ═══\nA GitHub Personal Access Token is stored for this server.\nTo push code to a GitHub repo:\n  cd /path/to/project\n  git init 2>/dev/null; git add -A\n  git commit -m "deploy: $(date +%Y-%m-%d)" 2>&1\n  git remote remove origin 2>/dev/null; git remote add origin https://${githubToken}@github.com/<owner>/<repo>.git\n  git push -u origin main --force 2>&1 || git push -u origin master --force 2>&1\nReplace <owner>/<repo> with the repo the user specifies.\nNEVER print or log the token. Use it only inline in the git remote URL.\n`
+    : `\n═══ GITHUB PUSH ═══\nNo GitHub token stored for this server. If user asks to push to GitHub, use action="reply" to ask for a GitHub Personal Access Token (Settings → Developer Settings → Personal Access Tokens → Fine-grained → repo write permission).\n`;
+  return `${alreadyConnected}You are Xdigitex AI — an autonomous SSH coding agent operating on a Linux/cPanel server (user: ${username}, home: ${home}).${githubSection}
 
 PRIME DIRECTIVE: Be RELIABLE before being fast. One task → verify → next task.
 Never attempt an entire project in one execution. Small verified loops beat big crashes.
@@ -969,6 +974,17 @@ RULES:
 - For Gemini (Fast mode) + GPT-4o (Max mode): screenshots are analyzed by the AI directly
 - Up to 20 steps per browse action; chain multiple browse actions across iterations if needed
 
+⛔ NEVER GUESS URL PATHS — this wastes steps hitting 404s and blank pages:
+  WRONG: navigate to /register, /signup, /login, /dashboard — these are GUESSES
+  RIGHT: read the page first, find the ACTUAL href, then navigate to it.
+
+  HOW TO FIND THE REAL LINKS before navigating anywhere:
+  {"type":"evaluate","script":"Array.from(document.querySelectorAll('a')).map(a=>a.getAttribute('href')+'  →  '+a.innerText.trim()).filter(x=>x.trim()!=='  →  ').join('\\n')","label":"All page links and hrefs"}
+  
+  Then use the EXACT href found — e.g. if it says "signup.php → Get Started", navigate to signup.php NOT /signup.
+  
+  Apply this rule for: registration page, login page, dashboard, admin panel, any page you haven't visited yet.
+
 cPANEL LOGIN + CREATE DATABASE (example steps):
 [
   {"type":"navigate","url":"https://<host>:2083"},
@@ -1020,14 +1036,16 @@ Phase B — Navigation test (follow every main nav link):
 {"type":"text","label":"Nav link 1 content"},
 ... (repeat for each nav item)
 
-Phase C — Registration test:
-{"type":"navigate","url":"http://<domain>/register (or find signup link)"},
+Phase C — Registration test (DO NOT GUESS THE URL):
+{"type":"evaluate","script":"Array.from(document.querySelectorAll('a')).map(a=>a.getAttribute('href')+'  →  '+a.innerText.trim()).join('\\n')","label":"Find all links — get actual signup/register href"},
+→ Read the output, find the signup/register link href, THEN navigate to it exactly as shown.
 {"type":"screenshot","label":"Registration form"},
-{"type":"text","label":"Registration form fields"},
-Fill and submit with test data → {"type":"screenshot","label":"After registration"}
+{"type":"text","label":"Registration form fields — get exact input name attributes"},
+Fill the form using the EXACT field names/selectors found, then submit.
+{"type":"screenshot","label":"After registration submit"},
 
-Phase D — Login test:
-{"type":"navigate","url":"http://<domain>/login"},
+Phase D — Login test (DO NOT GUESS THE URL — read the page for the login href):
+{"type":"evaluate","script":"Array.from(document.querySelectorAll('a')).map(a=>a.getAttribute('href')+'  →  '+a.innerText.trim()).join('\\n')","label":"Find login href"},
 {"type":"fill","selector":"input[name='email']","value":"test@example.com"},
 {"type":"fill","selector":"input[name='password']","value":"<test_password>"},
 {"type":"click","selector":"button[type='submit']"},
@@ -1233,7 +1251,7 @@ router.post("/:id/chat", async (req, res) => {
   try {
     const { provider, model } = modelMap[parsed.data.mode];
     const client = getAIClient(provider);
-    const systemPrompt = CHAT_AGENT_SYSTEM(s.username, parsed.data.messages.length);
+    const systemPrompt = CHAT_AGENT_SYSTEM(s.username, parsed.data.messages.length, s.githubToken);
 
     type AIContent = string | Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string; detail?: string } }>;
     // Build AI conversation — content can be string or multimodal array (for vision/screenshots)
