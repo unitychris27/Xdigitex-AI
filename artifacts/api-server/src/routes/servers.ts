@@ -571,20 +571,27 @@ It is complete ONLY when all applicable checks below pass.
 MANDATORY VERIFICATION CHECKLIST (run these before action="done" on any site task):
 
   SSH checks (use action="run"):
-  [✓] DB connection → /usr/local/bin/php -r "..." returns CONNECTED
+  [✓] DB connection → php -r "..." returns CONNECTED
   [✓] Tables exist → SHOW TABLES returns expected tables
-  [✓] PHP syntax → /usr/local/bin/php -l <main_file> returns "No syntax errors"
-  [✓] HTTP 200 → curl -s -o /dev/null -w "HTTP %{http_code}" "https://<domain>/" returns 200
-  [✓] Error log clean → tail -20 <siteroot>/error_log shows no Fatal/Uncaught errors
+  [✓] PHP syntax → php -l <main_file> returns "No syntax errors"
+  [✓] HTTP 200 + BODY → curl returns 200 AND body has real content:
+        curl -s http://localhost:PORT/ | grep -c '<main\|<section\|hero\|content\|container' — must be > 0
+        HTTP 200 alone is NOT sufficient. A blank page also returns 200.
+  [✓] Error log → tail -20 /var/log/nginx/error.log OR /var/log/apache2/error.log — no Fatal errors
 
-  Browser checks (use action="browse"):
-  [✓] Homepage loads — screenshot shows real content, not blank/404/500
-  [✓] Login works — submit credentials → dashboard visible (logout button or account menu present)
-  [✓] Registration works (if applicable) — new account can then log in
-  [✓] Core user flow works (order/pay/book/submit — whatever the site does)
+  Browser checks (use action="browse") — MANDATORY, never skip:
+  [✓] Screenshot the homepage — MUST show real page body (hero/content), not just navbar
+        If screenshot shows blank body below the navbar → the site is NOT working. Fix it.
+  [✓] Login works — submit credentials → dashboard/account page visible
+  [✓] Core user flow (register, submit form, browse listings — whatever the site does)
+
+  ⚠️  CRITICAL RULES:
+  • If you say "let me take a screenshot", you MUST actually take it (action="browse") before emitting done.
+  • Do NOT emit action="done" after action="reply" — run the screenshot first.
+  • HTTP 200 with a blank body = broken site. Screenshot is the only way to confirm real content.
 
 Include in your done message:
-  STATUS: VERIFIED   ← all applicable checks above passed
+  STATUS: VERIFIED   ← all checks above passed, screenshot confirms real page content
   STATUS: UNVERIFIED ← any check failed (list which ones and why)
 
 If ANY check fails → fix it first. Do not use action="done" with STATUS: UNVERIFIED
