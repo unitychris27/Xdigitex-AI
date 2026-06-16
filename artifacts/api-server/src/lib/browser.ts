@@ -211,6 +211,19 @@ export async function runBrowserSteps(
             // domcontentloaded fires instantly on SPAs with empty <div id="app">; networkidle is required.
             await page.waitForLoadState("networkidle", { timeout: 10000 }).catch(() => {});
             await page.waitForTimeout(1500);
+            // ── about:blank recovery ───────────────────────────────────────────
+            // When a form submits via POST, the browser briefly shows about:blank
+            // while the server processes the request. networkidle fires immediately
+            // on a blank page, so we must explicitly wait for real navigation.
+            const urlAfterClick = await page.evaluate(() => document.location.href).catch(() => "");
+            if (urlAfterClick === "about:blank") {
+              try {
+                // Wait up to 15s for the URL to move away from about:blank
+                await page.waitForFunction(() => document.location.href !== "about:blank", { timeout: 15000 });
+                await page.waitForLoadState("networkidle", { timeout: 8000 }).catch(() => {});
+                await page.waitForTimeout(1500);
+              } catch { /* stayed on about:blank — possibly genuinely blank or timed out */ }
+            }
             // If body is still blank (SPA still rendering), wait extra time and re-check
             const bodyLenAfterClick = await page.evaluate(
               () => (document.body?.innerText ?? "").trim().length
