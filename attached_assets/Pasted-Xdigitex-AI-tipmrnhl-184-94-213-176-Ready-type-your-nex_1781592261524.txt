@@ -1,0 +1,123 @@
+Xdigitex AI
+tipmrnhl@184.94.213.176
+Ready — type your next message ↓
+Fast
+Smart
+Max
+
+
+📄 Long prompt (2,776 chars) build in folder aiacademia.site
+I'll build LinkForge as a complete SaaS platform. This is a large project, so I'll use the phase-based approach.
+
+Let me start with Phase 1: Database schema + core framework + authentication.
+
+<thought>Starting Phase 1 of LinkForge build. I need to:
+1. Create folder structure
+2. Write database schema (will split into parts due to size)
+3. Write core framework files (Database.php, Router.php, Session.php, Auth.php)
+4. Write authentication files (login, register, logout)
+5. Write main index.php and .htaccess
+6. Write installer
+
+Let me start by creating the folder structure and schema.</thought>
+<action>run</action>
+<commands>
+<cmd>mkdir -p /home/tipmrnhl/public_html/linkforge/{assets/{css,js,images,fonts},includes,admin,api,install,uploads/{qrcodes,avatars},cronjobs,logs}</cmd>
+<cmd>ls -la /home/tipmrnhl/public_html/linkforge/</cmd>
+</commands>
+1 steps
+·
+9,154 in
+·
+229 out
+·
+9,383 tokens
+·
+4.5s
+did you finish,,
+No, I just started. I created the folder structure. Now I need to build the entire platform. Let me continue with Phase 1.
+
+<thought>Phase 1: Database schema + core framework + auth. I'll write the schema first (split into parts due to size), then core files, then auth.</thought>
+<action>run</action>
+<commands>
+<cmd>cat > /home/tipmrnhl/public_html/linkforge/install/schema.sql << 'SQLEOF'
+-- LinkForge Database Schema
+-- Part 1: Core tables
+
+SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
+START TRANSACTION;
+SET time_zone = "+00:00";
+
+-- Users table
+CREATE TABLE IF NOT EXISTS `users` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `username` varchar(50) NOT NULL,
+  `email` varchar(100) NOT NULL,
+  `password` varchar(255) NOT NULL,
+  `full_name` varchar(100) DEFAULT NULL,
+  `bio` text DEFAULT NULL,
+  `avatar` varchar(255) DEFAULT NULL,
+  `role` enum('admin','user') NOT NULL DEFAULT 'user',
+  `plan` enum('free','starter','pro','enterprise') NOT NULL DEFAULT 'free',
+  `plan_expires` datetime DEFAULT NULL,
+  `stripe_customer_id` varchar(100) DEFAULT NULL,
+  `paypal_subscription_id` varchar(100) DEFAULT NULL,
+  `api_key` varchar(64) DEFAULT NULL,
+  `api_requests` int(11) NOT NULL DEFAULT 0,
+  `email_verified` tinyint(1) NOT NULL DEFAULT 0,
+  `verification_token` varchar(64) DEFAULT NULL,
+  `reset_token` varchar(64) DEFAULT NULL,
+  `reset_expires` datetime DEFAULT NULL,
+  `twofa_secret` varchar(32) DEFAULT NULL,
+  `twofa_enabled` tinyint(1) NOT NULL DEFAULT 0,
+  `status` enum('active','suspended','banned') NOT NULL DEFAULT 'active',
+  `last_login` datetime DEFAULT NULL,
+  `last_ip` varchar(45) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `username` (`username`),
+  UNIQUE KEY `email` (`email`),
+  UNIQUE KEY `api_key` (`api_key`),
+  KEY `plan` (`plan`),
+  KEY `status` (`status`),
+  KEY `role` (`role`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Links table
+CREATE TABLE IF NOT EXISTS `links` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL,
+  `short_code` varchar(10) NOT NULL,
+  `custom_alias` varchar(100) DEFAULT NULL,
+  `long_url` text NOT NULL,
+  `title` varchar(255) DEFAULT NULL,
+  `description` text DEFAULT NULL,
+  `domain_id` int(11) DEFAULT NULL,
+  `is_custom_domain` tinyint(1) NOT NULL DEFAULT 0,
+  `is_password` tinyint(1) NOT NULL DEFAULT 0,
+  `password` varchar(255) DEFAULT NULL,
+  `is_private` tinyint(1) NOT NULL DEFAULT 0,
+  `expires_at` datetime DEFAULT NULL,
+  `expired` tinyint(1) NOT NULL DEFAULT 0,
+  `clicks` int(11) NOT NULL DEFAULT 0,
+  `unique_clicks` int(11) NOT NULL DEFAULT 0,
+  `qr_code` varchar(255) DEFAULT NULL,
+  `geo_targeting` text DEFAULT NULL,
+  `device_targeting` text DEFAULT NULL,
+  `status` enum('active','inactive','disabled') NOT NULL DEFAULT 'active',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `short_code` (`short_code`),
+  UNIQUE KEY `custom_alias` (`custom_alias`),
+  KEY `user_id` (`user_id`),
+  KEY `domain_id` (`domain_id`),
+  KEY `status` (`status`),
+  KEY `expires_at` (`expires_at`),
+  KEY `clicks` (`clicks`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+SQLEOF
+echo "Schema part 1 written"</cmd>
+<cmd>wc -l /home/tipmrnhl/public_html/linkforge/install/schema.sql</cmd>
+</commands>

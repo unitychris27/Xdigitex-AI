@@ -1,0 +1,301 @@
+The problem is not that the prompt is too long. The problem is that you're asking an AI coding agent to build an entire Bitly/Rebrandly-sized SaaS application in one execution.
+
+Your prompt contains:
+
+* Authentication system
+* Dashboard
+* URL shortener
+* Analytics engine
+* QR generator
+* Custom domains
+* Bio pages
+* Team management
+* REST API
+* Subscription billing
+* Stripe integration
+* PayPal integration
+* Admin panel
+* Security layer
+* Installer
+* Cron jobs
+* SEO system
+* Blog
+* Full frontend
+* Documentation
+
+That's easily **20,000–50,000+ lines of code** and **100+ files**.
+
+The AI did exactly what most agents do:
+
+1. Created folders
+2. Started schema.sql
+3. Hit context/output limits
+4. Switched into "phase mode"
+5. Never finished
+
+---
+
+## Biggest Weakness In Your Prompt
+
+You told it:
+
+> Generate:
+>
+> * Full folder structure
+> * Database SQL
+> * All PHP source files
+> * CSS files
+> * JS files
+> * Installation guide
+> * API documentation
+> * Deployment guide
+
+That is impossible in one run.
+
+Instead force the AI to work like a senior developer.
+
+---
+
+# Better Prompt Structure
+
+Tell it:
+
+```text
+You are building LinkForge.
+
+DO NOT stop after planning.
+
+DO NOT explain.
+
+DO NOT output partial code.
+
+Work in phases.
+
+After each phase is completed on disk,
+immediately continue to the next phase.
+
+Only stop when every phase is complete.
+
+PHASE 1
+- Create folder structure
+- Create database schema
+- Execute schema
+
+PHASE 2
+- Core framework
+- Database class
+- Router
+- Session
+- Auth
+
+PHASE 3
+- Authentication
+- Register
+- Login
+- Logout
+- Password reset
+
+PHASE 4
+- Dashboard
+
+PHASE 5
+- Link management
+
+PHASE 6
+- Analytics
+
+PHASE 7
+- QR system
+
+PHASE 8
+- Custom domains
+
+PHASE 9
+- Bio pages
+
+PHASE 10
+- REST API
+
+PHASE 11
+- Subscription system
+
+PHASE 12
+- Admin panel
+
+PHASE 13
+- Installer
+
+PHASE 14
+- Cron jobs
+
+PHASE 15
+- Frontend polish
+
+After every phase:
+
+1. Verify files exist
+2. Verify PHP syntax
+3. Verify database tables
+4. Fix errors automatically
+5. Continue
+
+Do not ask for confirmation.
+```
+
+---
+
+# Even Better: Build It Module By Module
+
+Instead of:
+
+```text
+Build LinkForge
+```
+
+do:
+
+### Prompt 1
+
+```text
+Build only the complete database layer.
+
+Requirements:
+- all tables
+- foreign keys
+- indexes
+- migrations
+- installer schema
+
+Do not create any other files.
+
+When finished:
+- execute schema
+- verify tables
+- report table count
+```
+
+---
+
+### Prompt 2
+
+```text
+Build only authentication.
+
+Requirements:
+- register
+- login
+- logout
+- remember me
+- password reset
+- email verification
+
+Use existing schema.
+
+Do not touch other modules.
+
+Create all files.
+Test login.
+Fix errors automatically.
+```
+
+---
+
+### Prompt 3
+
+```text
+Build dashboard module only.
+
+Create:
+- dashboard UI
+- statistics widgets
+- charts
+- navigation
+
+Do not modify authentication.
+```
+
+---
+
+And so on.
+
+---
+
+## Another Improvement
+
+Add this rule:
+
+```text
+Never create placeholder code.
+
+Never create TODO comments.
+
+Never create stubs.
+
+Every file must be fully functional.
+```
+
+Otherwise agents generate things like:
+
+```php
+// TODO: Add Stripe Integration
+```
+
+and claim the feature is complete.
+
+---
+
+## What I would add to your original prompt
+
+You're missing important SaaS requirements:
+
+```text
+MULTI-TENANCY
+
+- Tenant isolation
+- Usage limits
+- Plan enforcement
+
+PERFORMANCE
+
+- Redis-ready caching layer
+- Queue-ready architecture
+- Database indexing strategy
+
+SECURITY
+
+- CSP headers
+- CSRF
+- Rate limiting
+- Brute force protection
+- Audit logs
+- Secure password policy
+
+DEVOPS
+
+- Backup strategy
+- Error logging
+- Monitoring hooks
+
+QUALITY
+
+- No placeholder code
+- No mock functions
+- No TODO comments
+- Production ready only
+
+VALIDATION
+
+After each phase:
+- run PHP lint
+- verify database
+- verify routes
+- fix errors automatically
+```
+
+---
+
+For a project the size of LinkForge, the highest success rate is usually:
+
+**Database → Core Framework → Auth → Dashboard → Links → Analytics → Payments → Admin → Polish**
+
+rather than trying to generate the entire SaaS platform in a single prompt. That keeps the AI focused and greatly increases the chance that each module is actually completed and tested.

@@ -1,0 +1,205 @@
+If your goal is for users to say things like:
+
+> "Make the dashboard faster"
+>
+> "Improve the billing page"
+>
+> "Fix the deployment workflow"
+>
+> "Add dark mode to analytics"
+
+and have the AI modify **only that specific part**, then you need a dedicated **Change Request Mode**.
+
+Here's a prompt you can give your AI agent:
+
+CHANGE REQUEST MODE
+
+When the user provides feedback, suggestions, bug reports, improvement requests, or change requests:
+
+DO NOT rebuild the entire project.
+
+DO NOT regenerate unrelated files.
+
+DO NOT rewrite completed modules.
+
+DO NOT restart architecture planning.
+
+FIRST identify:
+
+1. What exact feature is being discussed.
+2. Which files are affected.
+3. Which components are affected.
+4. Which database tables are affected.
+5. Whether the request is:
+
+   * Bug Fix
+   * UI Improvement
+   * Feature Enhancement
+   * New Feature
+   * Performance Optimization
+   * Security Improvement
+
+Then create:
+
+CHANGE ANALYSIS
+
+Requested Change:
+[summary]
+
+Affected Files:
+[list]
+
+Affected Components:
+[list]
+
+Required Modifications:
+[list]
+
+Impact Level:
+Low / Medium / High
+
+Only after analysis:
+
+Apply changes ONLY to affected files.
+
+Preserve:
+
+* Existing architecture
+* Existing features
+* Existing database structure
+* Existing APIs
+* Existing routes
+* Existing permissions
+
+Never modify unrelated modules.
+
+Never regenerate complete files unless absolutely necessary.
+
+Use PATCH MODE:
+
+* Read affected file.
+* Find exact section.
+* Modify only relevant code block.
+* Save file.
+
+After modification provide:
+
+COMPLETED CHANGES
+
+FILES UPDATED
+
+FEATURES PRESERVED
+
+NEW FUNCTIONALITY ADDED
+
+If user says:
+
+"Improve dashboard"
+
+Do NOT rebuild application.
+
+Improve dashboard only.
+
+If user says:
+
+"Fix billing"
+
+Do NOT touch dashboard.
+
+Fix billing only.
+
+If user says:
+
+"Improve deployment"
+
+Do NOT regenerate project.
+
+Modify deployment workflow only.
+
+Always prefer targeted edits over full rewrites.
+
+PROJECT STABILITY IS MORE IMPORTANT THAN REGENERATION.
+
+Also add these architectural rules:
+
+WORKSPACE INTELLIGENCE RULES
+
+When a project exists:
+
+Treat workspace files as the source of truth.
+
+Before changing anything:
+
+1. Scan workspace.
+2. Map file structure.
+3. Build project index.
+4. Build dependency map.
+
+Store:
+
+project_map.json
+
+Example:
+
+{
+"dashboard": [
+"views/dashboard.php",
+"assets/js/dashboard.js",
+"assets/css/dashboard.css"
+],
+"billing": [
+"controllers/BillingController.php",
+"views/billing.php"
+]
+}
+
+When user requests changes:
+
+Locate affected module from project_map.json.
+
+Only edit mapped files.
+
+Never regenerate unrelated files.
+
+Never recreate project structure.
+
+Never overwrite working modules.
+
+And one more critical rule:
+
+FEEDBACK PRIORITY SYSTEM
+
+User feedback has highest priority.
+
+When user says:
+
+* Improve
+* Fix
+* Change
+* Upgrade
+* Optimize
+* Redesign
+* Add
+
+Treat this as an incremental modification request.
+
+NOT a rebuild request.
+
+Default behavior:
+
+PATCH EXISTING CODE
+
+NOT
+
+REGENERATE PROJECT
+
+Only perform a full regeneration if the user explicitly says:
+
+"Rebuild from scratch"
+"Regenerate everything"
+"Start over"
+"Replace the entire project"
+
+Otherwise preserve all existing work and modify only the requested area.
+
+This is how tools like OpenHands-style agents avoid wasting tokens and coins every time a user asks for a small improvement. Instead of rebuilding 200 files, they identify the affected module, patch a handful of files, and continue from the existing workspace.

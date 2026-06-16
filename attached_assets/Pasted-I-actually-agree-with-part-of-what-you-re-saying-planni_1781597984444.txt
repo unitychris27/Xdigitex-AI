@@ -1,0 +1,226 @@
+I actually agree with part of what you're saying: **planning and narration are useful** for automation agents.
+
+A good agent should say things like:
+
+```text
+Goal: Register account
+
+Step 1: Open registration page
+✓ Found registration form
+
+Step 2: Fill form
+✓ Name entered
+✓ Email entered
+✓ Password entered
+
+Step 3: Submit form
+✓ Submit clicked
+
+Step 4: Verify result
+...
+```
+
+That transparency helps you understand what the agent is doing and where it fails.
+
+The real issue in your transcript is not the narration. It's that the agent has **weak verification and recovery behavior**.
+
+### What should have happened after the white screen?
+
+Instead of:
+
+```text
+Page is blank
+
+Registration likely succeeded
+```
+
+it should have done:
+
+```text
+Page is blank
+
+Possible causes:
+- JS error
+- API error
+- redirect loop
+- session failure
+
+Checking...
+```
+
+Then:
+
+```text
+1. Wait 10 seconds
+2. Read DOM again
+3. Refresh page
+4. Check URL
+5. Look for error messages
+6. Open browser console
+7. Check network requests
+8. Verify cookies/session
+```
+
+Only after that should it conclude success or failure.
+
+---
+
+### Why this breaks payment flows
+
+Your deposit example is exactly where this becomes dangerous.
+
+Suppose you tell the agent:
+
+> Log in → Add Funds → Deposit 100 KES via M-Pesa
+
+A weak agent may do:
+
+```text
+Clicked Add Funds
+Blank page
+
+Deposit likely initiated
+```
+
+when in reality:
+
+* deposit page failed
+* API returned 500
+* modal never opened
+* no STK push was sent
+
+The agent then reports success even though nothing happened.
+
+For financial actions, the agent must verify:
+
+```text
+Expected result:
+✓ STK push dialog appeared
+✓ Phone number shown
+✓ Deposit amount shown
+✓ Transaction reference generated
+```
+
+before moving on.
+
+---
+
+### Why modern sites cause this
+
+Sites built with:
+
+* React
+* Vue
+* Next.js
+* Vite
+* Livewire
+* Alpine
+* heavy AJAX
+
+often render:
+
+```html
+<div id="app"></div>
+```
+
+initially.
+
+A browser agent that reads the page too early sees:
+
+```text
+(empty page)
+```
+
+and gets confused.
+
+A stronger agent waits for:
+
+```text
+network idle
+DOM stabilized
+specific elements visible
+```
+
+instead of assuming the page is finished loading.
+
+---
+
+### What I'd add to your automation prompt
+
+```text
+CRITICAL BROWSER RULES
+
+Narrate actions.
+
+Create plans.
+
+But never assume success.
+
+When a page becomes blank:
+
+1. Wait 5 seconds
+2. Wait another 10 seconds
+3. Refresh
+4. Re-read page text
+5. Read current URL
+6. Inspect console errors
+7. Inspect failed network requests
+8. Check for loading spinners
+9. Verify session state
+
+A blank page is an error condition.
+
+Do not continue until the blank page is explained.
+```
+
+---
+
+### Another weakness I see
+
+The agent is not using **goal verification**.
+
+For registration:
+
+```text
+Goal = account exists
+```
+
+Verification should be:
+
+```text
+Can I log in with the credentials?
+```
+
+For login:
+
+```text
+Goal = authenticated session
+```
+
+Verification:
+
+```text
+Logout button exists
+OR
+Account menu exists
+OR
+Dashboard URL exists
+```
+
+For deposit:
+
+```text
+Goal = payment request created
+```
+
+Verification:
+
+```text
+Transaction ID exists
+OR
+Payment status pending
+```
+
+The agent should verify the goal, not merely verify that a button was clicked.
+
+In the transcript you shared, the agent verified **actions** ("I clicked submit") but never verified the **outcome** ("the account now exists and can authenticate"). That's why it became unreliable after the white-screen event.

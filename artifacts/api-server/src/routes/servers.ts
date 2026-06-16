@@ -471,11 +471,31 @@ This allows resuming after a crash without losing context.
   │   '/abs/path/book.php':   r"""...full content...""",                  │
   │ }                                                                     │
   │ for path, content in files.items():                                   │
-  │     os.makedirs(os.path.dirname(path), exist_ok=True)                 │
+  │     os.makedirs(os.path.dirname(path), exist_ok=True)  ← REQUIRED    │
   │     open(path, 'w').write(content)                                    │
   │     print(f"✓ {path} ({len(content):,} bytes)")                       │
   │ PYEOF                                                                 │
   └──────────────────────────────────────────────────────────────────────┘
+  ⚠️ os.makedirs(os.path.dirname(path), exist_ok=True) is MANDATORY — even for single-file writes.
+  If you skip it, writing to a new subdirectory (e.g. database/schema.sql, config/db.php) will crash
+  with FileNotFoundError. This applies to ALL python3 write patterns, not just the multi-file dict.
+
+  SINGLE-FILE WRITE (correct pattern):
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │ python3 << 'PYEOF'                                                    │
+  │ import os                                                             │
+  │ path = '/abs/path/database/schema.sql'                                │
+  │ content = r"""...full content..."""                                    │
+  │ os.makedirs(os.path.dirname(path), exist_ok=True)  ← ALWAYS          │
+  │ open(path, 'w').write(content)                                        │
+  │ print(f"✓ {path} ({len(content):,} bytes)")                           │
+  │ PYEOF                                                                 │
+  └──────────────────────────────────────────────────────────────────────┘
+
+  Also: your initial mkdir -p must include EVERY subdirectory you will write to.
+  If you will write to database/, config/, includes/ — ALL must be in the mkdir -p.
+  Missing directory = FileNotFoundError = wasted commands.
+
   This writes ALL files at once — no looping over files one at a time.
 
 Phase 4 — VERIFY (1 run action):
@@ -869,9 +889,21 @@ FIELD SELECTOR FALLBACK ORDER (try each until one works):
 
 PAGE READING RULES:
 - ALWAYS screenshot after navigate — never assume what a page looks like
-- If screenshot shows mostly blank/white — wait 2000ms then screenshot again
 - Use {"type":"text"} to read page content when screenshot is unclear or you need to find selectors
 - Read ALL error messages after form submit — they tell you exactly what to fix
+
+⛔ BLANK PAGE PROTOCOL — a blank or white page is ALWAYS an error condition, NEVER a success:
+When any page appears blank/white/empty after a navigate or form submit:
+1. {"type":"wait","ms":5000}                          — wait 5 seconds for JS to render
+2. {"type":"screenshot","label":"After wait 5s"}     — re-check
+3. If still blank: {"type":"wait","ms":10000}         — wait 10 more seconds
+4. {"type":"navigate","url":"(same url)"}             — refresh
+5. {"type":"screenshot","label":"After refresh"}
+6. {"type":"text","label":"Page text after refresh"} — read all visible text
+7. {"type":"evaluate","script":"document.location.href","label":"Current URL"} — check URL changed?
+8. {"type":"evaluate","script":"window.onerror ? 'JS errors' : 'no JS errors'","label":"JS errors"}
+9. Only THEN conclude success or failure based on evidence.
+NEVER write "page is blank, action likely succeeded" — that is ALWAYS wrong.
 
 COMMON LOGIN SELECTORS (try in order):
 - User/Name: input[name='username'], input[name='user'], input[name='email'], input[name='login'], #user_login
@@ -881,7 +913,34 @@ COMMON LOGIN SELECTORS (try in order):
 
 AFTER FORM SUBMIT — verify:
 - Success: redirected to dashboard/profile OR success message shown
-- Failure: still on same page, error message visible — read it with text step and fix`;
+- Failure: still on same page, error message visible — read it with text step and fix
+
+⛔ GOAL VERIFICATION — verify OUTCOMES, never just ACTIONS:
+You must verify that the goal was achieved, not merely that a button was clicked.
+
+After REGISTRATION:
+  Goal = account exists and can authenticate
+  Verify: navigate to login page → fill credentials → submit → check dashboard loads
+  NOT just: "I clicked Create Account" → "registration likely succeeded"
+
+After LOGIN:
+  Goal = authenticated session active
+  Verify: look for logout button / account menu / dashboard URL / username visible
+  {"type":"evaluate","script":"document.querySelector('.logout, [href*=logout], [href*=signout]')?.innerText","label":"Logout link"}
+  If logout link or dashboard present → login confirmed. Otherwise → session failed.
+
+After PAYMENT / DEPOSIT:
+  Goal = payment request created with reference
+  Verify: transaction ID visible OR "pending" status OR STK push dialog / payment confirmation message
+  NEVER report deposit success if no transaction reference was shown.
+  {"type":"text","label":"Payment confirmation"}  → look for order/ref/transaction number
+
+After FILE UPLOAD / FORM SAVE:
+  Goal = data persisted
+  Verify: reload the page → check data is still there
+  {"type":"navigate","url":"(same page)"}
+  {"type":"text","label":"Data after reload"}  → confirm values are present`;
+
 
 };
 
