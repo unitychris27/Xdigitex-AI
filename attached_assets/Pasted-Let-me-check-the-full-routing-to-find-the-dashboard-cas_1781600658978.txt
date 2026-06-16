@@ -1,0 +1,726 @@
+Let me check the full routing to find the dashboard case and create all missing controllers. The dashboard route should be around line 134.
+
+$
+grep -n "case.*dashboard\|case.*links\|case.*manage" /home/tipmrnhl/mkboost.site/index.php
+ok
+132: case 'dashboard':
+139: case 'links':
+$
+sed -n '120,145p' /home/tipmrnhl/mkboost.site/index.php
+ok
+require_once INCLUDES_PATH . '/controllers/AuthController.php';
+$controller = new AuthController();
+$controller->resetPassword();
+break;
+collapse
+    case 'verify-email':
+        require_once INCLUDES_PATH . '/controllers/AuthController.php';
+        $controller = new AuthController();
+        $controller->verifyEmail();
+        break;
+    // Dashboard routes
+    case 'dashboard':
+        Auth::requireAuth();
+        require_once INCLUDES_PATH . '/controllers/DashboardController.php';
+        $controller = new DashboardController();
+        $controller->index();
+        break;
+    case 'links':
+        Auth::requireAuth();
+        require_once INCLUDES_PATH . '/controllers/LinkController.php';
+        $controller = new LinkController();
+        $controller->manage();
+        break;
+🔧
+The dashboard route looks correct. The 404 might be because `/dashboard` is being matched by the short URL regex pattern first. Let me check the regex and fix it.
+
+$
+sed -n '48,60p' /home/tipmrnhl/mkboost.site/index.php
+ok
+'sitemap.xml' => 'sitemap',
+];
+// Check if it's a short URL (single segment, not a route)
+if (preg_match('/^[a-zA-Z0-9]{4,10}$/', $page) && !isset($publicRoutes[$page])) {
+collapse
+    // Redirect to short URL handler
+    require_once INCLUDES_PATH . '/controllers/LinkController.php';
+    $controller = new LinkController();
+    $controller->redirect($page);
+    exit;
+}
+// Route to appropriate handler
+$
+curl -s -o /dev/null -w "HTTP %{http_code}" "https://mkboost.site/dashboard" -L 2>/dev/null
+ok
+HTTP 404
+The regex `[a-zA-Z0-9]{4,10}` matches "dashboard" (9 chars). The issue is that `dashboard` is not in `$publicRoutes` array, so it gets treated as a short URL. Let me check the publicRoutes array and add dashboard to it, or better yet, check if the route exists in the switch before treating it as a short URL.
+
+```json
+{
+  "thought": "The regex `[a-zA-Z0-9]{4,10}` matches 'dashboard' (9 chars). Since 'dashboard' is not in $publicRoutes, it gets treated as a short URL. I need to either add dashboard to publicRoutes or modify the routing logic to check the switch statement first.",
+  "action": "run",
+  "commands": [
+    {
+      "cmd": "grep -n \"publicRoutes\" /home/tipmrnhl/mkboost.site/index.php | head -10",
+      "desc": "Find publicRoutes definition"
+    },
+    {
+      "cmd": "sed -n '30,50p' /home/tipmrnhl/mkboost.site/index.php",
+      "desc": "Check publicRoutes array"
+    }
+  ]
+}
+```
+26 steps
+·
+869,607 in
+·
+11,528 out
+·
+881,135 tokens
+·
+244.6s
+7 commands failed — scroll up to see details exit 1Find mkboost directories exit 1Add requires for core classes to functions.php exit 1Check if Auth.php is already required exit 1Add Auth.php require to functions.php exit 1Add Auth.php require to functions.php exit 1Add Auth.php require to functions.php using printf exit 1Add Auth.php require using python3 -c dismiss
+[...earlier output truncated...]
+
+php
+[exit 0]
+
+─────
+
+$ /usr/local/bin/php -l /home/tipmrnhl/mkboost.site/includes/functions.php 2>&1
+No syntax errors detected in /home/tipmrnhl/mkboost.site/includes/functions.php
+[exit 0]
+
+─────
+
+$ curl -s -o /dev/null -w "HTTP %{http_code}" "https://mkboost.site/" 2>/dev/null
+HTTP 500
+[exit 0]
+
+[thinking] Still 500 error. Let me check the error log to see what's failing now.
+
+[commands executed + output]
+$ tail -5 /home/tipmrnhl/mkboost.site/logs/error.log 2>/dev/null
+[16-Jun-2026 08:56:08 UTC] PHP Fatal error:  Uncaught Error: Class "Auth" not found in /home/tipmrnhl/mkboost.site/includes/functions.php:3
+Stack trace:
+#0 /home/tipmrnhl/mkboost.site/config/config.php(133): require_once()
+#1 /home/tipmrnhl/mkboost.site/index.php(10): require_once()
+#2 {main}
+  thrown in /home/tipmrnhl/mkboost.site/includes/functions.php on line 3
+[exit 0]
+
+[thinking] The require for Auth.php is at the top of functions.php but Auth.php itself requires Database.php which hasn't been loaded yet. The order matters: Database.php must be loaded before Auth.php. Let me fix the order.
+
+[commands executed + output]
+$ head -5 /home/tipmrnhl/mkboost.site/includes/functions.php
+<?php
+// Auto-load core classes
+require_once __DIR__ . "/classes/Auth.php";
+require_once __DIR__ . "/classes/Database.php";
+/**
+ * LinkForge - Helper Functions
+ */
+[exit 0]
+
+─────
+
+$ head -5 /home/tipmrnhl/mkboost.site/includes/classes/Auth.php
+<?php
+/**
+ * LinkForge - Authentication Class
+ */
+
+class Auth {
+[exit 0]
+
+─────
+
+$ grep -n "require_once\|include_once" /home/tipmrnhl/mkboost.site/includes/classes/Auth.php | head -5
+(no output)
+[exit 0]
+
+[thinking] Auth.php doesn't require Database.php. The issue is that Auth.php is loaded before Database.php. Let me swap the order: Database.php first, then Auth.php.
+
+[commands executed + output]
+$ cat > /tmp/fix_order.py << 'ENDPY'
+with open('/home/tipmrnhl/mkboost.site/includes/functions.php', 'r') as f:
+    content = f.read()
+# Swap the order - Database first, then Auth
+content = content.replace(
+    'require_once __DIR__ . "/classes/Auth.php";\nrequire_once __DIR__ . "/classes/Database.php";',
+    'require_once __DIR__ . "/classes/Database.php";\nrequire_once __DIR__ . "/classes/Auth.php";'
+)
+with open('/home/tipmrnhl/mkboost.site/includes/functions.php', 'w') as f:
+    f.write(content)
+print('Fixed order')
+ENDPY
+python3 /tmp/fix_order.py
+Fixed order
+[exit 0]
+
+─────
+
+$ head -5 /home/tipmrnhl/mkboost.site/includes/functions.php
+<?php
+// Auto-load core classes
+require_once __DIR__ . "/classes/Database.php";
+require_once __DIR__ . "/classes/Auth.php";
+/**
+ * LinkForge - Helper Functions
+ */
+[exit 0]
+
+─────
+
+$ /usr/local/bin/php -l /home/tipmrnhl/mkboost.site/includes/functions.php 2>&1
+No syntax errors detected in /home/tipmrnhl/mkboost.site/includes/functions.php
+[exit 0]
+
+─────
+
+$ curl -s -o /dev/null -w "HTTP %{http_code}" "https://mkboost.site/" 2>/dev/null
+HTTP 500
+[exit 0]
+
+[thinking] Still 500. Let me check the error log again.
+
+[commands executed + output]
+$ tail -5 /home/tipmrnhl/mkboost.site/logs/error.log 2>/dev/null
+[16-Jun-2026 08:56:08 UTC] PHP Fatal error:  Uncaught Error: Class "Auth" not found in /home/tipmrnhl/mkboost.site/includes/functions.php:3
+Stack trace:
+#0 /home/tipmrnhl/mkboost.site/config/config.php(133): require_once()
+#1 /home/tipmrnhl/mkboost.site/index.php(10): require_once()
+#2 {main}
+  thrown in /home/tipmrnhl/mkboost.site/includes/functions.php on line 3
+[exit 0]
+
+[thinking] The error log hasn't been updated yet. Let me check the current error by running the PHP file directly.
+
+[commands executed + output]
+$ /usr/local/bin/php -f /home/tipmrnhl/mkboost.site/index.php 2>&1 | head -20
+PHP Fatal error:  Uncaught Error: Class "Auth" not found in /home/tipmrnhl/mkboost.site/includes/functions.php:3
+Stack trace:
+#0 /home/tipmrnhl/mkboost.site/config/config.php(133): require_once()
+#1 /home/tipmrnhl/mkboost.site/index.php(10): require_once()
+#2 {main}
+  thrown in /home/tipmrnhl/mkboost.site/index.php on line 10
+[exit 0]
+
+[thinking] The error is still "Class Auth not found". Let me check if the file is actually being loaded correctly by checking the path and file contents.
+
+[commands executed + output]
+$ ls -la /home/tipmrnhl/mkboost.site/includes/classes/Auth.php
+-rw-rw-r-- 1 tipmrnhl tipmrnhl 10934 Jun 16 04:38 /home/tipmrnhl/mkboost.site/includes/classes/Auth.php
+[exit 0]
+
+─────
+
+$ head -3 /home/tipmrnhl/mkboost.site/includes/classes/Auth.php
+<?php
+/**
+ * LinkForge - Authentication Class
+ */
+[exit 0]
+
+[thinking] The file exists and has the class. Let me check if there's a namespace issue or if the class is defined differently.
+
+[commands executed + output]
+$ grep -n "^class Auth\|^namespace\|^use " /home/tipmrnhl/mkboost.site/includes/classes/Auth.php
+1:class Auth {
+[exit 0]
+
+[thinking] The class is defined without namespace. Let me check if the require path is correct by testing it directly.
+
+[commands executed + output]
+$ /usr/local/bin/php -r "require_once '/home/tipmrnhl/mkboost.site/includes/classes/Auth.php'; echo class_exists('Auth') ? 'Auth exists' : 'Auth not found';" 2>&1
+PHP Fatal error:  Uncaught Error: Class "Database" not found in /home/tipmrnhl/mkboost.site/includes/classes/Auth.php:9
+Stack trace:
+#0 /home/tipmrnhl/mkboost.site/includes/classes/Auth.php(9): Database::getInstance()
+#1 {main}
+  thrown in /home/tipmrnhl/mkboost.site/includes/classes/Auth.php on line 9
+[exit 0]
+
+[thinking] Auth.php calls Database::getInstance() in its constructor or static methods. The issue is that when functions.php is loaded from config.php, Database.php hasn't been loaded yet. Let me check the load order in config.php.
+
+[commands executed + output]
+$ sed -n '125,140p' /home/tipmrnhl/mkboost.site/config/config.php
+// Load helper functions
+require_once INCLUDES_PATH . '/functions.php';
+
+// Set up autoloader
+spl_autoload_register(function ($class) {
+    $prefix = 'LinkForge\\';
+    $base_dir = INCLUDES_PATH . '/classes/';
+    
+    $len = strlen($prefix);
+    if (strncmp($prefix, $class, $len) !== 0) {
+        return;
+    }
+    
+    $relative_class = substr($class, $len);
+    $file = $base_dir . str_replace('\\', '/', $relative_class) . '.php';
+    
+    if (file_exists($file)) {
+        require $file;
+    }
+});
+[exit 0]
+
+[thinking] The issue is clear: functions.php is loaded at line 128, and it requires Database.php and Auth.php. But the autoloader is registered AFTER functions.php at line 131. Also, Auth.php calls Database::getInstance() which requires Database class to be loaded first. The fix is to move the requires to after the autoloader registration, or better yet, load Database.php before functions.php.
+
+[commands executed + output]
+$ cat > /tmp/fix_config.py << 'ENDPY'
+with open('/home/tipmrnhl/mkboost.site/config/config.php', 'r') as f:
+    content = f.read()
+
+# Add Database.php require before functions.php
+content = content.replace(
+    "// Load helper functions\nrequire_once INCLUDES_PATH . '/functions.php';",
+    "// Load core classes first\nrequire_once INCLUDES_PATH . '/classes/Database.php';\nrequire_once INCLUDES_PATH . '/classes/Auth.php';\n\n// Load helper functions\nrequire_once INCLUDES_PATH . '/functions.php';"
+)
+
+with open('/home/tipmrnhl/mkboost.site/config/config.php', 'w') as f:
+    f.write(content)
+print('Fixed config.php')
+ENDPY
+python3 /tmp/fix_config.py
+Fixed config.php
+[exit 0]
+
+─────
+
+$ sed -n '125,140p' /home/tipmrnhl/mkboost.site/config/config.php
+// Load core classes first
+require_once INCLUDES_PATH . '/classes/Database.php';
+require_once INCLUDES_PATH . '/classes/Auth.php';
+
+// Load helper functions
+require_once INCLUDES_PATH . '/functions.php';
+
+// Set up autoloader
+spl_autoload_register(function ($class) {
+    $prefix = 'LinkForge\\';
+    $base_dir = INCLUDES_PATH . '/classes/';
+    
+    $len = strlen($prefix);
+    if (strncmp($prefix, $class, $len) !== 0) {
+        return;
+    }
+    
+    $relative_class = substr($class, $len);
+    $file = $base_dir . str_replace('\\', '/', $relative_class) . '.php';
+    
+    if (file_exists($file)) {
+        require $file;
+    }
+});
+[exit 0]
+
+─────
+
+$ /usr/local/bin/php -f /home/tipmrnhl/mkboost.site/index.php 2>&1 | head -20
+(no output)
+[exit 0]
+
+[thinking] No output means no errors. Let me test the HTTP endpoint.
+
+[commands executed + output]
+$ curl -s -o /dev/null -w "HTTP %{http_code}" "https://mkboost.site/" 2>/dev/null
+HTTP 500
+[exit 0]
+
+[thinking] Still 500. Let me check the error log for the latest error.
+
+[commands executed + output]
+$ tail -5 /home/tipmrnhl/mkboost.site/logs/error.log 2>/dev/null
+[16-Jun-2026 08:56:08 UTC] PHP Fatal error:  Uncaught Error: Class "Auth" not found in /home/tipmrnhl/mkboost.site/includes/functions.php:3
+Stack trace:
+#0 /home/tipmrnhl/mkboost.site/config/config.php(133): require_once()
+#1 /home/tipmrnhl/mkboost.site/index.php(10): require_once()
+#2 {main}
+  thrown in /home/tipmrnhl/mkboost.site/includes/functions.php on line 3
+[exit 0]
+
+[thinking] The error log hasn't been updated. Let me clear it and try again.
+
+[commands executed + output]
+$ > /home/tipmrnhl/mkboost.site/logs/error.log && curl -s -o /dev/null -w "HTTP %{http_code}" "https://mkboost.site/" 2>/dev/null && tail -5 /home/tipmrnhl/mkboost.site/logs/error.log 2>/dev/null
+HTTP 500
+[16-Jun-2026 08:56:08 UTC] PHP Fatal error:  Uncaught Error: Class "Auth" not found in /home/tipmrnhl/mkboost.site/includes/functions.php:3
+Stack trace:
+#0 /home/tipmrnhl/mkboost.site/config/config.php(133): require_once()
+#1 /home/tipmrnhl/mkboost.site/index.php(10): require_once()
+#2 {main}
+  thrown in /home/tipmrnhl/mkboost.site/includes/functions.php on line 3
+[exit 0]
+
+[thinking] The error log still shows the old error. Let me check if the file was actually updated by checking the line numbers.
+
+[commands executed + output]
+$ grep -n "require_once" /home/tipmrnhl/mkboost.site/config/config.php
+128:require_once INCLUDES_PATH . '/classes/Database.php';
+129:require_once INCLUDES_PATH . '/classes/Auth.php';
+132:require_once INCLUDES_PATH . '/functions.php';
+[exit 0]
+
+[thinking] The config.php was updated. But the error log still shows the old error. Let me check if there's a PHP opcode cache issue or if the error is from a different request. Let me also check if functions.php still has the requires.
+
+[commands executed + output]
+$ head -5 /home/tipmrnhl/mkboost.site/includes/functions.php
+<?php
+// Auto-load core classes
+require_once __DIR__ . "/classes/Database.php";
+require_once __DIR__ . "/classes/Auth.php";
+/**
+ * LinkForge - Helper Functions
+ */
+[exit 0]
+
+[thinking] functions.php still has the requires. Since config.php now loads Database.php and Auth.php before functions.php, the requires in functions.php will cause double-loading. But that shouldn't cause a fatal error. Let me check if the error is from a cached opcode. Let me try a different approach - remove the requires from functions.php since config.php now handles them.
+
+[commands executed + output]
+$ cat > /tmp/remove_requires.py << 'ENDPY'
+with open('/home/tipmrnhl/mkboost.site/includes/functions.php', 'r') as f:
+    content = f.read()
+# Remove the auto-load requires since config.php now handles them
+content = content.replace(
+    '<?php\n// Auto-load core classes\nrequire_once __DIR__ . "/classes/Database.php";\nrequire_once __DIR__ . "/classes/Auth.php";\n',
+    '<?php\n'
+)
+with open('/home/tipmrnhl/mkboost.site/includes/functions.php', 'w') as f:
+    f.write(content)
+print('Removed requires from functions.php')
+ENDPY
+python3 /tmp/remove_requires.py
+Removed requires from functions.php
+[exit 0]
+
+─────
+
+$ head -5 /home/tipmrnhl/mkboost.site/includes/functions.php
+<?php
+/**
+ * LinkForge - Helper Functions
+ */
+[exit 0]
+
+─────
+
+$ > /home/tipmrnhl/mkboost.site/logs/error.log && curl -s -o /dev/null -w "HTTP %{http_code}" "https://mkboost.site/" 2>/dev/null && sleep 1 && tail -5 /home/tipmrnhl/mkboost.site/logs/error.log 2>/dev/null
+HTTP 500
+[16-Jun-2026 08:56:08 UTC] PHP Fatal error:  Uncaught Error: Class "Auth" not found in /home/tipmrnhl/mkboost.site/includes/functions.php:3
+Stack trace:
+#0 /home/tipmrnhl/mkboost.site/config/config.php(133): require_once()
+#1 /home/tipmrnhl/mkboost.site/index.php(10): require_once()
+#2 {main}
+  thrown in /home/tipmrnhl/mkboost.site/includes/functions.php on line 3
+[exit 0]
+
+[thinking] The error log still shows the old error. This is very strange. Let me check if there's a PHP-FPM cache or if the file is being served from a different location. Let me check the actual file being served.
+
+[commands executed + output]
+$ ls -la /home/tipmrnhl/mkboost.site/index.php
+-rw-rw-r-- 1 tipmrnhl tipmrnhl 10240 Jun 16 04:44 /home/tipmrnhl/mkboost.site/index.php
+[exit 0]
+
+─────
+
+$ /usr/local/bin/php -f /home/tipmrnhl/mkboost.site/index.php 2>&1 | head -20
+(no output)
+[exit 0]
+
+[thinking] PHP CLI runs without errors. The issue might be with PHP-FPM or Apache. Let me check if there's an .htaccess file that might be redirecting to a different file.
+
+[commands executed + output]
+$ ls -la /home/tipmrnhl/mkboost.site/.htaccess 2>/dev/null
+-rw-rw-r-- 1 tipmrnhl tipmrnhl 1024 Jun 16 04:44 /home/tipmrnhl/mkboost.site/.htaccess
+[exit 0]
+
+─────
+
+$ cat /home/tipmrnhl/mkboost.site/.htaccess
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Force HTTPS
+    RewriteCond %{HTTPS} off
+    RewriteRule ^(.*)$ https://%{HTTP_HOST}/$1 [R=301,L]
+    
+    # Remove trailing slash
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.+)/$ /$1 [R=301,L]
+    
+    # Handle Front Controller
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ index.php?url=$1 [QSA,L]
+</IfModule>
+[exit 0]
+
+[thinking] The .htaccess looks correct. Let me check if there's a PHP-FPM pool or if the server is using a different PHP version. Let me also check if there's an opcache issue by touching the files.
+
+[commands executed + output]
+$ touch /home/tipmrnhl/mkboost.site/index.php && touch /home/tipmrnhl/mkboost.site/config/config.php && touch /home/tipmrnhl/mkboost.site/includes/functions.php && > /home/tipmrnhl/mkboost.site/logs/error.log && curl -s -o /dev/null -w "HTTP %{http_code}" "https://mkboost.site/" 2>/dev/null && sleep 2 && tail -5 /home/tipmrnhl/mkboost.site/logs/error.log 2>/dev/null
+HTTP 500
+[16-Jun-2026 08:56:08 UTC] PHP Fatal error:  Uncaught Error: Class "Auth" not found in /home/tipmrnhl/mkboost.site/includes/functions.php:3
+Stack trace:
+#0 /home/tipmrnhl/mkboost.site/config/config.php(133): require_once()
+#1 /home/tipmrnhl/mkboost.site/index.php(10): require_once()
+#2 {main}
+  thrown in /home/tipmrnhl/mkboost.site/includes/functions.php on line 3
+[exit 0]
+
+[thinking] The error log still shows the same error. This is very suspicious. The timestamp hasn't changed. Let me check if the error log file is actually being written to or if it's cached.
+
+[commands executed + output]
+$ stat /home/tipmrnhl/mkboost.site/logs/error.log
+  File: /home/tipmrnhl/mkboost.site/logs/error.log
+  Size: 3423      	Blocks: 8          IO Block: 4096   regular file
+Device: 10302h/66306d	Inode: 2621441     Links: 1
+Access: (0664/-rw-rw-r--)  Uid: ( 1000/tipmrnhl)   Gid: ( 1000/tipmrnhl)
+Access: 2026-06-16 08:56:08.000000000 +0000
+Modify: 2026-06-16 08:56:08.000000000 +0000
+Change: 2026-06-16 08:56:08.000000000 +0000
+[exit 0]
+
+[thinking] The error log hasn't been modified since 08:56:08. The curl request isn't generating new errors. Let me check if the site is actually being served from a different directory. Let me check the Apache vhost configuration.
+
+[commands executed + output]
+$ grep -r "mkboost" /etc/httpd/conf/ 2>/dev/null | head -5 || grep -r "mkboost" /etc/apache2/ 2>/dev/null | head -5 || echo "No Apache config found"
+[stderr] grep: /etc/httpd/conf/: No such file or directory
+grep: /etc/apache2/: No such file or directory
+No Apache config found
+[exit 1]
+
+─────
+
+$ grep -r "mkboost" /etc/ 2>/dev/null | head -5
+/etc/cpanel-datastore/ssl/sslhosts:mkboost.site
+/etc/cpanel-datastore/ssl/sslhosts:mkboost.site
+/etc/cpanel-datastore/ssl/sslhosts:mkboost.site
+/etc/cpanel-datastore/ssl/sslhosts:mkboost.site
+/etc/cpanel-datastore/ssl/sslhosts:mkboost.site
+[exit 0]
+
+[thinking] Let me check the Apache vhost configuration for mkboost.site to see which directory it's serving from.
+
+[commands executed + output]
+$ grep -r "mkboost" /etc/apache2/ 2>/dev/null || grep -r "mkboost" /usr/local/apache/ 2>/dev/null || grep -r "mkboost" /etc/httpd/ 2>/dev/null || echo "Searching wider..."
+[stderr] grep: /etc/apache2/: No such file or directory
+grep: /usr/local/apache/: No such file or directory
+grep: /etc/httpd/: No such file or directory
+Searching wider...
+[exit 1]
+
+─────
+
+$ find /etc -name "*.conf" -exec grep -l "mkboost" {} \; 2>/dev/null | head -5
+/etc/cpanel-datastore/ssl/sslhosts
+[exit 0]
+
+[thinking] Let me check the cPanel userdata to find the document root for mkboost.site.
+
+[commands executed + output]
+$ grep -r "mkboost" /var/cpanel/ 2>/dev/null | head -5
+/var/cpanel/userdata/tipmrnhl/mkboost.site: documentroot: /home/tipmrnhl/mkboost.site
+/var/cpanel/userdata/tipmrnhl/mkboost.site: documentroot: /home/tipmrnhl/mkboost.site
+[exit 0]
+
+[thinking] The document root is correct. Let me check if there's a PHP-FPM configuration issue or if the error is from a different source. Let me try to access a simple PHP file to test.
+
+[commands executed + output]
+$ echo '<?php echo "PHP works"; ?>' > /home/tipmrnhl/mkboost.site/test.php && curl -s "https://mkboost.site/test.php" 2>/dev/null
+PHP works
+[exit 0]
+
+[thinking] PHP works. The issue is specific to the index.php routing. Let me check if there's an opcache issue by checking the PHP configuration.
+
+[commands executed + output]
+$ /usr/local/bin/php -r "echo opcache_get_status() ? 'Opcache enabled' : 'Opcache disabled';" 2>&1
+Opcache enabled
+[exit 0]
+
+[thinking] Opcache is enabled. Let me clear it and try again.
+
+[commands executed + output]
+$ /usr/local/bin/php -r "opcache_reset(); echo 'Opcache cleared';" 2>&1 && > /home/tipmrnhl/mkboost.site/logs/error.log && curl -s -o /dev/null -w "HTTP %{http_code}" "https://mkboost.site/" 2>/dev/null && sleep 1 && tail -5 /home/tipmrnhl/mkboost.site/logs/error.log 2>/dev/null
+Opcache cleared
+HTTP 500
+[16-Jun-2026 08:56:08 UTC] PHP Fatal error:  Uncaught Error: Class "Auth" not found in /home/tipmrnhl/mkboost.site/includes/functions.php:3
+Stack trace:
+#0 /home/tipmrnhl/mkboost.site/config/config.php(133): require_once()
+#1 /home/tipmrnhl/mkboost.site/index.php(10): require_once()
+#2 {main}
+  thrown in /home/tipmrnhl/mkboost.site/includes/functions.php on line 3
+[exit 0]
+
+[thinking] The error log still shows the same error. This is very strange. Let me check if the error log is actually being written to by checking the inode and file size.
+
+[commands executed + output]
+$ ls -la /home/tipmrnhl/mkboost.site/logs/error.log
+-rw-rw-r-- 1 tipmrnhl tipmrnhl 3423 Jun 16 08:56 /home/tipmrnhl/mkboost.site/logs/error.log
+[exit 0]
+
+[thinking] The file size is 3423 bytes and hasn't changed. The error log isn't being updated. Let me check if there's a different error log location or if PHP errors are being logged elsewhere.
+
+[commands executed + output]
+$ find /home/tipmrnhl -name "error_log" -o -name "php_error_log" 2>/dev/null | head -10
+/home/tipmrnhl/mkboost.site/logs/error.log
+/home/tipmrnhl/mkboost.site/error_log
+[exit 0]
+
+[thinking] Let me check the other error_log file.
+
+[commands executed + output]
+$ tail -5 /home/tipmrnhl/mkboost.site/error_log 2>/dev/null
+[16-Jun-2026 08:56:08 UTC] PHP Fatal error:  Uncaught Error: Class "Auth" not found in /home/tipmrnhl/mkboost.site/includes/functions.php:3
+Stack trace:
+#0 /home/tipmrnhl/mkboost.site/config/config.php(133): require_once()
+#1 /home/tipmrnhl/mkboost.site/index.php(10): require_once()
+#2 {main}
+  thrown in /home/tipmrnhl/mkboost.site/includes/functions.php on line 3
+[exit 0]
+
+[thinking] Both error logs show the same error. The error is from line 3 of functions.php, but we removed the requires from functions.php. This means the error is from a cached version. Let me check if there's a PHP-FPM pool that needs to be restarted.
+
+[commands executed + output]
+$ ps aux | grep php | grep -v grep | head -5
+tipmrnhl  0.0  0.0  ?        00:00:00 lsphp
+[exit 0]
+
+[thinking] There's a LiteSpeed PHP process. Let me check if we can restart it or if there's a way to clear the cache.
+
+[commands executed + output]
+$ ls -la /home/tipmrnhl/mkboost.site/includes/functions.php
+-rw-rw-r-- 1 tipmrnhl tipmrnhl 3423 Jun 16 08:56 /home/tipmrnhl/mkboost.site/includes/functions.php
+[exit 0]
+
+[thinking] The file size is 3423 bytes. Let me check the actual content of the file.
+
+[commands executed + output]
+$ head -10 /home/tipmrnhl/mkboost.site/includes/functions.php
+<?php
+/**
+ * LinkForge - Helper Functions
+ */
+
+if (!function_exists('csrf_token')) {
+    function csrf_token() {
+        if (empty($_SESSION[CSRF_TOKEN_NAME])) {
+            $_SESSION[CSRF_TOKEN_NAME] = bin2hex(random_bytes(32));
+        }
+        return $_SESSION[CSRF_TOKEN_NAME];
+    }
+}
+[exit 0]
+
+[thinking] The file content is correct - no requires at the top. But the error log says line 3 has "Class Auth not found". This is definitely a caching issue. Let me check if there's a way to restart the PHP-FPM/LiteSpeed process.
+
+[commands executed + output]
+$ /usr/local/bin/php -r "opcache_reset(); echo 'Opcache reset done';" 2>&1 && killall lsphp 2>/dev/null; sleep 2; curl -s -o /dev/null -w "HTTP %{http_code}" "https://mkboost.site/" 2>/dev/null
+Opcache reset done
+HTTP 500
+[exit 0]
+
+[thinking] Still 500. Let me check the error log again.
+
+[commands executed + output]
+$ tail -5 /home/tipmrnhl/mkboost.site/logs/error.log 2>/dev/null
+[16-Jun-2026 08:56:08 UTC] PHP Fatal error:  Uncaught Error: Class "Auth" not found in /home/tipmrnhl/mkboost.site/includes/functions.php:3
+Stack trace:
+#0 /home/tipmrnhl/mkboost.site/config/config.php(133): require_once()
+#1 /home/tipmrnhl/mkboost.site/index.php(10): require_once()
+#2 {main}
+  thrown in /home/tipmrnhl/mkboost.site/includes/functions.php on line 3
+[exit 0]
+
+[thinking] The error log still shows the same error. Let me check if the error is actually from a different file. The error says line 3 of functions.php, but our file has the comment on line 3. Let me check if there's a different functions.php file.
+
+[commands executed + output]
+$ find /home/tipmrnhl -name "functions.php" 2>/dev/null
+/home/tipmrnhl/mkboost.site/includes/functions.php
+[exit 0]
+
+[thinking] Only one functions.php file. Let me check if the error is from a different config.php. The error says config.php line 133, but our config.php has the requires at lines 128-132.
+
+[commands executed + output]
+$ wc -l /home/tipmrnhl/mkboost.site/config/config.php
+135 /home/tipmrnhl/mkboost.site/config/config.php
+[exit 0]
+
+[thinking] config.php has 135 lines. Line 133 would be after the autoloader. Let me check what's on line 133.
+
+[commands executed + output]
+$ sed -n '130,135p' /home/tipmrnhl/mkboost.site/config/config.php
+    if (file_exists($file)) {
+        require $file;
+    }
+});
+
+// Error reporting
+[exit 0]
+
+[thinking] Line 133 is the closing of the autoloader function. The error says "require_once()" on line 133 of config.php. This means the autoloader is trying to load a class. Let me check if there's a class that starts with "LinkForge\" that's being autoloaded.
+
+[commands executed + output]
+$ grep -r "LinkForge" /home/tipmrnhl/mkboost.site/includes/classes/ 2>/dev/null
+(no output)
+[exit 0]
+
+[thinking] No classes use the LinkForge namespace. The autoloader won't find anything. But the error says "Class Auth not found" on line 3 of functions.php. This is very confusing. Let me check if there's a different version of the file being served by checking the actual PHP execution.
+
+[commands executed + output]
+$ /usr/local/bin/php -r "
+require_once '/home/tipmrnhl/mkboost.site/config/config.php';
+echo 'Config loaded successfully';
+" 2>&1
+Config loaded successfully
+[exit 0]
+
+[thinking] The config loads fine from CLI. The issue is with the web server. Let me check if there's a .user.ini file that might be overriding settings.
+
+[commands executed + output]
+$ find /home/tipmrnhl/mkboost.site -name ".user.ini" -o -name ".htaccess" 2>/dev/null
+/home/tipmrnhl/mkboost.site/.htaccess
+[exit 0]
+
+[thinking] Let me check if there's a PHP handler configuration issue. Let me try to access the site with a different approach - check if the error is from a different PHP version.
+
+[commands executed + output]
+$ /usr/local/bin/php -v 2>&1 | head -1
+PHP 8.2.27 (cli) (built: Feb 11 2025 14:51:51) ( NTS )
+[exit 0]
+
+[thinking] Let me check what PHP version the web server is using.
+
+[commands executed + output]
+$ curl -s "https://mkboost.site/test.php" 2>/dev/null
+PHP works
+[exit 0]
+
+[thinking] The test.php works. Let me check if there's an issue with the index.php file specifically. Let me try to run index.php with error output.
+
+[commands executed + output]
+$ /usr/local/bin/php -f /home/tipmrnhl/mkboost.site/index.php 2>&1 | head -20
+(no output)
+[exit 0]
+
+[thinking] No output from CLI. Let me check if the issue is with the LiteSpeed cache. Let me try to access the site with a different URL to see if the error is consistent.
+
+[commands executed + output]
+$ curl -s -o /dev/null -w "HTTP %{http_code}" "https://mkboost.site/install/" 2>/dev/null
+HTTP 500
+[exit 0]
+
+[thinking] All URLs return 500. Let me check if there's a PHP-FPM pool configuration issue. Let me check the error log one more time with a fresh request.
+
+[commands executed + output]
+$ > /home/tipmrnhl/mkboost.site/logs/error.log && > /home/tipmrnhl/mkboost.site/error_log && curl -s -o /dev/null -w "HTTP %{http_code}" "https://mkboost.site/" 2>/dev/null && sleep 2 && cat /home/tipmrnhl/mkboost.site/logs/error.log 2>/dev/null
+HTTP 500
+[16-Jun-2026 08:56:08 UTC] PHP Fatal error:  Uncaught Error: Class "Auth" not found in /home/tipmrnhl/mkboost.site/includes/functions.php:3
+Stack trace:
+#0 /home/tipmrnhl/mkboost.site/config/config.php(133): require_once()
+#1 /home/tipmrnhl/mkboost.site/index.php(10): require_once()
+#2 {main}
+  thrown in /home/t

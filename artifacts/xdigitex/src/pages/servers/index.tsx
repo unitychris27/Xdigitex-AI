@@ -505,23 +505,22 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
     }));
   };
 
-  const sendMessage = async () => {
-    const hasContent = input.trim() || pastedPrompt;
+  const sendMessage = async (overrideText?: string) => {
+    const hasContent = overrideText || input.trim() || pastedPrompt;
     if (!hasContent || running) return;
     setFailedCmds([]);
 
-    // Full content sent to AI — pasted prompt + any extra typed text
-    const fullText = pastedPrompt
+    // Full content sent to AI — override takes priority, then pasted prompt + typed text
+    const fullText = overrideText ?? (pastedPrompt
       ? pastedPrompt.content + (input.trim() ? `\n\n${input.trim()}` : "")
-      : input.trim();
+      : input.trim());
 
     // Short display shown in chat bubble
-    const displayText = pastedPrompt
+    const displayText = overrideText ?? (pastedPrompt
       ? `📄 Long prompt (${pastedPrompt.chars.toLocaleString()} chars)${input.trim() ? `\n\n${input.trim()}` : ""}`
-      : fullText;
+      : fullText);
 
-    setInput("");
-    setPastedPrompt(null);
+    if (!overrideText) { setInput(""); setPastedPrompt(null); }
     setRunning(true);
 
     // Add user message to display + AI history
@@ -678,6 +677,18 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
 
   const handleKey = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  };
+
+  const diagnoseAndContinue = () => {
+    const failureList = failedCmds
+      .map(f => `  • exit ${f.exitCode}: ${f.desc || f.cmd.slice(0, 80)}`)
+      .join("\n");
+    sendMessage(
+      `The following commands failed:\n${failureList}\n\n` +
+      `Diagnose the root cause of each failure. Read the error output shown above. ` +
+      `Fix only the root cause. Then continue building from exactly where you left off. ` +
+      `Do not restart, do not rebuild from scratch, do not repeat work that already succeeded.`
+    );
   };
 
   const clearChat = () => {
@@ -972,7 +983,7 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
                 <XCircle className="w-3.5 h-3.5 shrink-0" />
                 {failedCmds.length} command{failedCmds.length > 1 ? "s" : ""} failed — scroll up to see details
               </div>
-              <div className="space-y-0.5">
+              <div className="space-y-0.5 mb-2">
                 {failedCmds.map((f, i) => (
                   <div key={i} className="font-mono text-red-300/80 truncate">
                     <span className="text-red-500/60 mr-1">exit {f.exitCode}</span>
@@ -980,10 +991,19 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
                   </div>
                 ))}
               </div>
-              <button
-                onClick={() => setFailedCmds([])}
-                className="mt-1.5 text-[10px] text-red-500/60 hover:text-red-400"
-              >dismiss</button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={diagnoseAndContinue}
+                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-orange-500/20 border border-orange-500/40 text-orange-300 hover:bg-orange-500/30 hover:text-orange-200 transition-colors font-semibold text-[11px]"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  Diagnose &amp; Continue
+                </button>
+                <button
+                  onClick={() => setFailedCmds([])}
+                  className="text-[10px] text-red-500/50 hover:text-red-400 transition-colors"
+                >dismiss</button>
+              </div>
             </div>
           )}
           {/* Pasted long-prompt chip */}
