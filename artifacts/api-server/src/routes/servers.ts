@@ -658,6 +658,23 @@ Make every thought SPECIFIC and SEQUENTIAL:
 ✅ "FIXED index.php — re-running PHP check — no errors. Checking HTTP: curl returns 200 OK ✓"
 ❌ "I will look at the files" / "Searching for the issue" / "The script has a problem" → TOO VAGUE, never write these
 
+═══ ANTI-LOOP RULES (read before every iteration) ═══
+❌ NEVER run a command you already ran this session — its output is already in your context above.
+❌ NEVER run ls, find, or cat on the same path twice — you already have that output.
+✅ If you ran "ls /home/user/" and got output → USE THAT OUTPUT. Do not re-run it.
+✅ If discovery commands returned empty → the directory is empty or doesn't exist. Accept it, try elsewhere.
+✅ If you have run 3+ iterations without making file changes or fixes → you are looping. STOP.
+   Instead: re-read the outputs you already have, extract what you need, and act on it.
+
+cPanel server quick-reference (when working on shared hosts like Namecheap/cPanel):
+- Sites live in: /home/<user>/<domain>/public_html/ OR /home/<user>/public_html/ (main domain)
+- Addon domains: /home/<user>/domains/<addon.com>/public_html/
+- DB credentials: grep -r "DB_\|database\|mysqli\|PDO" /home/<user>/*/config.php 2>/dev/null | head -20
+- MySQL login: mysql -u <cpanel_user> -p'<password>' -e "SHOW DATABASES;" (use literal password, NOT shell substitution)
+- DB names: always prefixed with cPanel username, e.g. tipmrnhl_sitename
+- ZIP backup: cd /home/<user> && zip -r /tmp/<site>_backup.zip <site>/ 2>&1 | tail -3
+- DB dump: mysqldump -u <user> -p'<pass>' <db_name> > /tmp/<db_name>.sql 2>&1 && echo DONE
+
 ═══ GOLDEN RULES ═══
 ❌ NEVER ask "do you want me to fix this?" — just fix it
 ❌ NEVER ask "should I proceed?" — just proceed
@@ -1252,6 +1269,9 @@ router.post("/:id/chat", async (req, res) => {
       }).catch(() => {});
     };
 
+    // Track commands run this session to detect infinite loops
+    const cmdRunCount = new Map<string, number>();
+
     // Agentic loop — max 40 iterations per user turn (complex builds need more steps)
     for (let iter = 0; iter < 40; iter++) {
       const completion = await client.chat.completions.create({
@@ -1285,6 +1305,35 @@ router.post("/:id/chat", async (req, res) => {
         const cmds: { cmd: string; desc: string }[] = action.commands
           .filter((c: unknown) => c && typeof (c as Record<string,unknown>).cmd === "string")
           .slice(0, 10);
+
+        // ── Loop detection ──────────────────────────────────────────────────────
+        // Normalise command (strip extra whitespace) so minor variations still match
+        const normCmd = (c: string) => c.replace(/\s+/g, " ").trim();
+        const repeatCmds = cmds.filter(c => (cmdRunCount.get(normCmd(c.cmd)) ?? 0) >= 1);
+        const allRepeats = repeatCmds.length === cmds.length;
+
+        if (allRepeats && cmds.length > 0) {
+          // Every command in this batch has already been run — agent is looping
+          const loopWarning =
+            `⚠️ LOOP DETECTED: Every command in this batch has already been run this session:\n` +
+            cmds.map(c => `  • ${normCmd(c.cmd)} (run ${cmdRunCount.get(normCmd(c.cmd))}x)`).join("\n") + `\n\n` +
+            `You are stuck in a loop. STOP running the same commands. Instead:\n` +
+            `1. Look at what the previous outputs actually said — the answer is already in your context.\n` +
+            `2. Try a COMPLETELY DIFFERENT approach or command.\n` +
+            `3. If you genuinely cannot proceed, use action="done" and report what you found so far.\n` +
+            `DO NOT repeat these commands again.`;
+          send("think", { text: "⚠️ Loop detected — all commands already run. Forcing course correction." });
+          aiMessages.push({ role: "assistant", content: raw });
+          aiMessages.push({ role: "user", content: loopWarning });
+          continue;
+        } else if (repeatCmds.length > 0) {
+          // Some commands repeated — warn but still run the new ones
+          const warnText = `Note: These commands were already run: ${repeatCmds.map(c => normCmd(c.cmd)).join("; ")}. Their output is already in your context — re-reading it won't give new information. Focus on NEW commands to make progress.`;
+          aiMessages.push({ role: "user", content: warnText });
+        }
+
+        // Record all commands as run
+        for (const c of cmds) cmdRunCount.set(normCmd(c.cmd), (cmdRunCount.get(normCmd(c.cmd)) ?? 0) + 1);
 
         const cmdResults: string[] = [];
 
