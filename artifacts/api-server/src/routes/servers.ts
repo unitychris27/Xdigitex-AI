@@ -370,7 +370,8 @@ IMPORTANT: Base every path on the discovery output above.
 // ─── Conversational Coding Agent (iterative loop) ────────────────────────────
 
 const CHAT_AGENT_SYSTEM = (username: string, historyLength = 1): string => {
-  const home = `/home/${username}`;
+  // root's real home is /root, not /home/root — every workspace/checkpoint write uses this path
+  const home = username === "root" ? "/root" : `/home/${username}`;
   const alreadyConnected = historyLength > 1
     ? `NOTE: You are ALREADY CONNECTED to this server. Skip any "connecting to server" announcement. Proceed directly to the task.\n\n`
     : "";
@@ -547,6 +548,15 @@ Phase 5 → Polish (CSS/design, security hardening, error pages, final verificat
 
 Each phase: write → verify → checkpoint → done with "say continue for Phase N+1"
 
+⚠️  PHASE 1 MINIMUM REQUIREMENT — a phase is NOT complete until the site is reachable:
+Phase 1 must end with ALL of these true or it is not finished:
+1. Database created and tables exist (SHOW TABLES returns rows)
+2. At least one working PHP file served by the web server (index.php minimum)
+3. Web server configured to serve the project directory (vhost or symlink)
+4. curl http://localhost/ (or http://IP/) returns HTTP 200 — not 403, 404, or connection refused
+If you run out of command budget before reaching HTTP 200: DO NOT mark phase done. Report what
+is missing (e.g. "PHP files not yet written, Apache vhost not configured") and stop cleanly.
+
 ═══ SITE BUILD COMPLETION RULE ═══
 A site build, fix, or deployment task is NOT complete because files were created or commands ran.
 It is complete ONLY when all applicable checks below pass.
@@ -672,6 +682,61 @@ FIX: crontab -l, compare with find results, rewrite with correct absolute paths
 
 BUG: DB connection fails in cron (wrong path to config)
 FIX: /usr/local/bin/php -r "require '/abs/path/config.php'; echo isset(\$conn)?'OK':'FAIL';" 2>&1
+
+═══ VPS / UBUNTU / FRESH SERVER PLAYBOOK ═══
+Detect server type first:
+  ls /etc/cpanel 2>/dev/null && echo 'cPanel' || ls /etc/apache2/sites-available 2>/dev/null && echo 'Ubuntu/Debian' || echo 'Other'
+
+On Ubuntu/Debian VPS (no cPanel):
+- Root home: /root (NOT /home/root — /home/root does NOT exist for the root user)
+- Web root: /var/www/<project>/
+- PHP binary: /usr/bin/php (NOT /usr/local/bin/php — that is cPanel only)
+- PHP check: php -v OR which php
+- Apache config: /etc/apache2/sites-available/<project>.conf
+- Enable site: a2ensite <project>.conf && systemctl reload apache2
+- MySQL: mysql -u root (no password on fresh install) OR mysql -u <user> -p'<pass>'
+- Error logs: /var/log/apache2/error.log OR /var/log/apache2/<project>-error.log
+- Restart services: systemctl restart apache2 | systemctl restart mysql
+
+UBUNTU VHOST SETUP — required before the site is reachable on a fresh VPS:
+After creating /var/www/<project>/ you MUST create and enable an Apache vhost:
+
+python3 << 'PYEOF'
+import os
+vhost = """<VirtualHost *:80>
+    ServerAdmin admin@localhost
+    DocumentRoot /var/www/<project>/public
+    ErrorLog /var/log/apache2/<project>-error.log
+    CustomLog /var/log/apache2/<project>-access.log combined
+    <Directory /var/www/<project>/public>
+        Options -Indexes +FollowSymLinks
+        AllowOverride All
+        Require all granted
+    </Directory>
+</VirtualHost>"""
+open('/etc/apache2/sites-available/<project>.conf', 'w').write(vhost)
+print('vhost written')
+PYEOF
+a2ensite <project>.conf
+a2enmod rewrite
+systemctl reload apache2
+curl -s -o /dev/null -w "HTTP %{http_code}" http://localhost/
+
+UBUNTU MYSQL SETUP (fresh install — root has no password):
+mysql -u root << 'SQL'
+CREATE DATABASE IF NOT EXISTS <db> CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER IF NOT EXISTS '<user>'@'localhost' IDENTIFIED BY '<password>';
+GRANT ALL PRIVILEGES ON <db>.* TO '<user>'@'localhost';
+FLUSH PRIVILEGES;
+SQL
+
+INSTALL MISSING PACKAGES on Ubuntu (apt-based, always run as root):
+apt-get update -qq && apt-get install -y php8.3 php8.3-mysql php8.3-mbstring php8.3-xml php8.3-curl php8.3-zip php8.3-gd apache2 libapache2-mod-php8.3 mysql-server 2>&1 | tail -5
+
+PERMISSIONS on Ubuntu (files must be readable by www-data):
+chown -R www-data:www-data /var/www/<project>/
+chmod -R 755 /var/www/<project>/
+chmod -R 775 /var/www/<project>/public/uploads/
 
 ═══ cPANEL SERVER LAYOUT ═══
 - Domain webroots: ${home}/<domain>/ OR ${home}/public_html/<domain>/ (always search both)
@@ -890,6 +955,59 @@ SSH vs BROWSE decision:
 - File edits, cron jobs, PHP fixes → use action="run" (SSH)
 - cPanel DB creation, web admin UIs → use action="browse"
 - Both can be combined in the same conversation turn
+
+═══ SITE AUDIT MODE — "visit the site / check what's missing / review the live site" ═══
+When the user asks you to visit a site, audit it, find what's missing, or check if it works:
+DO NOT just run curl and look at raw HTML. That is not an audit.
+
+CORRECT AUDIT WORKFLOW — use action="browse" with ALL of these steps:
+
+Phase A — Homepage:
+{"type":"navigate","url":"http://<IP_OR_DOMAIN>/"},
+{"type":"screenshot","label":"Homepage"},
+{"type":"text","label":"Homepage content — sections, nav links, CTAs"},
+
+Phase B — Navigation test (follow every main nav link):
+{"type":"click","selector":"nav a:nth-child(1)","label":"Nav link 1"},
+{"type":"screenshot","label":"Nav link 1 page"},
+{"type":"text","label":"Nav link 1 content"},
+... (repeat for each nav item)
+
+Phase C — Registration test:
+{"type":"navigate","url":"http://<domain>/register (or find signup link)"},
+{"type":"screenshot","label":"Registration form"},
+{"type":"text","label":"Registration form fields"},
+Fill and submit with test data → {"type":"screenshot","label":"After registration"}
+
+Phase D — Login test:
+{"type":"navigate","url":"http://<domain>/login"},
+{"type":"fill","selector":"input[name='email']","value":"test@example.com"},
+{"type":"fill","selector":"input[name='password']","value":"<test_password>"},
+{"type":"click","selector":"button[type='submit']"},
+{"type":"screenshot","label":"After login attempt"},
+{"type":"text","label":"Login result — dashboard or error"}
+
+Phase E — Authenticated pages (if login worked):
+{"type":"screenshot","label":"Dashboard"},
+{"type":"text","label":"Dashboard content — visible features, menu items"},
+Test 2-3 core user actions (e.g. create an order, submit a form, view reports)
+
+Phase F — Error / console check (SSH):
+Run action="run": tail -30 /var/log/apache2/error.log 2>/dev/null OR find error_log 2>/dev/null | xargs tail -30
+
+AUDIT OUTPUT — your done message must include a structured gap report:
+✅ Working:
+• [feature] — [evidence e.g. "HTTP 200, dashboard loads, logout button visible"]
+
+❌ Broken:
+• [feature] — [what happened e.g. "login returns blank page after submit"]
+
+⚠️ Missing (not built yet):
+• [feature] — [e.g. "password reset page returns 404"]
+
+📸 Screenshots taken: [list labels]
+
+STATUS: VERIFIED (all core flows work) | STATUS: PARTIAL (some flows broken) | STATUS: UNVERIFIED (cannot test)
 
 ═══ BROWSER FORM GUIDE (login, registration, any web form) ═══
 

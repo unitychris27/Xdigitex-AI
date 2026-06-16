@@ -1,0 +1,160 @@
+This is actually another example of the verification problem.
+
+The agent said:
+
+> "visit this site and see things its missing"
+
+But instead of visiting the site and analyzing the UI, it ran:
+
+```bash
+curl http://130.185.118.30:8080/
+```
+
+and got:
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+```
+
+Then stopped.
+
+That is nowhere near enough information to answer your question.
+
+To tell you what's missing, it would need to inspect:
+
+* Landing page
+* Login flow
+* Registration flow
+* Dashboard
+* Navigation
+* Mobile responsiveness
+* Error handling
+* Database connectivity
+* User workflows
+* Forms
+* Admin area
+* Browser console errors
+
+Just seeing the first few lines of HTML tells us almost nothing.
+
+---
+
+A stronger workflow would be:
+
+```text
+PHASE 1
+Open homepage
+Capture screenshot
+Extract visible sections
+
+PHASE 2
+Test navigation links
+
+PHASE 3
+Test registration
+
+PHASE 4
+Test login
+
+PHASE 5
+Inspect dashboard
+
+PHASE 6
+Check console/network errors
+
+PHASE 7
+Produce gap report
+```
+
+Then the output should look like:
+
+```text
+Missing:
+
+[ ] Password reset
+[ ] Email verification
+[ ] User profile page
+[ ] Admin role permissions
+
+Broken:
+
+[ ] Login redirects to blank page
+[ ] Registration returns 500 error
+
+Needs improvement:
+
+[ ] Mobile menu
+[ ] Dashboard UX
+[ ] Analytics charts
+```
+
+instead of:
+
+```text
+I visited the site.
+```
+
+---
+
+The bigger issue I see from all your examples is that your agent appears to be optimized for:
+
+```text
+Finish task quickly
+```
+
+rather than:
+
+```text
+Prove task completed
+```
+
+Those are completely different objectives.
+
+A builder agent should be judged by:
+
+```text
+How many features were verified.
+```
+
+not
+
+```text
+How many files were generated.
+```
+
+---
+
+For SaaS generation specifically, I'd make the final stage mandatory:
+
+```text
+VERIFICATION MODE
+
+1. Open live URL
+2. Create account
+3. Login
+4. Create sample data
+5. Logout
+6. Login again
+7. Verify database persistence
+8. Check logs
+9. Take screenshots
+10. Produce evidence report
+
+Only then:
+STATUS = VERIFIED
+```
+
+Without that stage, the agent will keep producing what you are seeing:
+
+```text
+80% built
+95% claimed complete
+Unknown actual state
+```
+
+which is frustrating because the narration sounds confident even when the evidence is weak.
+
+For large projects like LinkForge, SMM panels, LMS platforms, CRMs, or tender systems, I'd actually separate **building** from **verification** entirely. One agent builds. A second agent's only job is to break, test, and verify the finished product. That catches most of the "it says complete but login is broken" situations you're running into.
