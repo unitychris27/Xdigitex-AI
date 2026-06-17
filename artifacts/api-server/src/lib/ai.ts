@@ -70,6 +70,57 @@ export function autoProvider(role: AgentRole): AIProvider {
   return "nvidia";
 }
 
+// ─── Gemini vision: screenshot analysis ─────────────────────────────────────
+// Uses gemini-2.0-flash (multimodal) via REST API.
+// Returns structured description text; never throws — returns error string instead.
+export async function analyzeScreenshotWithGemini(
+  base64Jpeg: string,
+  label: string,
+): Promise<string> {
+  const apiKey = process.env["GEMINI_API_KEY"];
+  if (!apiKey) return `[Gemini vision unavailable — GEMINI_API_KEY not set]`;
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+  const body = {
+    contents: [{
+      parts: [
+        {
+          text: [
+            `Analyze this screenshot labeled "${label}".`,
+            "Return ONLY valid JSON (no markdown, no explanation):",
+            '{"page_type":"","visible_errors":[],"missing_elements":[],"css_loaded":true,"page_blank":false,"next_action":"","confidence":0.9}',
+            "",
+            "Rules:",
+            "- page_blank: true if you see a white/blank page, browser error, or about:blank",
+            "- visible_errors: list every error message you can read verbatim",
+            "- confidence: how sure you are (0.0–1.0); below 0.7 means uncertain",
+          ].join("\n"),
+        },
+        { inline_data: { mime_type: "image/jpeg", data: base64Jpeg } },
+      ],
+    }],
+    generationConfig: { temperature: 0.1, maxOutputTokens: 512 },
+  };
+
+  try {
+    const res = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const txt = await res.text();
+      return `[Gemini vision error ${res.status}: ${txt.slice(0, 200)}]`;
+    }
+    const data = await res.json() as {
+      candidates?: { content?: { parts?: { text?: string }[] } }[]
+    };
+    return data.candidates?.[0]?.content?.parts?.[0]?.text ?? "[Gemini: empty response]";
+  } catch (e) {
+    return `[Gemini vision exception: ${String(e).slice(0, 200)}]`;
+  }
+}
+
 // ─── Gemini image generation ────────────────────────────────────────────────
 export async function generateImageWithGemini(prompt: string): Promise<string> {
   const apiKey = process.env["GEMINI_API_KEY"];

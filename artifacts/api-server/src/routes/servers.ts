@@ -4,7 +4,7 @@ import { serversTable, activityTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { Client } from "ssh2";
-import { getAIClient, autoModel, autoProvider, type AgentRole } from "../lib/ai";
+import { getAIClient, autoModel, autoProvider, analyzeScreenshotWithGemini, type AgentRole } from "../lib/ai";
 import { runBrowserSteps, type BrowserStep } from "../lib/browser";
 import AdmZip from "adm-zip";
 import multer from "multer";
@@ -1601,37 +1601,46 @@ router.post("/:id/chat", async (req, res) => {
         send("browser_done", { stepsDone: steps.length });
 
         // ── Screenshot Vision Pipeline ──────────────────────────────────────────
-        // Always use Nemotron VL (NVIDIA NIM) for screenshots — it's the only
-        // model in the stack that reliably handles image_url content.
-        // Other models (DeepSeek, GLM) crash with 400 on image_url inputs.
+        // Primary:  Gemini 2.0 Flash (REST API, GEMINI_API_KEY) — best accuracy
+        // Fallback: Nemotron VL via NVIDIA NIM (nvidia/nemotron-nano-12b-v2-vl)
+        // DeepSeek / GLM / Kimi MUST NOT receive image_url — they crash with 400.
         const visionDescriptions: string[] = [];
         if (screenshotsForVision.length > 0) {
-          const nvClient = getAIClient("nvidia");
-          for (const shot of screenshotsForVision) {
-            try {
+          // Run all screenshots in parallel for speed
+          const analyses = await Promise.all(
+            screenshotsForVision.map(async (shot) => {
               send("think", { text: `Analyzing screenshot: ${shot.label}…` });
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              const vResp = await nvClient.chat.completions.create({
-                model: "nvidia/nemotron-nano-12b-v2-vl",
-                messages: [{
-                  role: "user",
-                  content: [
-                    {
-                      type: "text",
-                      text: 'Analyze this screenshot. Return ONLY JSON (no other text):\n{"page_type":"","visible_errors":[],"missing_elements":[],"css_loaded":true,"page_blank":false,"next_action":""}',
-                    },
-                    { type: "image_url", image_url: { url: `data:image/jpeg;base64,${shot.b64}` } },
-                  ] as any[],
-                }],
-                max_tokens: 512,
-                temperature: 0.1,
-              }) as any;
-              const desc = vResp.choices?.[0]?.message?.content ?? "analysis unavailable";
-              visionDescriptions.push(`[Vision: ${shot.label}]\n${desc}`);
-            } catch (e) {
-              visionDescriptions.push(`[Vision: ${shot.label}] failed: ${String(e).slice(0, 200)}`);
-            }
-          }
+
+              // 1️⃣ Try Gemini 2.0 Flash first
+              const geminiResult = await analyzeScreenshotWithGemini(shot.b64, shot.label);
+              if (!geminiResult.startsWith("[Gemini")) {
+                return `[Vision: ${shot.label}]\n${geminiResult}`;
+              }
+
+              // 2️⃣ Gemini unavailable — fall back to Nemotron VL
+              try {
+                const nvClient = getAIClient("nvidia");
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const vResp = await (nvClient.chat.completions.create as any)({
+                  model: "nvidia/nemotron-nano-12b-v2-vl",
+                  messages: [{
+                    role: "user",
+                    content: [
+                      { type: "text", text: 'Analyze this screenshot. Return ONLY JSON:\n{"page_type":"","visible_errors":[],"missing_elements":[],"css_loaded":true,"page_blank":false,"next_action":"","confidence":0.9}' },
+                      { type: "image_url", image_url: { url: `data:image/jpeg;base64,${shot.b64}` } },
+                    ],
+                  }],
+                  max_tokens: 512,
+                  temperature: 0.1,
+                });
+                const desc = vResp.choices?.[0]?.message?.content ?? "analysis unavailable";
+                return `[Vision (Nemotron fallback): ${shot.label}]\n${desc}`;
+              } catch (e) {
+                return `[Vision failed: ${shot.label}] Gemini: ${geminiResult} | Nemotron: ${String(e).slice(0, 150)}`;
+              }
+            })
+          );
+          visionDescriptions.push(...analyses);
         }
 
         // Combine: step log + page text + vision analysis descriptions
