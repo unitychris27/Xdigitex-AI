@@ -556,8 +556,14 @@ If user asks for: "complete site", "full application", "advertising network", "e
 "dashboard with user roles", or anything implying >20 files → use sequential phases, no stopping.
 
 CONTINUOUS PHASE WORKFLOW — no stopping between phases:
-1. Create checkpoint at start of run:
-   echo '{"phase":1,"done":[],"next":"DB schema + core framework + auth"}' > ${home}/.xd_checkpoint.json
+1. At the very START of any large project (>20 files), save the full spec to disk:
+   cat > ${home}/.xd_spec.txt << 'SPECEOF'
+   [paste or summarise the full user requirements here]
+   SPECEOF
+   This lets each phase read from disk instead of carrying the spec in context memory.
+
+2. Create checkpoint at start of run:
+   echo '{"phase":1,"done":[],"next":"DB schema + core framework + auth","spec":"${home}/.xd_spec.txt"}' > ${home}/.xd_checkpoint.json
 
 2. Build Phase 1 (10–12 files max per run action):
    - Folder structure + mkdir -p (all subdirs)
@@ -1508,6 +1514,11 @@ router.post("/:id/chat", async (req, res) => {
     let currentRole: AgentRole = "planner";
     // Track consecutive all-fail command batches to trigger auto-replan
     let consecutiveFailBatches = 0;
+    // Phase-boundary fresh context: track last checkpoint phase seen
+    let lastCheckpointPhase = 0;
+    // Capture original user task (index 1 in aiMessages after system prompt) for fresh context resets
+    const originalUserMessage = parsed.data.messages[parsed.data.messages.length - 1]?.content ?? "";
+    const homeDir = s.username === "root" ? "/root" : `/home/${s.username}`;
 
     // Agentic loop — max 80 iterations per user turn (large project builds need many steps)
     for (let iter = 0; iter < 80; iter++) {
@@ -1730,12 +1741,52 @@ router.post("/:id/chat", async (req, res) => {
           consecutiveFailBatches++;
         }
 
+        // ── Phase-boundary fresh context reset ────────────────────────────────
+        // When the agent writes a checkpoint with an advanced phase number,
+        // wipe the accumulated SSH output (which balloons to 30K+ tokens) and
+        // restart with a clean context so the next phase doesn't carry baggage.
+        const checkpointWriteCmd = cmds.find(c =>
+          c.cmd.includes("xd_checkpoint.json") && (c.cmd.includes(">") || c.cmd.includes("tee"))
+        );
+        if (checkpointWriteCmd) {
+          // Extract the phase number from the checkpoint write command
+          const phaseMatch = checkpointWriteCmd.cmd.match(/"phase"\s*:\s*(\d+)/);
+          const newPhase = phaseMatch ? parseInt(phaseMatch[1]) : 0;
+          if (newPhase > lastCheckpointPhase) {
+            lastCheckpointPhase = newPhase;
+            // Only reset if we've accumulated significant context (> 3 message pairs)
+            if (aiMessages.length > 6) {
+              send("think", { text: `✅ Phase ${newPhase - 1} complete — fresh context for Phase ${newPhase} (clearing ${aiMessages.length - 2} accumulated messages)` });
+              // FRESH CONTEXT RESET: keep only system prompt + inject clean phase start
+              const freshStart = {
+                role: "user" as const,
+                content:
+                  `PHASE ${newPhase} — FRESH CONTEXT START\n` +
+                  `Previous phases complete. Context reset to prevent token overflow.\n\n` +
+                  `Your original task:\n${originalUserMessage.slice(0, 800)}${originalUserMessage.length > 800 ? "\n[...see spec file for full details]" : ""}\n\n` +
+                  `Run these two commands FIRST to restore state:\n` +
+                  `  cat ${homeDir}/.xd_checkpoint.json 2>/dev/null\n` +
+                  `  cat ${homeDir}/.xd_spec.txt 2>/dev/null | head -50\n\n` +
+                  `Then IMMEDIATELY continue building Phase ${newPhase}. ` +
+                  `Do NOT repeat work from completed phases. Do NOT re-plan from scratch.`,
+              };
+              // Wipe all accumulated messages, start clean
+              aiMessages.splice(1, aiMessages.length - 1, freshStart);
+              // Reset loop detection — new phase, new commands
+              cmdRunCount.clear();
+              consecutiveFailBatches = 0;
+              // Switch back to builder for the new phase
+              if (isAuto && currentRole !== "planner") currentRole = "builder";
+            }
+            continue; // immediately start next iteration with fresh context
+          }
+        }
+
         if (isAuto && consecutiveFailBatches >= 2) {
           consecutiveFailBatches = 0;
           // Switch to Kimi planner to replan based on current failures
           currentRole = "planner";
           send("think", { text: "⚠️ Repeated failures — switching to Kimi to replan strategy…" });
-          const homeDir = s.username === "root" ? "/root" : `/home/${s.username}`;
           aiMessages.push({
             role: "user",
             content:

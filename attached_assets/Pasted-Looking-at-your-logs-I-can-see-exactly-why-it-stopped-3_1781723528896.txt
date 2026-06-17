@@ -1,0 +1,319 @@
+Looking at your logs, I can see exactly why it stopped:
+
+```
+36,867 tokens in one shot
+50.2 seconds
+Then silence
+```
+
+The prompt itself was **4,073 characters** and the DB schema alone generated **33,936 input tokens**. The model hit its limit mid-execution and died. Here's the complete fix:
+
+---
+
+## Why It Stopped — The Exact Problem
+
+```
+Your prompt (4,073 chars)
++ DB schema generation output
++ SSH command outputs
++ Model's own reasoning
+= 36,867 tokens in ONE context
+
+Model limit: ~32,000–65,000 tokens
+After limit: model stops responding, no error, just silence
+```
+
+The agent tried to **plan + write schema + run MySQL + verify tables** all in one giant brain dump. That's the fundamental mistake.
+
+---
+
+## The Fix: Break That One Prompt Into 6 Micro-Phases
+
+Instead of one 4,073 character prompt, send this:
+
+### Phase File Structure
+
+```
+project_phases/
+├── phase_1_structure.txt     (~200 chars)
+├── phase_2_database.txt      (~300 chars)
+├── phase_3_auth.txt          (~200 chars)
+├── phase_4_frontend.txt      (~400 chars)
+├── phase_5_admin.txt         (~300 chars)
+└── phase_6_verify.txt        (~200 chars)
+```
+
+Each phase is a **separate API call** with its own clean context.
+
+---
+
+## Rewritten Agent Logic for Your Project
+
+```python
+import json
+import time
+from pathlib import Path
+
+# ── Project state saved on disk, not in memory ──────────────────
+STATE_FILE = "/root/.treeplatform_state.json"
+
+def load_state():
+    if Path(STATE_FILE).exists():
+        return json.loads(Path(STATE_FILE).read_text())
+    return {
+        "project": "treeplatform",
+        "completed": [],
+        "failed": [],
+        "pending": [
+            "phase_1_folders",
+            "phase_2_database", 
+            "phase_3_config",
+            "phase_4_auth",
+            "phase_5_homepage",
+            "phase_6_donations",
+            "phase_7_projects",
+            "phase_8_volunteers",
+            "phase_9_events",
+            "phase_10_admin",
+            "phase_11_blog",
+            "phase_12_gallery",
+            "phase_13_verify"
+        ]
+    }
+
+def save_state(state):
+    Path(STATE_FILE).write_text(json.dumps(state, indent=2))
+
+
+# ── Each phase gets a tiny focused prompt ───────────────────────
+PHASE_PROMPTS = {
+
+    "phase_1_folders": """
+        SSH task. Run this exact command:
+        mkdir -p /var/www/treeplatform/{public,includes,admin,assets/{css,js,images},uploads}
+        Then echo DONE.
+        Output: command result only.
+    """,
+    # ~50 tokens
+
+    "phase_2_database": """
+        Write schema.sql for treeplatform MySQL database.
+        Tables needed: users, donations, tree_projects, volunteers, 
+        events, event_registrations, blog_posts, gallery, partners, 
+        newsletters, testimonials, contact_messages.
+        Include: sample admin user (password: admin123), 
+        6 sample projects, 4 sample events.
+        Output: SQL only, no explanation.
+    """,
+    # ~80 tokens — model writes SQL, not reads back 4000 char prompt
+
+    "phase_3_config": """
+        Write these PHP files for /var/www/treeplatform/includes/:
+        1. config.php — DB connection (host:localhost, db:treeplatform, 
+           user:root, pass:''), site settings, constants
+        2. Database.php — PDO singleton class with query/fetch methods
+        3. Session.php — session management, CSRF token generation
+        4. Router.php — simple URL routing class
+        Output: each file with filename header, then code.
+    """,
+    # ~100 tokens
+
+    "phase_4_auth": """
+        Write PHP auth system for treeplatform at /var/www/treeplatform/:
+        - includes/Auth.php (login, register, logout, role check)
+        - public/login.php (form + handler)  
+        - public/register.php (form + handler)
+        Use PDO prepared statements, password_hash, CSRF tokens.
+        Green color scheme: primary #2D6A4F.
+        Output: filename then code for each file.
+    """,
+
+    "phase_5_homepage": """
+        Write /var/www/treeplatform/public/index.php
+        Sections needed:
+        - Hero: forest imagery, mission statement, donate CTA
+        - Impact stats: trees donated, volunteers, countries, CO2
+        - Featured projects (load from DB)
+        - Donation tiers: 1, 10, 50, 100 seedlings at $2.50 each
+        - Testimonials, partners, newsletter signup
+        CSS: use --primary:#2D6A4F --secondary:#40916C --accent:#52B788
+        Mobile responsive. Output: complete file only.
+    """,
+
+    "phase_6_donations": """
+        Write donation system for treeplatform:
+        - public/donate.php — donation form with impact calculator
+        - includes/Donation.php — process/save donation to DB
+        Form fields: name, email, phone, country, org, quantity, 
+        amount, dedication message.
+        JS: auto-calculate CO2, land coverage, community impact.
+        Output: each file separately.
+    """,
+
+    "phase_7_projects": """
+        Write projects system for treeplatform:
+        - public/projects.php — list all projects with progress bars
+        - public/project.php — single project detail page
+        - includes/Project.php — CRUD model class
+        Show: goal, progress %, trees planted, location, beneficiaries.
+        Output: each file separately.
+    """,
+
+    "phase_8_volunteers": """
+        Write volunteer system for treeplatform:
+        - public/volunteer.php — registration form + dashboard
+        - includes/Volunteer.php — model class
+        Features: register, track hours, view events joined.
+        Output: each file separately.
+    """,
+
+    "phase_9_events": """
+        Write events system for treeplatform:
+        - public/events.php — upcoming events list
+        - public/event.php — single event + registration form
+        - includes/Event.php — model class
+        Show: date, location, participants, registration status.
+        Output: each file separately.
+    """,
+
+    "phase_10_admin": """
+        Write admin dashboard for treeplatform at /var/www/treeplatform/admin/:
+        - index.php — stats overview (donations, projects, volunteers)
+        - projects.php — CRUD for tree projects
+        - donations.php — view/export donations table
+        - volunteers.php — manage volunteers
+        - events.php — manage events
+        - includes/admin_auth.php — admin role gate
+        Output: each file separately.
+    """,
+
+    "phase_11_blog": """
+        Write blog system for treeplatform:
+        - public/blog.php — article list with categories
+        - public/post.php — single post page
+        - admin/blog.php — create/edit/publish posts
+        - includes/Blog.php — model class
+        Output: each file separately.
+    """,
+
+    "phase_12_gallery": """
+        Write gallery + contact for treeplatform:
+        - public/gallery.php — before/after photo grid
+        - public/contact.php — contact form + handler
+        - admin/gallery.php — upload/manage photos
+        - includes/Gallery.php — model class
+        Also write: public/about.php, public/reports.php
+        Output: each file separately.
+    """,
+
+    "phase_13_verify": """
+        SSH verification task. Run these commands and report results:
+        1. php -l /var/www/treeplatform/public/index.php
+        2. mysql -u root treeplatform -e "SHOW TABLES;"
+        3. curl -s -o /dev/null -w "%{http_code}" http://localhost/
+        4. ls -la /var/www/treeplatform/public/
+        Report: PASS or FAIL for each check.
+    """
+}
+```
+
+---
+
+## The Runner That Won't Crash
+
+```python
+def run_project():
+    state = load_state()
+    
+    while state["pending"]:
+        phase = state["pending"][0]
+        prompt = PHASE_PROMPTS[phase].strip()
+        
+        print(f"\n{'='*50}")
+        print(f"Running: {phase}")
+        print(f"Prompt size: {len(prompt)} chars / ~{len(prompt)//4} tokens")
+        print(f"{'='*50}")
+        
+        # Each phase: fresh context, tiny prompt
+        try:
+            result = safe_call_model(
+                role=AgentRole.BUILDER,
+                prompt=prompt
+                # NO history, NO previous output
+                # Clean slate every phase
+            )
+            
+            # Execute the output via SSH
+            ssh_result = execute_on_server(result["content"])
+            
+            # Verify before marking done
+            if verify_phase(phase, ssh_result):
+                state["completed"].append(phase)
+                state["pending"].pop(0)
+                save_state(state)
+                print(f"✅ {phase} complete")
+            else:
+                # Move to failed, skip for now, continue
+                state["failed"].append(phase)
+                state["pending"].pop(0)
+                save_state(state)
+                print(f"⚠️ {phase} failed, continuing...")
+                
+        except Exception as e:
+            print(f"❌ {phase} crashed: {e}")
+            state["failed"].append(phase)
+            state["pending"].pop(0)
+            save_state(state)
+            time.sleep(5)  # cooldown before next phase
+            continue
+    
+    # After all phases, retry failed ones
+    if state["failed"]:
+        print(f"\nRetrying {len(state['failed'])} failed phases...")
+        retry_failed(state)
+    
+    print("\n✅ TREEPLATFORM BUILD COMPLETE")
+```
+
+---
+
+## Token Comparison: Before vs After
+
+```
+BEFORE (what you did):
+├── One prompt: 4,073 chars
+├── Schema in same context: +30,000 tokens
+├── SSH output in same context: +3,000 tokens  
+├── Total: ~36,867 tokens
+└── Result: CRASHED
+
+AFTER (phase approach):
+├── phase_1: ~50 tokens   ✅
+├── phase_2: ~80 tokens   ✅
+├── phase_3: ~100 tokens  ✅
+├── phase_4: ~120 tokens  ✅
+├── ... each phase clean  ✅
+├── Highest single phase: ~400 tokens
+└── Result: NEVER CRASHES
+```
+
+---
+
+## One More Critical Thing
+
+Save your full original prompt to a file on disk — use it as a **reference document**, not a prompt:
+
+```python
+# Save full spec once
+Path("/root/treeplatform_spec.txt").write_text(your_full_prompt)
+
+# Each phase prompt references it but doesn't include it
+phase_prompt = """
+Write the donation system.
+Reference spec is at /root/treeplatform_spec.txt if needed.
+Focus only on: donate.php and Donation.php
+Output: code only.
+"""
+```
+
+The spec stays on disk. The model gets surgical instructions. Context stays small. Project completes.

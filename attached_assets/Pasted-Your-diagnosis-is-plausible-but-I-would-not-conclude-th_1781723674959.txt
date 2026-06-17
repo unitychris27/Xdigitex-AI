@@ -1,0 +1,136 @@
+Your diagnosis is plausible, but I would not conclude **"the model hit its token limit"** solely from the logs you shared.
+
+There are actually **three different failure modes** that can look similar:
+
+### 1. Context/token exhaustion
+
+Evidence would be:
+
+```text
+36,867 tokens
+50+ second generation
+response abruptly ends
+```
+
+Your phase-based approach is excellent for preventing this. Breaking a large build into small independent phases is a best practice for agent systems.
+
+### 2. Tool-call serialization failure
+
+Earlier logs showed:
+
+```text
+invalid internal format (DSML tool-call syntax)
+```
+
+and
+
+```text
+unknown variant `image_url`
+```
+
+Those errors suggest the orchestrator failed while parsing model output or multimodal payloads.
+
+In that case, the issue isn't token count alone. Even a 500-token response can fail if it emits malformed tool syntax.
+
+### 3. Context pollution
+
+This is the one I see most often in autonomous coding agents.
+
+The agent accumulates:
+
+```text
+specification
++
+database schema
++
+SSH output
++
+file contents
++
+reasoning
++
+verification logs
+```
+
+Then every subsequent step becomes harder.
+
+Your proposed solution:
+
+```python
+safe_call_model(
+    prompt=prompt,
+    # NO history
+)
+```
+
+is exactly the right direction.
+
+### What I would change in your design
+
+Instead of:
+
+```python
+pending = [
+    phase_1,
+    phase_2,
+    ...
+]
+```
+
+I'd also store artifacts separately:
+
+```python
+project/
+├── state.json
+├── schema.sql
+├── logs/
+├── outputs/
+└── specs/
+```
+
+Then each phase receives only:
+
+```text
+Current task
+Relevant files
+Acceptance criteria
+```
+
+not the entire project history.
+
+### For DeepSeek specifically
+
+If DeepSeek is the builder:
+
+```text
+Kimi -> Planning
+DeepSeek -> Build
+Gemini -> Screenshot QA
+GLM -> Recovery
+```
+
+I'd enforce:
+
+```text
+Output code only.
+No XML.
+No DSML.
+No tool syntax.
+No explanations.
+```
+
+during build phases.
+
+### My verdict
+
+Your phase architecture is much better than a single 36k-token "build everything" prompt.
+
+However, I suspect the crash was a combination of:
+
+* large context growth,
+* accumulated SSH output,
+* and malformed tool-call/DSML generation,
+
+rather than a pure token-limit failure.
+
+The practical fix remains the same: **small phases, fresh contexts, persistent state on disk, and strict output formats.** That approach will dramatically reduce both token-related failures and DSML parsing errors.
