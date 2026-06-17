@@ -561,7 +561,13 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: newHistory, mode }),
       });
-      if (!res.body) throw new Error("No stream");
+      // Non-200 = plain JSON error (returned before SSE headers are set)
+      if (!res.ok) {
+        let errMsg = `Server error ${res.status}`;
+        try { const j = await res.json() as { error?: string }; if (j.error) errMsg = j.error; } catch { /* ignore */ }
+        throw new Error(errMsg);
+      }
+      if (!res.body) throw new Error("No response body from server");
 
       const reader = res.body.getReader();
       const dec    = new TextDecoder();
@@ -757,8 +763,12 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
   return (
     <>
     <Dialog open onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl w-full h-[100dvh] sm:h-[90vh] flex flex-col p-0 gap-0 overflow-hidden rounded-none sm:rounded-lg"
-        style={{ maxHeight: "100dvh" }}>
+      <DialogContent
+        className="max-w-3xl w-full h-[100dvh] sm:h-[90vh] flex flex-col p-0 gap-0 overflow-hidden rounded-none sm:rounded-lg"
+        style={{ maxHeight: "100dvh" }}
+        onInteractOutside={e => e.preventDefault()}
+        onEscapeKeyDown={e => e.preventDefault()}
+      >
         {/* Header */}
         <div className="flex items-center gap-2 px-3 py-2.5 border-b border-border bg-card/80 shrink-0">
           <div className="w-7 h-7 rounded-full bg-purple-600/20 flex items-center justify-center shrink-0">
