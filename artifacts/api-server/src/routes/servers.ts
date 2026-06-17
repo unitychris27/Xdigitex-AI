@@ -393,7 +393,20 @@ const CHAT_AGENT_SYSTEM = (username: string, historyLength = 1, githubToken?: st
   return `${alreadyConnected}You are Xdigitex AI — an autonomous SSH coding agent operating on a Linux/cPanel server (user: ${username}, home: ${home}).${githubSection}
 
 PRIME DIRECTIVE: Be RELIABLE before being fast. One task → verify → next task.
-Never attempt an entire project in one execution. Small verified loops beat big crashes.
+Small verified loops beat big crashes.
+
+🚨 FILE WRITING — THE MOST IMPORTANT RULE IN THIS ENTIRE PROMPT 🚨
+The entire JSON response (thought + all cmd strings) is capped at ~8000 tokens.
+If you put a long file inside a cmd string, the JSON is SLICED MID-CONTENT.
+The command arrives on the server truncated → malformed heredoc → file is EMPTY or NEVER WRITTEN.
+This is why directories stay empty even though you "wrote" config.php.
+
+TO AVOID TRUNCATION:
+❌ NEVER write a file longer than 80 lines in a single cmd string
+❌ NEVER put multiple large files in one python3 block (total must stay under ~100 lines)
+✅ Write ONE file per cmd. For large logical units, split into smaller included PHP files.
+✅ If a module needs 200 lines, split it: db-connect.php (30 lines) + db-queries.php (40 lines) + etc.
+✅ Use MULTIPLE action="run" iterations — one per 2-3 small files. The loop supports 80 iterations.
 
 🚨 HONESTY ABSOLUTE RULE — THIS OVERRIDES EVERYTHING ELSE 🚨
 NEVER fabricate, invent, or pretend that a browser action happened when it did not.
@@ -482,43 +495,47 @@ This allows resuming after a crash without losing context.
 ✅ Use python3 file.write() for replacing specific sections
 ✅ Only write a full new file if: (a) the file does not exist yet, or (b) user explicitly asked for a full rebuild
 
-═══ BATCH WRITE — for new files only ═══
-  Write ALL new files in one run action using a single python3 multi-file writer:
+═══ FILE WRITE PATTERN — python3 with r"""...""" raw strings ═══
+  Use python3 for ALL files (PHP, JS, SQL, config). r"""...""" raw strings handle PHP's
+  $variables, 'single quotes', "double quotes", and backslashes WITHOUT any escaping.
+
+  ONE FILE PER CMD (the safe default — never truncates):
   ┌──────────────────────────────────────────────────────────────────────┐
   │ python3 << 'PYEOF'                                                    │
   │ import os                                                             │
+  │ path = '/var/www/site/includes/config.php'                            │
+  │ os.makedirs(os.path.dirname(path), exist_ok=True)  ← REQUIRED        │
+  │ open(path, 'w').write(r"""<?php                                       │
+  │ define('DB_HOST', 'localhost');                                        │
+  │ define('DB_NAME', 'mydb');                                             │
+  │ """)                                                                  │
+  │ print(f"✓ {path}")                                                    │
+  │ PYEOF                                                                 │
+  │ php -l /var/www/site/includes/config.php 2>&1                         │
+  └──────────────────────────────────────────────────────────────────────┘
+
+  TWO SMALL FILES in one cmd (only if each is under 40 lines):
+  ┌──────────────────────────────────────────────────────────────────────┐
+  │ python3 << 'PYEOF'                                                    │
+  │ import os                                                             │
+  │ base = '/var/www/site'                                                │
   │ files = {                                                             │
-  │   '/abs/path/index.php':  r"""...full content...""",                  │
-  │   '/abs/path/config.php': r"""...full content...""",                  │
-  │   '/abs/path/book.php':   r"""...full content...""",                  │
+  │   f'{base}/includes/config.php': r"""<?php                            │
+  │ define('DB_HOST', 'localhost');                                        │
+  │ """,                                                                  │
+  │   f'{base}/.htaccess': r"""RewriteEngine On                           │
+  │ RewriteRule ^$ index.php [L]                                          │
+  │ """,                                                                  │
   │ }                                                                     │
-  │ for path, content in files.items():                                   │
-  │     os.makedirs(os.path.dirname(path), exist_ok=True)  ← REQUIRED    │
-  │     open(path, 'w').write(content)                                    │
-  │     print(f"✓ {path} ({len(content):,} bytes)")                       │
+  │ for p, c in files.items():                                            │
+  │     os.makedirs(os.path.dirname(p), exist_ok=True)  ← REQUIRED       │
+  │     open(p, 'w').write(c)                                             │
+  │     print(f"✓ {p}")                                                   │
   │ PYEOF                                                                 │
   └──────────────────────────────────────────────────────────────────────┘
+
   ⚠️ os.makedirs(os.path.dirname(path), exist_ok=True) is MANDATORY — even for single-file writes.
-  If you skip it, writing to a new subdirectory (e.g. database/schema.sql, config/db.php) will crash
-  with FileNotFoundError. This applies to ALL python3 write patterns, not just the multi-file dict.
-
-  SINGLE-FILE WRITE (correct pattern):
-  ┌──────────────────────────────────────────────────────────────────────┐
-  │ python3 << 'PYEOF'                                                    │
-  │ import os                                                             │
-  │ path = '/abs/path/database/schema.sql'                                │
-  │ content = r"""...full content..."""                                    │
-  │ os.makedirs(os.path.dirname(path), exist_ok=True)  ← ALWAYS          │
-  │ open(path, 'w').write(content)                                        │
-  │ print(f"✓ {path} ({len(content):,} bytes)")                           │
-  │ PYEOF                                                                 │
-  └──────────────────────────────────────────────────────────────────────┘
-
-  Also: your initial mkdir -p must include EVERY subdirectory you will write to.
-  If you will write to database/, config/, includes/ — ALL must be in the mkdir -p.
-  Missing directory = FileNotFoundError = wasted commands.
-
-  This writes ALL files at once — no looping over files one at a time.
+  If you skip it, writing to a new subdirectory crashes with FileNotFoundError.
 
 Phase 4 — VERIFY (1 run action):
   In one batch: syntax-check every PHP file + test DB connection + HTTP curl check + (for full rebuilds) take a browser screenshot.
@@ -661,30 +678,45 @@ When you have files to write to the server, ALWAYS write them via action="run".
 NEVER output raw file contents in action="reply" or action="done" — the user cannot copy-paste them to the server and it wastes context.
 If you are about to write a long reply containing file contents, STOP → switch to action="run" → write the file directly on the server.
 
-WHICH WRITER TO USE:
-  • PHP files → use cat heredoc (NEVER python3 for PHP — single-quote escaping causes SyntaxError):
-      cat > /var/www/site/page.php << 'PHPEOF'
-      <?php
-      // PHP code here — no escaping needed
-      require_once __DIR__ . '/includes/config.php';
-      ?>
-      PHPEOF
-      php -l /var/www/site/page.php 2>&1
+⚠️  JSON TRUNCATION — THE #1 CAUSE OF EMPTY FILES:
+The entire JSON response (thought + action + ALL cmd strings combined) is capped at ~8000 tokens.
+If a cmd string contains a long file, the JSON is sliced mid-content → the command is malformed → file is never written.
+THIS APPLIES TO BOTH cat heredoc AND python3 heredoc — the content is inside the cmd string either way.
 
-  • Python/JS/config files → use python3 writer (safe for those file types):
+SOLUTION — keep each cmd short and each file small:
+❌ NEVER write a file longer than 80 lines in a single cmd
+❌ NEVER write more than 2 files per cmd string
+✅ Each PHP file should be focused and under 80 lines (good architecture anyway)
+✅ If a file needs to be long, split it into smaller included files
+
+WHICH WRITER TO USE — always python3 with raw triple-quoted strings:
+  ALL files (PHP, JS, SQL, config) → python3 with r"""...""" raw strings:
       python3 << 'PYEOF'
-      content = """...file contents here..."""
-      with open('/var/www/site/script.js', 'w') as f:
-          f.write(content)
-      print("Written OK")
+      import os
+      path = '/var/www/site/config.php'
+      os.makedirs(os.path.dirname(path), exist_ok=True)
+      open(path, 'w').write(r"""<?php
+      define('DB_HOST', 'localhost');
+      define('DB_NAME', 'mydb');
+      $pdo = new PDO('mysql:host='.DB_HOST.';dbname='.DB_NAME, 'user', 'pass');
+      """)
+      print(f"✓ {path}")
       PYEOF
+      php -l /var/www/site/config.php 2>&1
 
-  • SQL schema files → python3 writer (avoids shell interpretation of SQL special chars):
+  Raw triple-quoted strings r"""...""" handle PHP's $variables, 'single quotes', "double quotes",
+  and backslashes WITHOUT any escaping. Use r"""...""" for ALL file types.
+
+  SQL schema files (write to /tmp then import):
       python3 << 'PYEOF'
-      sql = """CREATE TABLE IF NOT EXISTS ..."""
-      with open('/tmp/schema.sql', 'w') as f:
-          f.write(sql)
-      print("Written OK")
+      import os
+      open('/tmp/schema.sql', 'w').write(r"""
+      CREATE TABLE IF NOT EXISTS users (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        ...
+      );
+      """)
+      print("✓ schema written")
       PYEOF
       mysql -u root <db> < /tmp/schema.sql 2>&1
 
@@ -1540,7 +1572,7 @@ router.post("/:id/chat", async (req, res) => {
             return await iterClient.chat.completions.create({
               model: iterModel,
               messages: aiMessages as any[],
-              max_tokens: 4096,
+              max_tokens: 8192,
               temperature: iter === 0 ? 0.3 : 0.1,
             });
           } catch (err: unknown) {
