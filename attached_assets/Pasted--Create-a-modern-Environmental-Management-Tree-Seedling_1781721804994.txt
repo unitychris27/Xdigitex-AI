@@ -1,0 +1,208 @@
+**Create a modern Environmental Management & Tree Seedling Donation Platform using PHP, MySQL, HTML, CSS, and JavaScript.**
+
+### Project Overview
+
+Build a professional environmental conservation platform that promotes tree planting, environmental awareness, climate action, and tree seedling donations. The website should allow individuals, organizations, schools, and businesses to support reforestation projects by donating tree seedlings or funding tree planting initiatives.
+
+### Design Style
+
+* Modern eco-friendly design
+* Green and nature-inspired color palette
+* Professional NGO/charity appearance
+* Mobile-first responsive design
+* Accessibility compliant
+* Fast loading and SEO optimized
+
+### Color Palette
+
+```css
+--primary: #2D6A4F;
+--secondary: #40916C;
+--accent: #52B788;
+--light: #D8F3DC;
+--background: #F8FFF8;
+--text: #1B4332;
+```
+
+### Homepage Features
+
+* Hero section with forest and tree imagery
+* Mission statement
+* Live impact statistics
+* Tree donation call-to-action
+* Featured conservation projects
+* Success stories
+* Environmental news and updates
+* Partner organizations showcase
+
+### Tree Seedling Donation System
+
+Allow visitors to:
+
+* Donate 1 seedling
+* Donate 10 seedlings
+* Donate 50 seedlings
+* Donate 100 seedlings
+* Enter custom donation quantity
+* Sponsor community tree planting events
+* Donate as an individual or organization
+
+Display:
+
+* Cost per seedling
+* Total donation amount
+* Number of trees funded
+* Estimated environmental impact
+
+### Donation Form
+
+Collect:
+
+* Full Name
+* Email Address
+* Phone Number
+* Country
+* Organization Name (optional)
+* Donation Quantity
+* Donation Amount
+* Dedication Message (optional)
+
+### Impact Calculator
+
+Automatically calculate:
+
+* Trees Donated
+* Estimated CO₂ Absorption
+* Environmental Benefits
+* Community Impact
+* Land Restoration Coverage
+
+### Conservation Projects
+
+Create project pages for:
+
+* School Tree Planting
+* Community Forest Restoration
+* Riverbank Rehabilitation
+* Urban Greening Programs
+* Climate Action Campaigns
+* Biodiversity Conservation
+
+Each project should show:
+
+* Goal
+* Progress
+* Trees Planted
+* Location
+* Beneficiaries
+* Photos and updates
+
+### Volunteer System
+
+Allow users to:
+
+* Register as volunteers
+* Join tree planting events
+* Receive notifications
+* Track volunteer hours
+* Download participation certificates
+
+### Event Management
+
+Create events module:
+
+* Upcoming tree planting events
+* Environmental awareness campaigns
+* School outreach programs
+* Community clean-up activities
+
+Include:
+
+* Registration forms
+* Event calendar
+* Attendance tracking
+
+### Interactive Features
+
+* Tree planting map
+* Donation progress bars
+* Live environmental statistics
+* Before-and-after project galleries
+* Testimonials
+* Newsletter signup
+
+### Admin Dashboard
+
+Admin features:
+
+* Manage projects
+* Manage donations
+* Manage volunteers
+* Manage events
+* Upload photos
+* Publish environmental news
+* Generate reports
+* Export donation records
+
+### Database Tables
+
+Create tables for:
+
+* users
+* donations
+* tree_projects
+* volunteers
+* events
+* event_registrations
+* blog_posts
+* gallery
+* partners
+* newsletters
+
+### Reports & Analytics
+
+Display:
+
+* Total Trees Donated
+* Total Trees Planted
+* Active Projects
+* Total Volunteers
+* Countries Reached
+* Carbon Offset Estimates
+
+### Additional Pages
+
+* About Us
+* Our Mission
+* Projects
+* Donate Trees
+* Volunteer
+* Events
+* Gallery
+* Blog
+* Contact Us
+* Transparency & Reports
+
+### Security
+
+* PDO prepared statements
+* CSRF protection
+* Input validation
+* Secure authentication
+* Role-based admin access
+
+### Deliverables
+
+Generate complete production-ready code including:
+
+* PHP backend
+* MySQL database schema
+* HTML templates
+* CSS styling
+* JavaScript functionality
+* Admin dashboard
+* Donation workflow
+* Project management system
+* Mobile responsive design
+* SEO optimization
+* Documentation

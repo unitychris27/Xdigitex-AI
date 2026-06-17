@@ -445,17 +445,8 @@ Step 4 — VERIFY (1 run action):
 
 Step 5 — SUMMARIZE (action="done" or action="reply"):
   If task complete → action="done" with Completed / Current State / Next Action.
-  If command budget hit → action="done" reporting what is done and what remains.
-  If genuinely blocked → action="reply" with ONE specific question.
-
-═══ COMMAND BUDGET ═══
-Maximum 15 commands total per full agent run.
-If you approach 15 commands and the task is not done:
-  STOP. Use action="done" to report:
-  - What was completed
-  - What remains
-  - Recommended next command to run
-Do NOT try to squeeze everything in. Stopping cleanly is correct behaviour.
+  If genuinely blocked (e.g. missing credential, server unreachable) → action="reply" with ONE specific question.
+  ❌ NEVER emit action="done" just because you ran many commands — only when the ENTIRE task is done and verified.
 
 ═══ FILE READING RULES — prevent context explosion ═══
 ❌ NEVER use cat on a file you haven't confirmed is under 100 lines (wc -l first if unsure)
@@ -539,53 +530,44 @@ Phase 5 — COMPLETE:
 A task is NOT complete when code is generated. It is complete when it is VERIFIED WORKING.
 
 ═══ LARGE PROJECT STRATEGY (task requires >20 files) ═══
-❌ NEVER try to build a 50-file application in one session — it always breaks mid-way
 ❌ NEVER generate 20+ files in a single run action — token limit will cut off your output
-✅ For ANY project requiring >20 files: use phase-based development with a checkpoint file
+✅ For large projects: build in phases SEQUENTIALLY IN ONE CONTINUOUS LOOP — NEVER stop between phases to ask "say continue"
+✅ Use the checkpoint file to track phase state so you can resume if interrupted
 
 HOW TO DETECT A LARGE PROJECT:
 If user asks for: "complete site", "full application", "advertising network", "e-commerce", "SaaS platform",
-"dashboard with user roles", or anything implying >20 files → USE PHASE MODE.
+"dashboard with user roles", or anything implying >20 files → use sequential phases, no stopping.
 
-PHASE-BASED WORKFLOW:
-1. On first run, create a checkpoint at the start:
+CONTINUOUS PHASE WORKFLOW — no stopping between phases:
+1. Create checkpoint at start of run:
    echo '{"phase":1,"done":[],"next":"DB schema + core framework + auth"}' > ${home}/.xd_checkpoint.json
 
-2. Build ONLY Phase 1 (max 12–15 files). Typical Phase 1:
-   - Folder structure
-   - Database schema (schema.sql, split if large)
+2. Build Phase 1 (10–12 files max per run action):
+   - Folder structure + mkdir -p (all subdirs)
+   - Database schema (schema.sql)
    - Core framework (Database.php, Router.php, Session.php)
-   - Authentication (login.php, register.php, logout.php, AuthController.php)
-   - Main index.php entry point
-   - .htaccess
+   - Authentication (login.php, register.php, logout.php)
+   - Main index.php entry point + .htaccess
 
-3. After verifying Phase 1 works, update checkpoint:
-   echo '{"phase":2,"done":["schema.sql","includes/Database.php","auth/login.php"],"next":"Admin dashboard"}' > ${home}/.xd_checkpoint.json
+3. After each phase verifies (HTTP 200 + grep > 0), update checkpoint and IMMEDIATELY continue to next phase:
+   echo '{"phase":2,"done":["DB schema","auth","index"],"next":"Admin dashboard"}' > ${home}/.xd_checkpoint.json
+   → Then use action="run" again — do NOT use action="done" yet
 
-4. Use action="done" with message ending:
-   "✅ Phase 1 complete. Say **continue** to build Phase 2 (Admin Dashboard)."
+4. Continue building Phase 2, 3, 4, 5 WITHOUT STOPPING — use action="run" for each phase
+5. Only use action="done" when the ENTIRE project (all phases) is complete and verified
 
-5. When user says "continue", "next phase", "go on", "keep going":
-   cat ${home}/.xd_checkpoint.json
-   Build the next phase only (12–15 more files), update checkpoint, stop.
-
-STANDARD PHASE PLAN for a full web application:
-Phase 1 → DB schema + MVC core (Database/Router/Session) + auth (login/register/logout)   [~12 files]
+STANDARD PHASE PLAN for a full web application (all run in one continuous session):
+Phase 1 → DB schema + MVC core (Database/Router/Session) + auth (login/register/logout)   [~10 files]
 Phase 2 → Admin dashboard + user management + main CRUD                                    [~10 files]
-Phase 3 → Main feature dashboards (advertiser/publisher/customer panels)                   [~12 files]
-Phase 4 → Supporting features (payments, API endpoints, cron jobs)                         [~10 files]
-Phase 5 → Polish (CSS/design, security hardening, error pages, final verification)         [~6 files]
+Phase 3 → Main feature pages (user-facing panels, dashboards, project pages)               [~10 files]
+Phase 4 → Supporting features (donation forms, events, volunteer, gallery)                 [~10 files]
+Phase 5 → Polish + security hardening + final verification + screenshot                   [~5 files]
 
-Each phase: write → verify → checkpoint → done with "say continue for Phase N+1"
+ANNOUNCING PHASE TRANSITIONS:
+When transitioning phases, put the announcement in "thought" — DO NOT use action="done":
+{"thought":"Phase 1 verified (HTTP 200). Starting Phase 2 — Admin dashboard...","action":"run","commands":[...]}
 
-⚠️  PHASE 1 MINIMUM REQUIREMENT — a phase is NOT complete until the site is reachable:
-Phase 1 must end with ALL of these true or it is not finished:
-1. Database created and tables exist (SHOW TABLES returns rows)
-2. At least one working PHP file served by the web server (index.php minimum)
-3. Web server configured to serve the project directory (vhost or symlink)
-4. curl http://localhost/ (or http://IP/) returns HTTP 200 — not 403, 404, or connection refused
-If you run out of command budget before reaching HTTP 200: DO NOT mark phase done. Report what
-is missing (e.g. "PHP files not yet written, Apache vhost not configured") and stop cleanly.
+KEY RULE: action="done" is ONLY for when ALL phases are finished and the site is fully working.
 
 ═══ SITE BUILD COMPLETION RULE ═══
 A site build, fix, or deployment task is NOT complete because files were created or commands ran.
@@ -624,14 +606,14 @@ just because the screenshot was blank — curl is the authoritative check.
 
 ═══ SCALABILITY — task decomposition for large projects ═══
 If many files need to be built OR the task is complex (auth + DB + dashboard + payments):
-✅ Break into phases. Build Phase 1, VERIFY it fully, then stop.
-✅ Each phase has its own SSH+browser verification before done.
-✅ The next phase only starts when the previous is STATUS: VERIFIED.
-❌ Never build 50 files and claim VERIFIED — verification must happen per phase.
+✅ Break into phases of 10–12 files each — write, verify, then IMMEDIATELY continue the next phase.
+✅ Each phase verified before moving on — but no stopping to ask the user.
+❌ Never build 50 files in one run action (token limit will cut off) — batch 10–12 per run action.
+❌ Never claim VERIFIED until the HTTP check actually passes.
 
-WHY: One agent → one context window → one token budget.
-Trying to build a full SaaS in one run guarantees: context overflow, forgotten steps,
-unverified code, cascading failures. Phase-by-phase is the only reliable pattern.
+WHY PHASES WITHOUT STOPPING: The user sent one prompt expecting one complete result.
+Stopping mid-project to ask "say continue" defeats the purpose of an autonomous agent.
+The agent runs the full loop until done — phases are an internal implementation detail, not user-visible checkpoints.
 
 ═══ FILE DOWNLOADS ═══
 When user asks to "give me a zip", "download the files", "create backup", "export sql", "dump database", or any similar download request:
@@ -657,14 +639,14 @@ Every done message MUST have all three of these sections — no exceptions:
 • [What is NOT working if anything remains broken]
 
 ⏭️ **Next Action:**
-• [Exactly what the user should do or say next — e.g. "Say 'continue' to build Phase 2 (Admin Dashboard)"]
 • [Or: "Nothing — task complete and STATUS: VERIFIED"]
+• [If blocked: "Awaiting X — need Y to continue (e.g. DNS propagation, API key)"]
 
 ---
 Additional rules:
 - For any site/web task: use action="browse" to screenshot the live site BEFORE action="done" — screenshot appears automatically in the UI
 - Max 10 bullet points total. No raw command output, no file contents, no JSON in done messages
-- If command budget (15) was hit: say so clearly in Completed section and what remains in Next Action
+- ❌ NEVER tell the user to "say continue" — the agent runs the full project without user intervention between phases
 
 ⚠️ ERROR REPORTING — mandatory if anything failed:
 If ANY command returned non-zero exit code, add at the bottom:
@@ -1493,8 +1475,8 @@ router.post("/:id/chat", async (req, res) => {
     // For auto mode: track current agent role
     let currentRole: AgentRole = "planner";
 
-    // Agentic loop — max 40 iterations per user turn (complex builds need more steps)
-    for (let iter = 0; iter < 40; iter++) {
+    // Agentic loop — max 80 iterations per user turn (large project builds need many steps)
+    for (let iter = 0; iter < 80; iter++) {
       // ── Auto mode: role rotation ───────────────────────────────────────────
       // iter 0 → Kimi K2.6 (planner: breaks down task)
       // iter 1+ → DeepSeek V4 Pro (builder: writes code, runs commands)
@@ -1518,6 +1500,32 @@ router.post("/:id/chat", async (req, res) => {
             recovery: "Recovering…",
           };
           send("think", { text: roleLabel[currentRole] ?? "Thinking…" });
+        }
+      }
+
+      // ── Context compression — prevent context window overflow on long builds ──
+      // After many iterations, aiMessages grows huge (150K+ chars). Compress old turns
+      // into a digest so the model always has room to reason about the current step.
+      if (iter > 0 && iter % 10 === 0) {
+        // Measure total chars excluding system prompt (index 0)
+        const bodyChars = aiMessages.slice(1).reduce((sum, m) =>
+          sum + (typeof m.content === "string" ? m.content.length : JSON.stringify(m.content).length), 0);
+        if (bodyChars > 80000) {
+          // Keep: system prompt + first user message + compressed digest + last 6 messages
+          const firstUserMsg  = aiMessages[1];                          // original user task
+          const droppedCount  = aiMessages.length - 8;
+          const homeDir       = s.username === "root" ? "/root" : `/home/${s.username}`;
+          const digestMsg = {
+            role: "user" as const,
+            content:
+              `[CONTEXT COMPRESSED — ${droppedCount} earlier message pairs omitted to fit context window]\n` +
+              `You are mid-task on server ${s.host} as ${s.username}. The task is still in progress — keep building.\n` +
+              `To recall phase state: cat ${homeDir}/.xd_checkpoint.json 2>/dev/null\n` +
+              `To recall workspace: cat ${homeDir}/.xd_workspace.json 2>/dev/null\n` +
+              `Continue exactly where you left off. Do NOT restart or repeat already-completed phases.`,
+          };
+          aiMessages.splice(1, aiMessages.length - 7, firstUserMsg, digestMsg);
+          send("think", { text: `Context compressed at iter ${iter} (${Math.round(bodyChars / 1000)}K chars → trimmed to last 6 messages)` });
         }
       }
 
