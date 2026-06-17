@@ -38,33 +38,39 @@ function getNVIDIAClient() {
   return new OpenAI({ baseURL: "https://integrate.api.nvidia.com/v1", apiKey });
 }
 
+function getXAIClient() {
+  const apiKey = process.env["XAI_API_KEY"];
+  if (!apiKey) throw new Error("XAI_API_KEY is not set — add it in the Secrets tab");
+  return new OpenAI({ baseURL: "https://api.x.ai/v1", apiKey });
+}
+
 export function getAIClient(provider: AIProvider = "deepseek") {
   if (provider === "openrouter") return getOpenRouterClient();
   if (provider === "openai")    return getOpenAIClient();
   if (provider === "nvidia")    return getNVIDIAClient();
+  if (provider === "xai")       return getXAIClient();
   return getDeepSeekClient();
 }
 
 // ─── Auto mode model roster ──────────────────────────────────────────────────
-// All roles use free NVIDIA NIM except builder which uses the paid DeepSeek API.
-//
 // Role          Provider   Model
 // ─────────     ─────────  ──────────────────────────────────────
-// planner       nvidia     moonshotai/kimi-k2.6       (architect)
-// builder       deepseek   deepseek-chat              (code writer)
-// verifier      nvidia     deepseek-ai/deepseek-v4-flash (fast checks)
-// recovery      nvidia     z-ai/glm-5.1               (debugger)
+// planner       xai        grok-3-mini   (fast planner — avoids long NVIDIA waits)
+// builder       deepseek   deepseek-chat (code writer — paid, no rate limits)
+// verifier      nvidia     deepseek-ai/deepseek-v4-flash (lightweight checks)
+// recovery      xai        grok-3-mini   (debugger — reliable, fast)
 export type AgentRole = "planner" | "builder" | "verifier" | "recovery";
 export function autoModel(role: AgentRole): string {
-  if (role === "planner")  return "moonshotai/kimi-k2.6";
+  if (role === "planner")  return "grok-3-mini";
   if (role === "verifier") return "deepseek-ai/deepseek-v4-flash";
-  if (role === "recovery") return "z-ai/glm-5.1";
+  if (role === "recovery") return "grok-3-mini";
   return "deepseek-chat"; // builder → DeepSeek direct API
 }
 
 export function autoProvider(role: AgentRole): AIProvider {
-  if (role === "builder") return "deepseek"; // paid API, no rate limits
-  return "nvidia";                           // planner/verifier/recovery → free NVIDIA NIM
+  if (role === "builder")  return "deepseek"; // paid API, no rate limits
+  if (role === "verifier") return "nvidia";   // free NIM, lightweight check
+  return "xai";                               // planner/recovery → Grok (fast + reliable)
 }
 
 // ─── Gemini vision: screenshot analysis ─────────────────────────────────────

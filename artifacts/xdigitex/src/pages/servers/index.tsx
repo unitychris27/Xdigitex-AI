@@ -486,9 +486,9 @@ const MODE_DESCS: Record<string, string> = {
   economy:      "Gemini Flash — fastest, good for simple tasks",
   balanced:     "DeepSeek V3 — balanced speed and power",
   "high-power": "GPT-4o — most capable (OpenAI)",
-  kimi:         "Kimi K2.6 — best planner & architect (NVIDIA NIM)",
-  v4pro:        "DeepSeek V4 Pro — best builder for large codebases (NVIDIA NIM)",
-  auto:         "Auto — Kimi plans → V4 Pro builds → GLM recovers (NVIDIA NIM)",
+  kimi:         "Kimi K2.6 — best planner & architect",
+  v4pro:        "DeepSeek V4 Pro — best builder for large codebases",
+  auto:         "Auto — multi-agent · Kimi plans · DeepSeek builds · Grok recovers",
 };
 
 type AgentMode = "economy" | "balanced" | "high-power" | "kimi" | "v4pro" | "auto";
@@ -532,6 +532,7 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
   const bottomRef  = useRef<HTMLDivElement>(null);
   const inputRef   = useRef<HTMLTextAreaElement>(null);
   const cmdCounter = useRef(0);
+  const abortRef   = useRef<AbortController | null>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -582,11 +583,20 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
     // Includes command outputs so the AI has full context on follow-up messages
     const agentTurnParts: string[] = [];
 
+    // AbortController — cancel on timeout (10 min) or if component unmounts
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const timeoutId = setTimeout(() => {
+      controller.abort(new Error("Agent timed out after 10 minutes — the task may still be running on the server. Reload and check."));
+    }, 10 * 60 * 1000);
+
     try {
       const res = await fetch(`${BASE}/api/servers/${server.id}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: newHistory, mode }),
+        signal: controller.signal,
       });
       // Non-200 = plain JSON error (returned before SSE headers are set)
       if (!res.ok) {
@@ -732,8 +742,19 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
         setAiHistory(h => [...h, { role: "assistant", content: assistantContent }]);
       }
     } catch (e: unknown) {
-      addMsg({ kind: "error", text: String(e instanceof Error ? e.message : e) });
+      clearTimeout(timeoutId);
+      abortRef.current = null;
+      if (e instanceof Error && e.name === "AbortError") {
+        const msg = controller.signal.reason instanceof Error
+          ? controller.signal.reason.message
+          : "Connection cancelled.";
+        addMsg({ kind: "error", text: msg });
+      } else {
+        addMsg({ kind: "error", text: String(e instanceof Error ? e.message : e) });
+      }
     } finally {
+      clearTimeout(timeoutId);
+      abortRef.current = null;
       setRunning(false);
       setTimeout(() => inputRef.current?.focus(), 50);
     }
@@ -797,7 +818,7 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
 
   return (
     <>
-    <Dialog open onOpenChange={onClose}>
+    <Dialog open onOpenChange={(isOpen) => { if (!isOpen && !running) onClose(); }}>
       <DialogContent
         className="max-w-3xl w-full h-[100dvh] sm:h-[90vh] flex flex-col p-0 gap-0 overflow-hidden rounded-none sm:rounded-lg"
         style={{ maxHeight: "100dvh" }}
@@ -1187,7 +1208,7 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
             <Button
               className="h-11 px-4 bg-purple-600 hover:bg-purple-500 shrink-0"
               disabled={running || (!input.trim() && !pastedPrompt)}
-              onClick={sendMessage}
+              onClick={() => sendMessage()}
             >
               {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </Button>
