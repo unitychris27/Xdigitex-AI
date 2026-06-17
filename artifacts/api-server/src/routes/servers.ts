@@ -1454,11 +1454,36 @@ router.post("/:id/chat", async (req, res) => {
       const action = parseAgentJSON(raw);
 
       if (!action) {
-        // If the model leaked DSML syntax, give a clean error rather than spewing raw markup
         if (raw.includes("DSML")) {
-          send("reply", { text: "⚠️ The AI model produced an invalid internal format (DSML tool-call syntax). Please retry — switching to Economy or High-Power mode avoids this issue." });
+          // DeepSeek leaked its internal tool-call syntax instead of JSON.
+          // Auto mode: hand off to GLM 5.1 (recovery) to regenerate the step cleanly.
+          // Limit to 2 DSML recovery attempts to avoid loops.
+          const dsmlRetries = (aiMessages.filter(m => m.role === "user" && typeof m.content === "string" && m.content.includes("DSML_RECOVERY")).length);
+          if (isAuto && dsmlRetries < 2) {
+            currentRole = "recovery";
+            iterModel  = autoModel("recovery");
+            iterClient = getAIClient(autoProvider("recovery"));
+            send("think", { text: "Recovering from DSML format error — switching to GLM…" });
+            aiMessages.push({ role: "assistant", content: raw });
+            aiMessages.push({
+              role: "user",
+              content: [
+                "DSML_RECOVERY: The previous model (DeepSeek) output its internal tool-call format (DSML) instead of",
+                "the required JSON response. Your job is to regenerate the response in the correct format.",
+                "",
+                "Produce ONLY a single valid JSON object matching this schema:",
+                '{"thought":"...","action":"run","commands":[{"cmd":"...","desc":"..."}]}',
+                "or action=browse/done/reply as appropriate. NO DSML syntax. NO tool_calls blocks. Pure JSON only.",
+                "",
+                "Continue the task from where it was — do not restart, do not repeat completed work.",
+              ].join("\n"),
+            });
+            continue;
+          }
+          // GLM also failed or non-auto mode — surface the error
+          send("reply", { text: "⚠️ The AI model produced an invalid internal format (DSML). GLM recovery also failed — please try again." });
         } else {
-          // AI returned plain text — treat as reply
+          // Plain text (not JSON) — treat as a reply
           send("reply", { text: raw || "Unexpected response from AI." });
         }
         break;

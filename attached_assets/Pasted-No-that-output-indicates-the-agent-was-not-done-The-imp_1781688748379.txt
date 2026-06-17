@@ -1,0 +1,102 @@
+No, that output indicates the agent was **not done**.
+
+The important lines are:
+
+```text
+Planning…
+```
+
+then
+
+```text
+Building…
+```
+
+and finally
+
+```text
+⚠️ The AI model produced an invalid internal format (DSML tool-call syntax).
+Please retry
+```
+
+That means the run **crashed during generation** before completing the remake.
+
+From the log:
+
+```text
+I still need to:
+1. Update checkout.php
+2. Update order tracking pages
+3. Update admin pages
+4. Verify everything works
+5. Take a screenshot
+```
+
+Those are the agent's own stated remaining tasks. Since the next step ended with:
+
+```text
+invalid internal format
+```
+
+the process stopped before those tasks were finished.
+
+### What's bringing this error?
+
+The key message is:
+
+```text
+invalid internal format (DSML tool-call syntax)
+```
+
+This usually means the model generated a malformed tool invocation. Common causes:
+
+* The model output exceeded complexity limits.
+* The model mixed normal text and tool-call syntax incorrectly.
+* The orchestrator expected JSON/tool format but received partially formatted output.
+* A coding model tried to call tools using the wrong schema.
+* Context became too large (your logs show ~35k tokens).
+
+### Was the redesign completed?
+
+Based on the logs:
+
+✅ Backups created
+
+✅ New `index.php` written
+
+✅ Large CSS rewrite started
+
+❌ Checkout page not finished
+
+❌ Order success/tracking pages not finished
+
+❌ Admin pages not updated
+
+❌ End-to-end verification not completed
+
+❌ Screenshot validation not completed
+
+So I would treat this run as **partially completed, not production-ready**.
+
+### If you're using a multi-model stack
+
+```text
+Kimi → planning
+DeepSeek → implementation
+GLM → recovery
+```
+
+then this error should have triggered the recovery model automatically. If it didn't, that's an orchestrator bug rather than a website bug.
+
+A robust flow is:
+
+```text
+Kimi → plan
+DeepSeek → code
+IF tool-call error:
+    GLM → regenerate only failed step
+IF still failing:
+    retry with smaller context window
+```
+
+In short: **the remake was interrupted by a model-format/tool-call failure and was not completed.**
