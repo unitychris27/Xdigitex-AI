@@ -99,6 +99,33 @@ function TerminalView({ lines, loading }: { lines: TerminalLine[]; loading?: boo
   );
 }
 
+// ─── Think bubble (collapsible planning text) ────────────────────────────────
+
+function ThinkBubble({ icon, preview, rest }: { icon: string; preview: string; rest: string }) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <div className="flex items-start gap-3 px-1 py-0.5">
+      <span className="text-base shrink-0 leading-snug mt-0.5">{icon}</span>
+      <div className="text-sm text-zinc-300 leading-relaxed flex-1 min-w-0">
+        <span>{preview}</span>
+        {rest && (
+          <>
+            {expanded && (
+              <p className="mt-1 text-zinc-400 text-xs whitespace-pre-wrap break-words">{rest}</p>
+            )}
+            <button
+              onClick={() => setExpanded(e => !e)}
+              className="ml-2 text-[10px] text-zinc-600 hover:text-zinc-400 align-middle"
+            >
+              {expanded ? "▲ less" : "▼ more"}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── Command block inside chat ────────────────────────────────────────────────
 
 function CmdBlock({ msg, onToggle }: { msg: Extract<ChatMsg, { kind: "cmd" }>; onToggle: () => void }) {
@@ -646,6 +673,14 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
             const globalIdx = localToGlobal.get(`${iterOffset}:${localIdx}`) ?? -1;
             const code      = ev.code as number ?? 0;
             if (globalIdx >= 0) updateCmdOutput(globalIdx, "", code);
+            // Auto-collapse successful commands with large output (>12 lines) — keeps chat clean
+            if (code === 0 && globalIdx >= 0) {
+              setMsgs(prev => prev.map(m => {
+                if (m.kind !== "cmd" || m.index !== globalIdx) return m;
+                const lineCount = m.output ? m.output.split("\n").filter(l => l.trim()).length : 0;
+                return lineCount > 12 ? { ...m, open: false } : m;
+              }));
+            }
             // Track failed commands so we can surface them prominently
             if (code !== 0 && globalIdx >= 0) {
               setMsgs(prev => {
@@ -854,11 +889,13 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
                 t.includes("ssh") || t.includes("key") || t.includes("generat") ? "🔑" :
                 t.includes("log") || t.includes("error_log") ? "🪵" :
                 "🔍";
+              // Show first line only; collapse the rest behind an expand button
+              const firstNewline = m.text.indexOf("\n");
+              const firstLine = firstNewline > 0 ? m.text.slice(0, firstNewline) : m.text;
+              const rest = firstNewline > 0 ? m.text.slice(firstNewline + 1).trim() : "";
+              const preview = firstLine.length > 160 ? firstLine.slice(0, 160) + "…" : firstLine;
               return (
-                <div key={i} className="flex items-start gap-3 px-1 py-0.5">
-                  <span className="text-base shrink-0 leading-snug mt-0.5">{icon}</span>
-                  <p className="text-sm text-zinc-300 leading-relaxed flex-1">{m.text}</p>
-                </div>
+                <ThinkBubble key={i} icon={icon} preview={preview} rest={rest} />
               );
             }
 
