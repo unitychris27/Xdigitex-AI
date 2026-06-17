@@ -467,7 +467,7 @@ const MODE_DESCS: Record<string, string> = {
 type AgentMode = "economy" | "balanced" | "high-power" | "kimi" | "v4pro" | "auto";
 
 function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: () => void }) {
-  const [mode, setMode]         = useState<AgentMode>("auto");
+  const mode: AgentMode         = "auto";
   const [input, setInput]       = useState("");
   const [running, setRunning]   = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -780,19 +780,12 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
               )}
             </div>
           </div>
-          {/* Mode selector */}
-          <div className="flex gap-0.5 shrink-0 flex-wrap">
-            {(["economy", "balanced", "high-power", "kimi", "v4pro", "auto"] as const).map(m => (
-              <button key={m} onClick={() => setMode(m)}
-                title={MODE_DESCS[m]}
-                className={`px-1.5 py-1 rounded text-[10px] font-medium transition-colors ${
-                  mode === m
-                    ? m === "auto" ? "bg-gradient-to-r from-violet-600 to-blue-500 text-white" : "bg-purple-600 text-white"
-                    : "bg-muted text-muted-foreground hover:bg-muted/80"
-                }`}>
-                {MODE_LABELS[m]}
-              </button>
-            ))}
+          {/* Mode badge — always Auto */}
+          <div className="shrink-0"
+               title={MODE_DESCS["auto"]}>
+            <span className="px-2 py-1 rounded text-[10px] font-semibold bg-gradient-to-r from-violet-600 to-blue-500 text-white select-none">
+              ✦ Auto
+            </span>
           </div>
           <Button size="sm" variant="ghost" onClick={openHistory} title="History" className="h-7 w-7 p-0 shrink-0">
             <History className="w-3.5 h-3.5" />
