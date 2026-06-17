@@ -32,21 +32,63 @@ RUN pnpm --filter @workspace/api-server run build
 RUN pnpm --filter @workspace/xdigitex run build
 
 # ── Stage 2: API runtime ──────────────────────────────────────────────────────
-FROM node:24-alpine AS api
+# Use Debian slim (not Alpine) — Playwright needs glibc + ~20 system libs
+FROM node:24-slim AS api
 
 RUN corepack enable && corepack prepare pnpm@latest --activate
 
-# Playwright + Chromium deps
-RUN apk add --no-cache \
+# Full Playwright / Chromium dependency set for Debian/Ubuntu servers
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    # Chromium browser
     chromium \
-    nss \
-    freetype \
-    harfbuzz \
+    # NSS / crypto
+    libnss3 \
+    libnspr4 \
+    # Font rendering
+    libfreetype6 \
+    libharfbuzz0b \
+    libfontconfig1 \
+    fonts-liberation \
+    fonts-noto-color-emoji \
+    # X11 / display stack (needed even headless)
+    libx11-6 \
+    libx11-xcb1 \
+    libxcb1 \
+    libxcomposite1 \
+    libxcursor1 \
+    libxdamage1 \
+    libxext6 \
+    libxfixes3 \
+    libxi6 \
+    libxrandr2 \
+    libxrender1 \
+    libxss1 \
+    libxtst6 \
+    # ATK / accessibility bridge
+    libatk1.0-0 \
+    libatk-bridge2.0-0 \
+    libatspi2.0-0 \
+    # CUPS (printing subsystem Chromium links against)
+    libcups2 \
+    # DRM / GPU (headless still uses GBM)
+    libdrm2 \
+    libgbm1 \
+    # DBus / udev
+    libdbus-1-3 \
+    libudev1 \
+    # Audio (Chromium links against ALSA even headless)
+    libasound2 \
+    # Pango / Cairo (text layout + rendering)
+    libpango-1.0-0 \
+    libpangocairo-1.0-0 \
+    libcairo2 \
+    # Misc
     ca-certificates \
-    ttf-freefont \
-    udev
+    wget \
+    && rm -rf /var/lib/apt/lists/*
 
-ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
+# Tell Playwright to use the system Chromium (skip its own download)
+ENV PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium
 ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
 
 WORKDIR /app
