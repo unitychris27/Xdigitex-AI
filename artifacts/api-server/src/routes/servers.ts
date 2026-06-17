@@ -1349,7 +1349,13 @@ router.post("/:id/chat", async (req, res) => {
         else currentRole = "builder";
         iterModel  = autoModel(currentRole);
         iterClient = getAIClient("nvidia");
-        send("think", { text: `🤖 Auto mode: ${currentRole} → ${iterModel.split("/").pop()}` });
+        const roleLabel: Record<AgentRole, string> = {
+          planner:  "Planning…",
+          builder:  "Building…",
+          verifier: "Verifying…",
+          recovery: "Recovering…",
+        };
+        send("think", { text: roleLabel[currentRole] ?? "Thinking…" });
       }
 
       const completion = await iterClient.chat.completions.create({
@@ -1400,7 +1406,7 @@ router.post("/:id/chat", async (req, res) => {
           // In auto mode: escalate to GLM 5.1 (recovery specialist) for next iteration
           if (isAuto && currentRole !== "recovery") {
             currentRole = "recovery";
-            send("think", { text: "🔄 Auto mode: loop detected — escalating to GLM 5.1 (recovery specialist)" });
+            send("think", { text: "Recovering…" });
           }
           const loopWarning =
             `⚠️ LOOP DETECTED: Every command in this batch has already been run this session:\n` +

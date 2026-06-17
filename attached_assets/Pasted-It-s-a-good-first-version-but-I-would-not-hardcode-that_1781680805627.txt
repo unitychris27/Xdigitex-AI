@@ -1,0 +1,280 @@
+It's a **good first version**, but I would not hardcode that exact flow as your final architecture.
+
+What you currently have:
+
+```text
+Auto Mode
+
+Kimi K2.6
+    ↓
+DeepSeek V4 Pro
+    ↓
+GLM 5.1 (if failure)
+```
+
+This works for small tasks, but once users start building real SaaS projects, you'll encounter several problems.
+
+### Problem 1: Every task goes through Kimi
+
+Imagine:
+
+```text
+User:
+Create navbar
+```
+
+Your flow:
+
+```text
+Kimi plans
+↓
+DeepSeek builds
+↓
+Verify
+```
+
+That's overkill.
+
+For tiny tasks:
+
+```text
+Create button
+Fix CSS
+Update logo
+```
+
+you should bypass planning completely.
+
+Better:
+
+```text
+Small task
+↓
+Builder directly
+
+Large task
+↓
+Planner
+↓
+Builder
+```
+
+---
+
+### Problem 2: GLM shouldn't be the only recovery model
+
+Some failures are:
+
+```text
+PHP fatal error
+```
+
+DeepSeek Flash can diagnose those cheaply.
+
+Some failures are:
+
+```text
+blank page
+login loop
+deployment issue
+```
+
+GLM may be useful.
+
+Some failures are:
+
+```text
+architecture collapse
+database mismatch
+```
+
+You may need GPT-OSS or Kimi.
+
+Recovery should be selected by failure type.
+
+---
+
+### Problem 3: Missing Verifier
+
+Your current chain:
+
+```text
+Kimi
+↓
+DeepSeek Pro
+↓
+GLM
+```
+
+is missing the most important component:
+
+```text
+Verifier
+```
+
+I would do:
+
+```text
+Planner
+↓
+Builder
+↓
+Verifier
+↓
+Recovery
+```
+
+because most failures are actually verification failures.
+
+---
+
+### Problem 4: Missing Browser Vision Loop
+
+Based on the issues you've described, your biggest problem isn't code generation.
+
+It's:
+
+```text
+Site built
+↓
+Browser opens
+↓
+Blank page
+↓
+Agent claims success
+```
+
+You need:
+
+```text
+Browser
+↓
+Screenshot
+↓
+Vision model
+↓
+Verifier
+```
+
+before marking anything complete.
+
+---
+
+### What I'd use with your NVIDIA stack
+
+```text
+AUTO MODE
+
+Planner
+Kimi K2.6
+
+Builder
+DeepSeek V4 Pro
+
+Verifier
+DeepSeek V4 Flash
+
+Browser Vision
+Nemotron VL
+
+Recovery
+GLM 5.1
+
+Emergency Fallback
+GPT-OSS 120B
+```
+
+---
+
+### Another thing I would change
+
+Don't show users:
+
+```text
+Fast
+Smart
+Max
+Kimi
+V4 Pro
+Auto
+```
+
+because most users don't know what those mean.
+
+But I also wouldn't hardcode Auto forever.
+
+I'd expose:
+
+```text
+Auto
+Build
+Debug
+Browse
+```
+
+Internally:
+
+```text
+Build
+→ Planner + Builder
+
+Debug
+→ Verifier + Recovery
+
+Browse
+→ Browser + Vision
+
+Auto
+→ Router decides
+```
+
+Much cleaner.
+
+---
+
+### Most important improvement
+
+Instead of:
+
+```text
+Kimi
+↓
+DeepSeek
+↓
+GLM
+```
+
+build:
+
+```text
+Task Router
+     ↓
+
+Simple Task?
+     ↓
+DeepSeek Pro
+
+Complex Task?
+     ↓
+Kimi
+     ↓
+DeepSeek Pro
+
+Verification
+     ↓
+DeepSeek Flash
+
+Screenshot
+     ↓
+Nemotron VL
+
+Failure?
+     ↓
+GLM
+
+Still failed?
+     ↓
+GPT-OSS
+```
+
+That architecture will scale much better when you have multiple users building different websites simultaneously, because you're not spending expensive planning tokens on every single action.

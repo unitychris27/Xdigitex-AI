@@ -1013,27 +1013,39 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
             const lastDone = [...msgs].reverse().find(m => m.kind === "done");
             const phaseMatch = lastDone?.text.match(/[Pp]hase\s*(\d+)/);
             const nextPhase = phaseMatch ? parseInt(phaseMatch[1]) + 1 : null;
+            // detect if the last agent turn ended without a "done" message (stopped mid-task)
+            const lastMsgKind = msgs[msgs.length - 1]?.kind;
+            const stoppedMidTask = lastMsgKind === "think" || lastMsgKind === "cmd" || lastMsgKind === "reply";
             return (
               <div className="mb-2 flex flex-wrap gap-1.5">
+                {/* Always show Continue if it looks like the agent stopped mid-task */}
+                {stoppedMidTask && (
+                  <button
+                    onClick={() => sendMessage("Continue from where you left off. Resume building — do not restart or repeat completed work.")}
+                    className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-purple-500/20 border border-purple-500/40 text-purple-300 hover:bg-purple-500/30 hover:border-purple-400/60 transition-colors text-[11px] font-semibold"
+                  >
+                    ▶ Continue
+                  </button>
+                )}
                 {nextPhase && nextPhase <= 10 && (
                   <button
                     onClick={() => sendMessage(`Continue to Phase ${nextPhase}`)}
                     className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-purple-500/15 border border-purple-500/30 text-purple-300 hover:bg-purple-500/25 hover:border-purple-400/50 transition-colors text-[11px] font-semibold"
                   >
-                    ▶ Continue Phase {nextPhase}
+                    ▶ Phase {nextPhase}
                   </button>
                 )}
                 <button
                   onClick={() => sendMessage("Create a ZIP backup of the entire project site files and give me a download link.")}
                   className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-zinc-800/80 border border-zinc-700 text-zinc-300 hover:border-blue-500/40 hover:text-blue-300 transition-colors text-[11px] font-medium"
                 >
-                  📦 Download ZIP
+                  📦 ZIP
                 </button>
                 <button
                   onClick={() => sendMessage("Dump the database to a .sql file in /tmp/ and give me a download link.")}
                   className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-zinc-800/80 border border-zinc-700 text-zinc-300 hover:border-blue-500/40 hover:text-blue-300 transition-colors text-[11px] font-medium"
                 >
-                  🗄 Download SQL
+                  🗄 SQL
                 </button>
               </div>
             );
