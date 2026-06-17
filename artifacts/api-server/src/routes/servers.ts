@@ -1474,6 +1474,8 @@ router.post("/:id/chat", async (req, res) => {
     const cmdRunCount = new Map<string, number>();
     // For auto mode: track current agent role
     let currentRole: AgentRole = "planner";
+    // Track consecutive all-fail command batches to trigger auto-replan
+    let consecutiveFailBatches = 0;
 
     // Agentic loop — max 80 iterations per user turn (large project builds need many steps)
     for (let iter = 0; iter < 80; iter++) {
@@ -1683,11 +1685,47 @@ router.post("/:id/chat", async (req, res) => {
         // Feed full results back into AI context — critical for next iteration
         const resultText = cmdResults.join("\n\n─────\n\n");
         aiMessages.push({ role: "assistant", content: raw });
-        aiMessages.push({
-          role: "user",
-          content: `COMMAND RESULTS (read carefully before deciding next step):\n\n${resultText}\n\n` +
-                   `Now CONTINUE the task. Do NOT ask the user — search, read, and fix autonomously.`,
-        });
+
+        // ── Consecutive-failure tracking → auto-replan via Kimi ────────────────
+        // If every command in this batch failed (non-zero exit), track it.
+        // After 2 consecutive all-fail batches, switch to Kimi to replan the
+        // workspace checkpoint, then resume building with the worker model.
+        const allFailed = cmds.length > 0 && cmdResults.every(r => /\[exit [^0]/.test(r));
+        const anySucceeded = cmdResults.some(r => /\[exit 0\]/.test(r));
+        if (anySucceeded) {
+          consecutiveFailBatches = 0;
+        } else if (allFailed) {
+          consecutiveFailBatches++;
+        }
+
+        if (isAuto && consecutiveFailBatches >= 2) {
+          consecutiveFailBatches = 0;
+          // Switch to Kimi planner to replan based on current failures
+          currentRole = "planner";
+          send("think", { text: "⚠️ Repeated failures — switching to Kimi to replan strategy…" });
+          const homeDir = s.username === "root" ? "/root" : `/home/${s.username}`;
+          aiMessages.push({
+            role: "user",
+            content:
+              `⚠️ REPLAN REQUIRED — the last 2 command batches all failed.\n\n` +
+              `FAILED COMMAND RESULTS:\n${resultText}\n\n` +
+              `Your job as PLANNER:\n` +
+              `1. Read the checkpoint: cat ${homeDir}/.xd_checkpoint.json 2>/dev/null\n` +
+              `2. Identify the root cause of the repeated failures from the output above\n` +
+              `3. Output a REVISED plan — different approach, different commands, different file paths\n` +
+              `4. Update the checkpoint with the new plan:\n` +
+              `   echo '{"phase":N,"done":[...],"next":"revised approach: ...","failed_approach":"what was tried"}' > ${homeDir}/.xd_checkpoint.json\n\n` +
+              `Then use action="run" with the FIRST command of the new approach.\n` +
+              `DO NOT repeat the same commands that just failed.`,
+          });
+          // Next iteration will use Kimi (planner) via currentRole; after that, builder resumes
+        } else {
+          aiMessages.push({
+            role: "user",
+            content: `COMMAND RESULTS (read carefully before deciding next step):\n\n${resultText}\n\n` +
+                     `Now CONTINUE the task. Do NOT ask the user — search, read, and fix autonomously.`,
+          });
+        }
 
         // Also stream results summary so frontend can add to history
         send("cmd_results", { text: resultText });

@@ -1095,14 +1095,6 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
                     ▶ Continue
                   </button>
                 )}
-                {nextPhase && nextPhase <= 10 && (
-                  <button
-                    onClick={() => sendMessage(`Continue to Phase ${nextPhase}`)}
-                    className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-purple-500/15 border border-purple-500/30 text-purple-300 hover:bg-purple-500/25 hover:border-purple-400/50 transition-colors text-[11px] font-semibold"
-                  >
-                    ▶ Phase {nextPhase}
-                  </button>
-                )}
                 <button
                   onClick={() => sendMessage("Create a ZIP backup of the entire project site files and give me a download link.")}
                   className="flex items-center gap-1 px-2.5 py-1 rounded-md bg-zinc-800/80 border border-zinc-700 text-zinc-300 hover:border-blue-500/40 hover:text-blue-300 transition-colors text-[11px] font-medium"
