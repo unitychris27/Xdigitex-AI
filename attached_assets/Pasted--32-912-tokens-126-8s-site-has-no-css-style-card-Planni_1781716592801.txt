@@ -1,0 +1,142 @@
+
+·
+32,912 tokens
+·
+126.8s
+site has no css style card
+🔍
+Planning…
+⚡
+Site has no CSS styling. Need to check if style.css exists and is being loaded.
+$
+ls -la /var/www/food/assets/css/ 2>/dev/null
+ok
+total 8
+drwxr-xr-x 2 root root 4096 Jun 17 09:58 .
+drwxr-xr-x 5 root root 4096 Jun 17 09:58 ..
+$
+curl -s -o /dev/null -w "HTTP %{http_code}" http://130.185.118.30/assets/css/style.css 2>&1
+ok
+HTTP 404
+$
+curl -s http://130.185.118.30/assets/css/style.css 2>&1 | head -20
+ok
+<!DOCTYPE HTML PUBLIC "-//IETF//DTD HTML 2.0//EN">
+<html><head>
+<title>404 Not Found</title>
+</head><body>
+collapse
+<h1>Not Found</h1>
+<p>The requested URL was not found on this server.</p>
+<hr>
+<address>Apache/2.4.58 (Ubuntu) Server at 130.185.118.30 Port 80</address>
+</body></html>
+$
+grep -n 'style.css' /var/www/food/includes/header.php
+ok
+12: <link rel="stylesheet" href="<?php echo SITE_URL; ?>/assets/css/style.css">
+🔍
+Building…
+The CSS file doesn't exist — the directory is empty. I need to create a comprehensive style.css with all the styling for the food delivery site (cards, hero, nav, buttons, etc.).
+
+```json
+{
+  "thought": "CSS file missing entirely. Need to create a full style.css with card styles, hero, nav, buttons, grid layout, and mobile responsiveness.",
+  "action": "run",
+  "commands": [
+    {
+      "cmd": "python3 << 'PYEOF'\nimport os\npath = '/var/www/food/assets/css/style.css'\ncontent = r\"\"\"/* ===== TASTY BITES RESTAURANT - MAIN STYLESHEET ===== */\n\n/* ===== CSS VARIABLES ===== */\n:root {\n    --primary: #e74c3c;\n    --primary-dark: #c0392b;\n    --primary-light: #fadbd8;\n    --secondary: #2c3e50;\n    --accent: #f39c12;\n    --accent-light: #fef5e7;\n    --success: #27ae60;\n    --success-light: #d5f5e3;\n    --text-dark: #2c3e50;\n    --text-muted: #7f8c8d;\n    --text-light: #95a5a6;\n    --bg-light: #f8f9fa;\n    --bg-white: #ffffff;\n    --bg-dark: #1a1a2e;\n    --border: #e0e0e0;\n    --shadow-sm: 0 2px 8px rgba(0,0,0,0.08);\n    --shadow-md: 0 4px 16px rgba(0,0,0,0.12);\n    --shadow-lg: 0 8px 32px rgba(0,0,0,0.16);\n    --radius-sm: 8px;\n    --radius-md: 12px;\n    --radius-lg: 16px;\n    --radius-xl: 24px;\n    --transition: all 0.3s ease;\n    --font-primary: 'Inter', -apple-system, sans-serif;\n    --font-heading: 'Playfair Display', Georgia, serif;\n}\n\n/* ===== RESET & BASE ===== */\n*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }\n\nhtml { scroll-behavior: smooth; }\n\nbody {\n    font-family: var(--font-primary);\n    color: var(--text-dark);\n    background: var(--bg-light);\n    line-height: 1.6;\n    -webkit-font-smoothing: antialiased;\n}\n\na { text-decoration: none; color: inherit; }\nul { list-style: none; }\nimg { max-width: 100%; height: auto; }\n\n.container {\n    max-width: 1200px;\n    margin: 0 auto;\n    padding: 0 20px;\n}\n\n/* ===== HEADER & NAVIGATION ===== */\n.header {\n    background: var(--bg-white);\n    box-shadow: var(--shadow-sm);\n    position: sticky;\n    top: 0;\n    z-index: 1000;\n}\n\n.navbar {\n    padding: 0 20px;\n}\n\n.nav-container {\n    max-width: 1200px;\n    margin: 0 auto;\n    display: flex;\n    align-items: center;\n    justify-content: space-between;\n    height: 70px;\n}\n\n.nav-logo {\n    display: flex;\n    align-items: center;\n    gap: 10px;\n    font-size: 1.5rem;\n    font-weight: 700;\n    color: var(--primary);\n    font-family: var(--font-heading);\n}\n\n.nav-logo i { font-size: 1.8rem; }\n\n.nav-list {\n    display: flex;\n    align-items: center;\n    gap: 5px;\n}\n\n.nav-link {\n    display: flex;\n    align-items: center;\n    gap: 6px;\n    padding: 10px 18px;\n    border-radius: var(--radius-sm);\n    color: var(--text-dark);\n    font-weight: 500;\n    transition: var(--transition);\n    font-size: 0.95rem;\n}\n\n.nav-link:hover {\n    background: var(--primary-light);\n    color: var(--primary);\n}\n\n.nav-link.active {\n    background: var(--primary);\n    color: white;\n}\n\n.cart-link { position: relative; }\n\n.cart-badge {\n    position: absolute;\n    top: 2px;\n    right: 4px;\n    background: var(--accent);\n    color: white;\n    font-size: 0.7rem;\n    font-weight: 700;\n    width: 20px;\n    height: 20px;\n    border-radius: 50%;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n}\n\n.nav-toggle {\n    display: none;\n    background: none;\n    border: none;\n    font-size: 1.5rem;\n    color: var(--text-dark);\n    cursor: pointer;\n    padding: 8px;\n}\n\n/* ===== HERO SECTION ===== */\n.hero-section {\n    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);\n    color: white;\n    padding: 100px 0 80px;\n    text-align: center;\n    position: relative;\n    overflow: hidden;\n}\n\n.hero-section::before {\n    content: '';\n    position: absolute;\n    top: -50%;\n    left: -50%;\n    width: 200%;\n    height: 200%;\n    background: radial-gradient(circle at 30% 50%, rgba(231,76,60,0.15) 0%, transparent 50%),\n                radial-gradient(circle at 70% 50%, rgba(243,156,18,0.1) 0%, transparent 50%);\n    animation: heroGlow 8s ease-in-out infinite alternate;\n}\n\n@keyframes heroGlow {\n    0% { transform: translate(0, 0); }\n    100% { transform: translate(-5%, -5%); }\n}\n\n.hero-content {\n    position: relative;\n    z-index: 1;\n    max-width: 800px;\n    margin: 0 auto;\n}\n\n.hero-title {\n    font-family: var(--font-heading);\n    font-size: 3.5rem;\n    font-weight: 700;\n    margin-bottom: 20px;\n    line-height: 1.2;\n}\n\n.hero-title span { color: var(--accent); }\n\n.hero-subtitle {\n    font-size: 1.2rem;\n    color: rgba(255,255,255,0.8);\n    margin-bottom: 35px;\n    line-height: 1.6;\n}\n\n.hero-buttons {\n    display: flex;\n    gap: 15px;\n    justify-content: center;\n    flex-wrap: wrap;\n}\n\n/* ===== BUTTONS ===== */\n.btn {\n    display: inline-flex;\n    align-items: center;\n    gap: 8px;\n    padding: 12px 28px;\n    border-radius: var(--radius-sm);\n    font-weight: 600;\n    font-size: 1rem;\n    border: none;\n    cursor: pointer;\n    transition: var(--transition);\n    font-family: var(--font-primary);\n}\n\n.btn-primary {\n    background: var(--primary);\n    color: white;\n}\n\n.btn-primary:hover {\n    background: var(--primary-dark);\n    transform: translateY(-2px);\n    box-shadow: var(--shadow-md);\n}\n\n.btn-secondary {\n    background: rgba(255,255,255,0.15);\n    color: white;\n    backdrop-filter: blur(10px);\n    border: 2px solid rgba(255,255,255,0.3);\n}\n\n.btn-secondary:hover {\n    background: rgba(255,255,255,0.25);\n    transform: translateY(-2px);\n}\n\n.btn-lg { padding: 16px 36px; font-size: 1.1rem; }\n\n.btn-sm { padding: 8px 16px; font-size: 0.85rem; }\n\n.btn-success {\n    background: var(--success) !important;\n    color: white !important;\n}\n\n.btn-text {\n    background: none;\n    color: var(--text-muted);\n    padding: 8px 12px;\n}\n\n.btn-text:hover { color: var(--primary); }\n\n.btn-add-cart {\n    background: var(--primary);\n    color: white;\n    padding: 8px 16px;\n    font-size: 0.85rem;\n    border-radius: var(--radius-sm);\n    border: none;\n    cursor: pointer;\n    transition: var(--transition);\n    display: flex;\n    align-items: center;\n    gap: 6px;\n    font-weight: 500;\n}\n\n.btn-add-cart:hover {\n    background: var(--primary-dark);\n    transform: translateY(-1px);\n}\n\n/* ===== CATEGORY CARDS ===== */\n.categories-section {\n    padding: 80px 0;\n    background: var(--bg-white);\n}\n\n.section-header {\n    text-align: center;\n    margin-bottom: 50px;\n}\n\n.section-title {\n    font-family: var(--font-heading);\n    font-size: 2.5rem;\n    color: var(--text-dark);\n    margin-bottom: 12px;\n}\n\n.section-subtitle {\n    color: var(--text-muted);\n    font-size: 1.1rem;\n}\n\n.category-grid {\n    display: grid;\n    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));\n    gap: 24px;\n}\n\n.category-card {\n    background: var(--bg-light);\n    border-radius: var(--radius-md);\n    padding: 30px 20px;\n    text-align: center;\n    transition: var(--transition);\n    cursor: pointer;\n    border: 2px solid transparent;\n}\n\n.category-card:hover {\n    transform: translateY(-5px);\n    box-shadow: var(--shadow-md);\n    border-color: var(--primary-light);\n    background: white;\n}\n\n.category-card .category-icon {\n    width: 70px;\n    height: 70px;\n    background: var(--primary-light);\n    border-radius: 50%;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    margin: 0 auto 16px;\n    font-size: 1.8rem;\n    color: var(--primary);\n    transition: var(--transition);\n}\n\n.category-card:hover .category-icon {\n    background: var(--primary);\n    color: white;\n}\n\n.category-card h3 {\n    font-size: 1.1rem;\n    margin-bottom: 8px;\n    color: var(--text-dark);\n}\n\n.category-card p {\n    color: var(--text-muted);\n    font-size: 0.9rem;\n}\n\n/* ===== FOOD CARDS ===== */\n.featured-section {\n    padding: 80px 0;\n    background: var(--bg-light);\n}\n\n.featured-grid {\n    display: grid;\n    grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));\n    gap: 28px;\n}\n\n.food-card {\n    background: var(--bg-white);\n    border-radius: var(--radius-lg);\n    overflow: hidden;\n    transition: var(--transition);\n    box-shadow: var(--shadow-sm);\n    border: 1px solid var(--border);\n}\n\n.food-card:hover {\n    transform: translateY(-6px);\n    box-shadow: var(--shadow-lg);\n}\n\n.food-card-image {\n    position: relative;\n    height: 200px;\n    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);\n    display: flex;\n    align-items: center;\n    justify-content: center;\n}\n\n.food-img-placeholder {\n    font-size: 4rem;\n    color: var(--text-light);\n    opacity: 0.5;\n}\n\n.food-category {\n    position: absolute;\n    top: 12px;\n    left: 12px;\n    background: var(--primary);\n    color: white;\n    padding: 4px 12px;\n    border-radius: 20px;\n    font-size: 0.8rem;\n    font-weight: 600;\n}\n\n.food-card-body {\n    padding: 20px;\n}\n\n.food-name {\n    font-size: 1.15rem;\n    font-weight: 600;\n    margin-bottom: 8px;\n    color: var(--text-dark);\n}\n\n.food-description {\n    color: var(--text-muted);\n    font-size: 0.9rem;\n    margin-bottom: 16px;\n    line-height: 1.5;\n    display: -webkit-box;\n    -webkit-line-clamp: 2;\n    -webkit-box-orient: vertical;\n    overflow: hidden;\n}\n\n.food-card-footer {\n    display: flex;\n    align-items: center;\n    justify-content: space-between;\n    padding-top: 16px;\n    border-top: 1px solid var(--border);\n}\n\n.food-price {\n    font-size: 1.3rem;\n    font-weight: 700;\n    color: var(--primary);\n}\n\n/* ===== MENU PAGE ===== */\n.page-banner {\n    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);\n    color: white;\n    padding: 60px 0;\n    text-align: center;\n}\n\n.page-banner h1 {\n    font-family: var(--font-heading);\n    font-size: 2.5rem;\n    margin-bottom: 10px;\n}\n\n.page-banner p {\n    color: rgba(255,255,255,0.7);\n    font-size: 1.1rem;\n}\n\n.menu-section {\n    padding: 60px 0;\n}\n\n.menu-filters {\n    display: flex;\n    gap: 10px;\n    flex-wrap: wrap;\n    margin-bottom: 40px;\n    justify-content: center;\n}\n\n.filter-btn {\n    padding: 10px 24px;\n    border-radius: 25px;\n    border: 2px solid var(--border);\n    background: var(--bg-white);\n    color: var(--text-dark);\n    font-weight: 500;\n    cursor: pointer;\n    transition: var(--transition);\n    font-family: var(--font-primary);\n    font-size: 0.9rem;\n}\n\n.filter-btn:hover {\n    border-color: var(--primary);\n    color: var(--primary);\n}\n\n.filter-btn.active {\n    background: var(--primary);\n    color: white;\n    border-color: var(--primary);\n}\n\n.menu-grid {\n    display: grid;\n    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));\n    gap: 28px;\n}\n\n.search-bar {\n    max-width: 500px;\n    margin: 0 auto 40px;\n    position: relative;\n}\n\n.search-bar input {\n    width: 100%;\n    padding: 14px 20px 14px 48px;\n    border: 2px solid var(--border);\n    border-radius: 30px;\n    font-size: 1rem;\n    font-family: var(--font-primary);\n    transition: var(--transition);\n    background: var(--bg-white);\n}\n\n.search-bar input:focus {\n    outline: none;\n    border-color: var(--primary);\n    box-shadow: 0 0 0 3px var(--primary-light);\n}\n\n.search-bar i {\n    position: absolute;\n    left: 18px;\n    top: 50%;\n    transform: translateY(-50%);\n    color: var(--text-muted);\n}\n\n/* ===== CART PAGE ===== */\n.cart-section {\n    padding: 60px 0;\n    min-height: 60vh
+2 steps
+·
+68,006 in
+·
+4,258 out
+·
+72,264 tokens
+·
+44.6s
+done?
+🔍
+Planning…
+ [thinking] Planning…
+
+[thinking] Need to check if CSS was fully written (it was truncated) and verify the site looks good with a screenshot.
+
+[commands executed + output]
+$ ls -la /var/www/food/assets/css/style.css 2>/dev/null
+-rw-r--r-- 1 root root 6144 Jun 17 19:15 /var/www/food/assets/css/style.css
+[exit 0]
+
+─────
+
+$ tail -20 /var/www/food/assets/css/style.css
+    transition: var(--transition);
+    font-family: var(--font-primary);
+    font-size: 0.9rem;
+}
+
+.filter-btn:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+}
+
+.filter-btn.active {
+    background: var(--primary);
+    color: white;
+    border-color: var(--primary);
+}
+
+.menu-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 28px;
+}
+
+.search-bar {
+    max-width: 500px;
+    margin: 0 auto 40px;
+    position: relative;
+}
+
+.search-bar input {
+    width: 100%;
+    padding: 14px 20px 14px 48px;
+    border: 2px solid var(--border);
+    border-radius: 30px;
+    font-size: 1rem;
+    font-family: var(--font-primary);
+    transition: var(--transition);
+    background: var(--bg-white);
+}
+
+.search-bar input:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+.search-bar i {
+    position: absolute;
+    left: 18px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+}
+
+/* ===== CART PAGE ===== */
+.cart-section {
+    padding: 60px 0;
+    min-height: 60vh
+[exit 0]
+
+[thinking] Building…
+
+[agent message] The CSS was truncated — it's incomplete. Need to rewrite the full style.css properly.
+
+```json
+{
+  "thought": "CSS file was truncated at 6KB. Need to write complete CSS with all sections including cart, checkout, footer, responsive, etc.",
+  "action": "run",
+  "commands": [
+    {
+      "cmd": "python3 << 'PYEOF'\nimport os\npath = '/var/www/food/assets/css/style.css'\ncontent = r\"\"\"/* ===== TASTY BITES RESTAURANT - MAIN STYLESHEET ===== */\n\n:root {\n    --primary: #e74c3c;\n    --primary-dark: #c0392b;\n    --primary-light: #fadbd8;\n    --secondary: #2c3e50;\n    --accent: #f39c12;\n    --success: #27ae60;\n    --text-dark: #2c3e50;\n    --text-muted: #7f8c8d;\n    --text-light: #95a5a6;\n    --bg-light: #f8f9fa;\n    --bg-white: #ffffff;\n    --border: #e0e0e0;\n    --shadow-sm: 0 2px 8px rgba(0,0,0,0.08);\n    --shadow-md: 0 4px 16px rgba(0,0,0,0.12);\n    --shadow-lg: 0 8px 32px rgba(0,0,0,0.16);\n    --radius-sm: 8px;\n    --radius-md: 12px;\n    --radius-lg: 16px;\n    --transition: all 0.3s ease;\n    --font-primary: 'Inter', -apple-system, sans-serif;\n    --font-heading: 'Playfair Display', Georgia, serif;\n}\n\n*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }\nhtml { scroll-behavior: smooth; }\n\nbody {\n    font-family: var(--font-primary);\n    color: var(--text-dark);\n    background: var(--bg-light);\n    line-height: 1.6;\n    -webkit-font-smoothing: antialiased;\n}\n\na { text-decoration: none; color: inherit; }\nul { list-style: none; }\nimg { max-width: 100%; height: auto; }\n\n.container {\n    max-width: 1200px;\n    margin: 0 auto;\n    padding: 0 20px;\n}\n\n/* ===== HEADER & NAVIGATION ===== */\n.header {\n    background: var(--bg-white);\n    box-shadow: var(--shadow-sm);\n    position: sticky;\n    top: 0;\n    z-index: 1000;\n}\n\n.nav-container {\n    max-width: 1200px;\n    margin: 0 auto;\n    display: flex;\n    align-items: center;\n    justify-content: space-between;\n    height: 70px;\n    padding: 0 20px;\n}\n\n.nav-logo {\n    display: flex;\n    align-items: center;\n    gap: 10px;\n    font-size: 1.5rem;\n    font-weight: 700;\n    color: var(--primary);\n    font-family: var(--font-heading);\n}\n\n.nav-logo i { font-size: 1.8rem; }\n\n.nav-list { display: flex; align-items: center; gap: 5px; }\n\n.nav-link {\n    display: flex;\n    align-items: center;\n    gap: 6px;\n    padding: 10px 18px;\n    border-radius: var(--radius-sm);\n    color: var(--text-dark);\n    font-weight: 500;\n    transition: var(--transition);\n    font-size: 0.95rem;\n}\n\n.nav-link:hover { background: var(--primary-light); color: var(--primary); }\n.nav-link.active { background: var(--primary); color: white; }\n\n.cart-link { position: relative; }\n\n.cart-badge {\n    position: absolute;\n    top: 2px;\n    right: 4px;\n    background: var(--accent);\n    color: white;\n    font-size: 0.7rem;\n    font-weight: 700;\n    width: 20px;\n    height: 20px;\n    border-radius: 50%;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n}\n\n.nav-toggle {\n    display: none;\n    background: none;\n    border: none;\n    font-size: 1.5rem;\n    color: var(--text-dark);\n    cursor: pointer;\n    padding: 8px;\n}\n\n/* ===== HERO SECTION ===== */\n.hero-section {\n    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);\n    color: white;\n    padding: 100px 0 80px;\    text-align: center;\n    position: relative;\n    overflow: hidden;\n}\n\n.hero-content {\n    position: relative;\n    z-index: 1;\n    max-width: 800px;\n    margin: 0 auto;\n}\n\n.hero-title {\n    font-family: var(--font-heading);\n    font-size: 3.5rem;\n    font-weight: 700;\n    margin-bottom: 20px;\n    line-height: 1.2;\n}\n\n.hero-title span { color: var(--accent); }\n\n.hero-subtitle {\n    font-size: 1.2rem;\n    color: rgba(255,255,255,0.8);\n    margin-bottom: 35px;\n    line-height: 1.6;\n}\n\n.hero-buttons {\n    display: flex;\n    gap: 15px;\n    justify-content: center;\n    flex-wrap: wrap;\n}\n\n/* ===== BUTTONS ===== */\n.btn {\n    display: inline-flex;\n    align-items: center;\n    gap: 8px;\n    padding: 12px 28px;\n    border-radius: var(--radius-sm);\n    font-weight: 600;\n    font-size: 1rem;\n    border: none;\n    cursor: pointer;\n    transition: var(--transition);\n    font-family: var(--font-primary);\n}\n\n.btn-primary {\n    background: var(--primary);\n    color: white;\n}\n\n.btn-primary:hover {\n    background: var(--primary-dark);\n    transform: translateY(-2px);\n    box-shadow: var(--shadow-md);\n}\n\n.btn-secondary {\n    background: rgba(255,255,255,0.15);\n    color: white;\n    border: 2px solid rgba(255,255,255,0.3);\n}\n\n.btn-secondary:hover {\n    background: rgba(255,255,255,0.25);\n    transform: translateY(-2px);\n}\n\n.btn-lg { padding: 16px 36px; font-size: 1.1rem; }\n.btn-sm { padding: 8px 16px; font-size: 0.85rem; }\n.btn-success { background: var(--success) !important; color: white !important; }\n\n.btn-text {\n    background: none;\n    color: var(--text-muted);\n    padding: 8px 12px;\n}\n\n.btn-text:hover { color: var(--primary); }\n\n.btn-add-cart {\n    background: var(--primary);\n    color: white;\n    padding: 8px 16px;\n    font-size: 0.85rem;\n    border-radius: var(--radius-sm);\n    border: none;\n    cursor: pointer;\n    transition: var(--transition);\n    display: flex;\n    align-items: center;\n    gap: 6px;\n    font-weight: 500;\n}\n\n.btn-add-cart:hover { background: var(--primary-dark); transform: translateY(-1px); }\n\n/* ===== CATEGORY CARDS ===== */\n.categories-section {\n    padding: 80px 0;\n    background: var(--bg-white);\n}\n\n.section-header {\n    text-align: center;\n    margin-bottom: 50px;\n}\n\n.section-title {\n    font-family: var(--font-heading);\n    font-size: 2.5rem;\n    color: var(--text-dark);\n    margin-bottom: 12px;\n}\n\n.section-subtitle {\n    color: var(--text-muted);\n    font-size: 1.1rem;\n}\n\n.category-grid {\n    display: grid;\n    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));\n    gap: 24px;\n}\n\n.category-card {\n    background: var(--bg-light);\n    border-radius: var(--radius-md);\n    padding: 30px 20px;\n    text-align: center;\n    transition: var(--transition);\n    cursor: pointer;\n    border: 2px solid transparent;\n}\n\n.category-card:hover {\n    transform: translateY(-5px);\n    box-shadow: var(--shadow-md);\n    border-color: var(--primary-light);\n    background: white;\n}\n\n.category-card .category-icon {\n    width: 70px;\n    height: 70px;\n    background: var(--primary-light);\n    border-radius: 50%;\n    display: flex;\n    align-items: center;\n    justify-content: center;\n    margin: 0 auto 16px;\n    font-size: 1.8rem;\n    color: var(--primary);\n    transition: var(--transition);\n}\n\n.category-card:hover .category-icon {\n    background: var(--primary);\n    color: white;\n}\n\n.category-card h3 {\n    font-size: 1.1rem;\n    margin-bottom: 8px;\n    color: var(--text-dark);\n}\n\n.category-card p {\n    color: var(--text-muted);\n    font-size: 0.9rem;\n}\n\n/* ===== FOOD CARDS ===== */\n.featured-section {\n    padding: 80px 0;\n    background: var(--bg-light);\n}\n\n.featured-grid {\n    display: grid;\n    grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));\n    gap: 28px;\n}\n\n.food-card {\n    background: var(--bg-white);\n    border-radius: var(--radius-lg);\n    overflow: hidden;\n    transition: var(--transition);\n    box-shadow: var(--shadow-sm);\n    border: 1px solid var(--border);\n}\n\n.food-card:hover {\n    transform: translateY(-6px);\n    box-shadow: var(--shadow-lg);\n}\n\n.food-card-image {\n    position: relative;\n    height: 200px;\n    background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);\n    display: flex;\n    align-items: center;\n    justify-content: center;\n}\n\n.food-img-placeholder {\n    font-size: 4rem;\n    color: var(--text-light);\n    opacity: 0.5;\n}\n\n.food-category {\n    position: absolute;\n    top: 12px;\n    left: 12px;\n    background: var(--primary);\n    color: white;\n    padding: 4px 12px;\n    border-radius: 20px;\n    font-size: 0.8rem;\n    font-weight: 600;\n}\n\n.food-card-body {\n    padding: 20px;\n}\n\n.food-name {\n    font-size: 1.15rem;\n    font-weight: 600;\n    margin-bottom: 8px;\n    color: var(--text-dark);\n}\n\n.food-description {\n    color: var(--text-muted);\n    font-size: 0.9rem;\n    margin-bottom: 16px;\n    line-height: 1.5;\n    display: -webkit-box;\n    -webkit-line-clamp: 2;\n    -webkit-box-orient: vertical;\n    overflow: hidden;\n}\n\n.food-card-footer {\n    display: flex;\n    align-items: center;\n    justify-content: space-between;\n    padding-top: 16px;\n    border-top: 1px solid var(--border);\n}\n\n.food-price {\n    font-size: 1.3rem;\n    font-weight: 700;\n    color: var(--primary);\n}\n\n/* ===== MENU PAGE ===== */\n.page-banner {\n    background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);\n    color: white;\n    padding: 60px 0;\n    text-align: center;\n}\n\n.page-banner h1 {\n    font-family: var(--font-heading);\n    font-size: 2.5rem;\n    margin-bottom: 10px;\n}\n\n.page-banner p {\n    color: rgba(255,255,255,0.7);\n    font-size: 1.1rem;\n}\n\n.menu-section {\n    padding: 60px 0;\n}\n\n.menu-filters {\n    display: flex;\n    gap: 10px;\n    flex-wrap: wrap;\n    margin-bottom: 40px;\n    justify-content: center;\n}\n\n.filter-btn {\n    padding: 10px 24px;\n    border-radius: 25px;\n    border: 2px solid var(--border);\n    background: var(--bg-white);\n    color: var(--text-dark);\n    font-weight: 500;\n    cursor: pointer;\n    transition: var(--transition);\n    font-family: var(--font-primary);\n    font-size: 0.9rem;\n}\n\n.filter-btn:hover { border-color: var(--primary); color: var(--primary); }\n\n.filter-btn.active {\n    background: var(--primary);\n    color: white;\n    border-color: var(--primary);\n}\n\n.menu-grid {\n    display: grid;\n    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));\n    gap: 28px;\n}\n\n.search-bar {\n    max-width: 500px;\n    margin: 0 auto 40px;\n    position: relative;\n}\n\n.search-bar input {\n    width: 100%;\n    padding: 14px 20px 14px 48px;\n    border: 2px solid var(--border);\n    border-radius: 30px;\n    font-size: 1rem;\n    font-family: var(--font-primary);\n    transition: var(--transition);\n    background: var(--bg-white);\n}\n\n.search-bar input:focus {\n    outline: none;\n    border-color: var(--primary);\n    box-shadow: 0 0 0 3px var(--primary-light);\n}\n\n.search-bar i {\n    position: absolute;\n    left: 18px;\n    top: 50%;\n    transform: translateY(-50%);\n    color: var(--text-muted);\n}\n\n/* ===== CART PAGE ===== */\n.cart-section {\n    padding: 60px 0;\n    min-height: 60vh;\n}\n\n.empty-state {\n    text-align: center;\n    padding: 80px 20px;\n}\n\n.empty-state i {\n    font-size: 4rem;\n    color: var(--text-light);\n    margin-bottom: 20px;\n}\n\n.empty-state h3 {\n    font-size: 1.5

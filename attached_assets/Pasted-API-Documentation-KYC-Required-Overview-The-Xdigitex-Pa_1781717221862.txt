@@ -1,0 +1,254 @@
+API Documentation
+KYC Required
+Overview
+The Xdigitex Pay REST API lets you accept and manage payments programmatically. All payment routes require your API key in the X-API-Key header.
+
+Base URL
+
+https://pay.xdigitex.space/api
+
+Authentication
+Include your API key in every request header:
+
+X-API-Key: pg_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+Generate API keys from your dashboard.
+
+Supported Countries & Mobile Networks
+Mobile money payments and instant withdrawals are supported in all 14 countries below. Network is auto-detected from phone number.
+
+Country	Currency	Dial Code	Networks	Min Withdrawal
+🇧🇯 Benin	XOF	+229	Moov Benin, MTN Benin	500 XOF
+🇧🇫 Burkina Faso	XOF	+226	Moov Burkina, Orange Burkina	500 XOF
+🇨🇲 Cameroon	XAF	+237	MTN Cameroon	500 XAF
+🇨🇮 Côte d'Ivoire	XOF	+225	MTN Côte d'Ivoire, Orange Côte d'Ivoire	500 XOF
+🇨🇩 DR Congo	CDF	+243	Airtel DRC, Orange DRC, Vodacom M-Pesa DRC	1,000 CDF
+🇨🇩 DR Congo (USD)	USD	+243	Airtel DRC, Orange DRC, Vodacom M-Pesa DRC	5 USD
+🇬🇦 Gabon	XAF	+241	Airtel Gabon	500 XAF
+🇰🇪 Kenya	KES	+254	M-Pesa (Safaricom)	10 KES
+🇨🇬 Republic of the Congo	XAF	+242	Airtel Congo, MTN Congo	500 XAF
+🇷🇼 Rwanda	RWF	+250	Airtel Rwanda, MTN Rwanda	500 RWF
+🇸🇳 Senegal	XOF	+221	Free Senegal, Orange Senegal	500 XOF
+🇸🇱 Sierra Leone	SLE	+232	Orange Sierra Leone	5 SLE
+🇺🇬 Uganda	UGX	+256	MTN Uganda, Airtel Uganda	500 UGX
+🇿🇲 Zambia	ZMW	+260	MTN Zambia, Zamtel Zambia	5 ZMW
+Phone format: Always use international format with country code, e.g. +254712345678 for Kenya. The correct network and currency are detected automatically.
+
+Gateway Values
+Pass one of these values as the gateway field when initiating a payment. All gateways use a flat processing fee.
+
+Visa / Card
+Kenya & East Africa — Visa, Mastercard, M-Pesa, Airtel Money
+"card"
+recommended
+Visa / Mastercard
+
+Debit and credit card payments. Customer is redirected to a secure hosted checkout page.
+
+"safaricom"
+M-Pesa (Kenya)
+
+Safaricom M-Pesa STK push. Customer receives a prompt on their phone to enter PIN.
+
+"airtel"
+Airtel Money (Kenya)
+
+Airtel Money Kenya STK push. Customer receives a prompt on their phone to enter PIN.
+
+Response includes a redirect_url — send the customer to this URL to complete payment on the secure checkout page.
+
+Pan Africa
+14 countries, 20+ mobile networks — STK push, requires phone
+"mobile"
+recommended
+Pan-Africa Mobile Money
+
+MTN, Airtel, M-Pesa, Vodacom, Orange, Free, Moov, Zamtel and more — across Kenya, Uganda, DR Congo, Cameroon, Zambia, Rwanda, Senegal, Côte d'Ivoire, Benin, Burkina Faso, Gabon, Republic of the Congo, Sierra Leone & more. Network and currency auto-detected from phone number.
+
+Response includes a message confirming the STK push was sent. Customer checks their phone and enters their PIN to complete payment.
+
+Crypto
+USDT, BTC, ETH, BNB — global borderless payments
+"crypto"
+recommended
+Cryptocurrency
+
+Accept USDT, BTC, ETH, BNB and 50+ cryptocurrencies. Instant settlement, zero chargebacks, global reach. Returns a checkout_url and scannable qrcode_link.
+
+Response includes checkout_url and qrcode_link. Redirect the customer or display the QR code for wallet scan.
+
+POST
+/payments/initiate
+Create a new payment. For card, M-Pesa or Airtel you receive a redirect_url to the secure checkout. For mobile money the customer gets an STK push prompt on their phone.
+
+Request Body
+
+{
+  "amount": 1000,
+  "currency": "KES",
+  "gateway": "card",
+  "email": "customer@example.com",
+  "phone": "+254712345678",
+  "first_name": "John",
+  "last_name": "Doe",
+  "description": "Order #1234",
+  "callback_url": "https://yoursite.com/callback",
+  "webhook_url": "https://yoursite.com/webhook"
+}
+Response
+
+{
+  "success": true,
+  "reference": "TX-20240101-ABCD1234",
+  "gateway": "card",
+  "amount": 1000,
+  "fee": 120,
+  "net_amount": 880,
+  "fee_percent": 12,
+  "redirect_url": "https://pay.pesapal.com/..."
+}
+POST
+/payments/initiate (mobile money)
+Pan-Africa mobile money STK push. The phone field is required. Network and currency are auto-detected from the phone prefix. Supports 14 countries (see Supported Countries above).
+
+Request Body
+
+{
+  "amount": 500,
+  "currency": "KES",
+  "gateway": "mobile",
+  "phone": "+254712345678",
+  "description": "Order #1234",
+  "callback_url": "https://yoursite.com/callback",
+  "webhook_url": "https://yoursite.com/webhook"
+}
+Response
+
+{
+  "success": true,
+  "reference": "TX-20240101-ABCD1234",
+  "gateway": "mobile",
+  "amount": 500,
+  "fee": 60,
+  "net_amount": 440,
+  "fee_percent": 12,
+  "deposit_id": "a1b2c3d4-...",
+  "pawa_status": "ACCEPTED",
+  "correspondent": "MPESA_KEN",
+  "message": "Check your phone for the payment prompt."
+}
+GET
+/payments/{reference}/status
+Get the current status of a payment by its reference.
+
+Response
+
+{
+  "reference": "TX-20240101-ABCD1234",
+  "status": "completed",
+  "amount": 1000,
+  "fee": 120,
+  "net_amount": 880,
+  "currency": "KES",
+  "gateway": "card",
+  "created_at": "2024-01-01T12:00:00.000000Z",
+  "updated_at": "2024-01-01T12:15:00.000000Z"
+}
+GET
+/payments
+List all payments for your account, paginated.
+
+Response
+
+{"data": [...], "total": 42, "per_page": 20, "current_page": 1}
+GET
+/balance
+Get your wallet balance.
+
+Response
+
+{
+  "balance": 12500.00,
+  "locked_balance": 0,
+  "available_balance": 12500.00,
+  "currency": "KES"
+}
+POST
+/withdrawals
+Request a withdrawal to your mobile money number. Processed automatically within minutes. Supported currencies: KES, CDF, UGX, XOF, XAF, RWF, ZMW, SLE. A 3.0% transaction fee is deducted from your wallet.
+
+Request Body
+
+{
+  "amount": 5000,
+  "currency": "KES",
+  "method": "mobile_money",
+  "account_number": "+254712345678"
+}
+Response
+
+{
+  "success": true,
+  "reference": "WDR-20240101-EFGH",
+  "status": "processing",
+  "amount": 5000,
+  "fee": 125,
+  "message": "Withdrawal submitted successfully"
+}
+GET
+/withdrawals
+List your withdrawal history.
+
+Response
+
+{"data": [...], "total": 5, "per_page": 20}
+GET
+/gateways
+List available payment gateways and their details.
+
+Response
+
+{"gateways": [{"id": "card", "name": "Visa / Mastercard"}, {"id": "safaricom", "name": "M-Pesa Kenya"}, {"id": "airtel", "name": "Airtel Money Kenya"}, {"id": "mobile", "name": "Pan-Africa Mobile Money"}, {"id": "crypto", "name": "Cryptocurrency"}]}
+Payment Statuses
+pending
+Payment created, not yet processed.
+
+processing
+Sent to network, awaiting confirmation.
+
+completed
+Payment confirmed. Wallet credited.
+
+failed
+Payment failed or was rejected.
+
+Fee Schedule
+Flat fee
+Processing fee — all payment methods
+A small flat fee is deducted from the gross amount on deposit. Net amount is credited to your wallet instantly on payment completion.
+3.0%
+Withdrawal fee — all currencies
+Charged on top of the withdrawal amount to cover mobile network transfer costs. Deducted from your wallet at the time of withdrawal.
+Pay Links
+Pay Links let you collect payments without writing any code. Create a link from your dashboard and share it — customers pay directly via mobile money, card, or crypto.
+
+How it works
+
+Create a Pay Link from your dashboard with the amount, currency, and description.
+Share the link with your customer via WhatsApp, email, or social media.
+Customer opens the link, enters their phone number (or card), and pays.
+Funds appear in your wallet as soon as payment is confirmed.
+Pay Link URL format
+
+https://pay.xdigitex.space/pay/{slug}
+
+Supports all 14 countries and all mobile networks listed above. Accepts KES, CDF, UGX, XOF, XAF, RWF, ZMW, SLE, USD.
+
+Webhook Events
+Xdigitex Pay POSTs to your webhook_url when a payment completes or fails.
+
+Payment Completed
+
+{"event": "payment.completed", "reference": "TX-...", "status": "completed", "amount": 1000, "fee": 120, "net_amount": 880, "currency": "KES"}
+Payment Failed
+
+{"event": "payment.failed", "reference": "TX-...", "status": "failed", "amount": 1000, "currency": "KES"}

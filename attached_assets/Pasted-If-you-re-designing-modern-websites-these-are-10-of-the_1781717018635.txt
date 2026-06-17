@@ -1,0 +1,141 @@
+If you're designing modern websites, these are 10 of the most popular color/style combinations used by top SaaS, restaurant, fintech, AI, and e-commerce websites.
+
+1. Modern Blue Professional
+7
+Primary: #2563EB
+Secondary: #60A5FA
+Accent: #DBEAFE
+Background: #F8FAFC
+Text: #0F172A
+
+Best for:
+
+SaaS
+Corporate
+AI Platforms
+2. Luxury Black & Gold
+Primary: #111827
+Gold: #FBBF24
+Secondary: #D4AF37
+Background: #0A0A0A
+Text: #FFFFFF
+
+Best for:
+
+Hotels
+Luxury Brands
+High-end Restaurants
+3. Restaurant Red & Orange
+6
+Primary: #EF4444
+Secondary: #F97316
+Accent: #FDE68A
+Background: #FFF7ED
+Text: #1F2937
+
+Best for:
+
+Food Ordering
+Fast Food
+Cafés
+4. AI Purple Gradient
+Primary: #7C3AED
+Secondary: #A855F7
+Accent: #C084FC
+Background: #F5F3FF
+Text: #1E1B4B
+
+Best for:
+
+AI Startups
+Apps
+Tech Products
+5. Fintech Green
+Primary: #10B981
+Secondary: #34D399
+Accent: #A7F3D0
+Background: #ECFDF5
+Text: #064E3B
+
+Best for:
+
+Banking
+Payments
+Investment Platforms
+6. Dark Neon Cyberpunk
+Background: #0F172A
+Primary: #06B6D4
+Secondary: #8B5CF6
+Accent: #EC4899
+Text: #FFFFFF
+
+Best for:
+
+Gaming
+Crypto
+AI Products
+7. Elegant Beige & Brown
+Primary: #92400E
+Secondary: #D97706
+Accent: #FCD34D
+Background: #FEF3C7
+Text: #451A03
+
+Best for:
+
+Coffee Shops
+Bakeries
+Lifestyle Brands
+8. Apple-Inspired Minimalist
+6
+Primary: #000000
+Secondary: #6B7280
+Background: #FFFFFF
+Accent: #F3F4F6
+Text: #111827
+
+Best for:
+
+Portfolios
+Agencies
+Startups
+9. Premium Navy & Cyan
+Primary: #1E3A8A
+Secondary: #06B6D4
+Accent: #67E8F9
+Background: #F8FAFC
+Text: #0F172A
+
+Best for:
+
+Enterprise
+Software Companies
+Dashboards
+10. Vibrant Startup Gradient
+6
+Gradient:
+#6366F1
+#8B5CF6
+#EC4899
+Background: #FFFFFF
+Text: #111827
+
+Best for:
+
+Startups
+Mobile Apps
+Creative Agencies
+Top 3 Recommendations for Most Websites
+Blue Professional → safest and most trusted.
+Apple Minimalist → clean and premium.
+Purple AI Gradient → modern and high-converting.
+Example CSS Variables
+:root{
+  --primary:#2563EB;
+  --secondary:#60A5FA;
+  --accent:#DBEAFE;
+  --bg:#F8FAFC;
+  --text:#0F172A;
+  --radius:16px;
+  --shadow:0 10px 30px rgba(0,0,0,.08);
+}

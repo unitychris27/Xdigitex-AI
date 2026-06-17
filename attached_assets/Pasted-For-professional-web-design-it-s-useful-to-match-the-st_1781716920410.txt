@@ -1,0 +1,206 @@
+For professional web design, it's useful to match the style to the website category. Here are **20 high-performing design styles** with color palettes used across modern websites.
+
+| #  | Website Type   | Style             | Primary Colors                  |
+| -- | -------------- | ----------------- | ------------------------------- |
+| 1  | SaaS           | Professional Blue | `#2563EB`, `#60A5FA`, `#F8FAFC` |
+| 2  | AI Startup     | Purple Gradient   | `#7C3AED`, `#A855F7`, `#C084FC` |
+| 3  | Fintech        | Emerald Green     | `#10B981`, `#34D399`, `#ECFDF5` |
+| 4  | Restaurant     | Red-Orange        | `#EF4444`, `#F97316`, `#FFF7ED` |
+| 5  | E-commerce     | Indigo-Pink       | `#4F46E5`, `#EC4899`, `#FFFFFF` |
+| 6  | Luxury Brand   | Black-Gold        | `#111827`, `#FBBF24`, `#FFFFFF` |
+| 7  | Real Estate    | Navy-Gold         | `#1E3A8A`, `#D4AF37`, `#F8FAFC` |
+| 8  | Law Firm       | Dark Navy         | `#0F172A`, `#334155`, `#F8FAFC` |
+| 9  | Healthcare     | Blue-Green        | `#0891B2`, `#10B981`, `#F0FDFA` |
+| 10 | Education      | Blue-Yellow       | `#2563EB`, `#FBBF24`, `#FFFFFF` |
+| 11 | Travel         | Sky Blue          | `#0EA5E9`, `#38BDF8`, `#E0F2FE` |
+| 12 | Fitness        | Black-Red         | `#000000`, `#DC2626`, `#FFFFFF` |
+| 13 | Gaming         | Neon Cyberpunk    | `#06B6D4`, `#8B5CF6`, `#EC4899` |
+| 14 | Music          | Purple-Neon       | `#9333EA`, `#EC4899`, `#FFFFFF` |
+| 15 | Portfolio      | Apple Minimal     | `#FFFFFF`, `#111827`, `#F3F4F6` |
+| 16 | Crypto         | Dark Cyan         | `#0F172A`, `#06B6D4`, `#67E8F9` |
+| 17 | NGO/Charity    | Green-Blue        | `#16A34A`, `#2563EB`, `#F0FDF4` |
+| 18 | News Portal    | Clean Gray        | `#374151`, `#6B7280`, `#FFFFFF` |
+| 19 | Event Booking  | Orange-Purple     | `#F97316`, `#7C3AED`, `#FFF7ED` |
+| 20 | Social Network | Blue Gradient     | `#3B82F6`, `#60A5FA`, `#DBEAFE` |
+
+## Most Popular Layout Styles
+
+### 1. Apple Minimalist
+
+* Large whitespace
+* Rounded corners
+* Soft shadows
+* Clean typography
+
+```css
+border-radius: 20px;
+box-shadow: 0 10px 30px rgba(0,0,0,.08);
+```
+
+---
+
+### 2. Glassmorphism
+
+```css
+backdrop-filter: blur(20px);
+background: rgba(255,255,255,.1);
+border: 1px solid rgba(255,255,255,.2);
+```
+
+Best for:
+
+* AI
+* Dashboards
+* Portfolios
+
+---
+
+### 3. Neumorphism
+
+```css
+box-shadow:
+10px 10px 20px #d1d9e6,
+-10px -10px 20px #ffffff;
+```
+
+Best for:
+
+* Mobile Apps
+* UI Kits
+
+---
+
+### 4. Dark Premium
+
+```css
+background:#0F172A;
+color:white;
+```
+
+Best for:
+
+* Finance
+* Crypto
+* Gaming
+
+---
+
+### 5. Gradient Modern
+
+```css
+background:
+linear-gradient(
+135deg,
+#6366F1,
+#8B5CF6,
+#EC4899
+);
+```
+
+Best for:
+
+* Startups
+* Landing Pages
+
+---
+
+## Best Font Pairings
+
+### Corporate
+
+```css
+font-family: Inter, sans-serif;
+```
+
+### Premium
+
+```css
+font-family: Poppins, sans-serif;
+```
+
+### Luxury
+
+```css
+font-family: Playfair Display, serif;
+```
+
+### Modern Tech
+
+```css
+font-family: Space Grotesk, sans-serif;
+```
+
+### Creative
+
+```css
+font-family: Outfit, sans-serif;
+```
+
+## Top 5 Design Systems Used by Successful Websites
+
+### 1. Apple Style
+
+* White backgrounds
+* Large typography
+* Subtle shadows
+
+### 2. Stripe Style
+
+* Gradients
+* Floating cards
+* Modern illustrations
+
+### 3. Linear Style
+
+* Dark theme
+* Sharp typography
+* Minimal UI
+
+### 4. Notion Style
+
+* Clean monochrome
+* Focus on content
+
+### 5. Airbnb Style
+
+* Soft colors
+* Rounded elements
+* Friendly layouts
+
+## Universal "Premium Website" Palette
+
+Works for almost any category:
+
+```css
+:root{
+ --primary:#2563EB;
+ --secondary:#7C3AED;
+ --accent:#EC4899;
+
+ --bg:#F8FAFC;
+ --surface:#FFFFFF;
+
+ --text:#0F172A;
+ --muted:#64748B;
+
+ --radius:20px;
+
+ --shadow:
+ 0 10px 40px rgba(0,0,0,.08);
+}
+```
+
+If you're building websites for clients across many industries, the strongest combinations right now are:
+
+1. Apple Minimalist
+2. Stripe Gradient
+3. Linear Dark
+4. Glassmorphism
+5. Black & Gold Luxury
+6. SaaS Blue
+7. AI Purple Gradient
+8. Cyberpunk Neon
+9. Premium Navy
+10. Modern E-commerce Indigo-Pink
+
+These 10 styles cover roughly 90% of modern commercial website projects.

@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 
-export type AIProvider = "deepseek" | "openrouter" | "openai" | "nvidia";
+export type AIProvider = "deepseek" | "openrouter" | "openai" | "nvidia" | "xai";
 
 export interface GenerateOptions {
   prompt: string;
