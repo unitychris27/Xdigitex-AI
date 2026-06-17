@@ -1426,7 +1426,7 @@ router.post("/:id/chat", async (req, res) => {
             return await iterClient.chat.completions.create({
               model: iterModel,
               messages: aiMessages as any[],
-              max_tokens: 8000,
+              max_tokens: 4096,
               temperature: iter === 0 ? 0.3 : 0.1,
             });
           } catch (err: unknown) {

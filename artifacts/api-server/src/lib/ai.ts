@@ -46,26 +46,25 @@ export function getAIClient(provider: AIProvider = "deepseek") {
 }
 
 // ─── Auto mode model roster ──────────────────────────────────────────────────
-// All non-builder roles go through OpenRouter (pooled limits, never 429).
-// Builder uses the paid DeepSeek API directly (fastest code generation).
+// All roles use free NVIDIA NIM except builder which uses the paid DeepSeek API.
 //
-// Role          Provider       Model
-// ─────────     ───────────    ─────────────────────────────────────────
-// planner       openrouter     google/gemini-2.5-flash  (fast, smart)
-// builder       deepseek       deepseek-chat            (paid, no limits)
-// verifier      openrouter     google/gemini-2.5-flash  (fast checks)
-// recovery      openrouter     anthropic/claude-3.5-haiku (debugger)
+// Role          Provider   Model
+// ─────────     ─────────  ──────────────────────────────────────
+// planner       nvidia     moonshotai/kimi-k2.6       (architect)
+// builder       deepseek   deepseek-chat              (code writer)
+// verifier      nvidia     deepseek-ai/deepseek-v4-flash (fast checks)
+// recovery      nvidia     z-ai/glm-5.1               (debugger)
 export type AgentRole = "planner" | "builder" | "verifier" | "recovery";
 export function autoModel(role: AgentRole): string {
-  if (role === "planner")  return "google/gemini-2.5-flash";
-  if (role === "verifier") return "google/gemini-2.5-flash";
-  if (role === "recovery") return "anthropic/claude-3.5-haiku";
+  if (role === "planner")  return "moonshotai/kimi-k2.6";
+  if (role === "verifier") return "deepseek-ai/deepseek-v4-flash";
+  if (role === "recovery") return "z-ai/glm-5.1";
   return "deepseek-chat"; // builder → DeepSeek direct API
 }
 
 export function autoProvider(role: AgentRole): AIProvider {
-  if (role === "builder") return "deepseek";  // paid API, no rate limits
-  return "openrouter";   // planner/verifier/recovery → OpenRouter pooled limits
+  if (role === "builder") return "deepseek"; // paid API, no rate limits
+  return "nvidia";                           // planner/verifier/recovery → free NVIDIA NIM
 }
 
 // ─── Gemini vision: screenshot analysis ─────────────────────────────────────
