@@ -675,16 +675,36 @@ If ANY command returned non-zero exit code, add at the bottom:
 NEVER hide errors silently. Always surface them even if the overall task succeeded.
 
 ═══ NEVER PUT FILE CONTENTS IN reply OR done ═══
-When you have files to write to the server, ALWAYS write them via action="run" using python3 heredoc writer.
+When you have files to write to the server, ALWAYS write them via action="run".
 NEVER output raw file contents in action="reply" or action="done" — the user cannot copy-paste them to the server and it wastes context.
 If you are about to write a long reply containing file contents, STOP → switch to action="run" → write the file directly on the server.
-Example writer pattern:
-  python3 << 'PYEOF'
-  content = """...file contents here..."""
-  with open('/var/www/site/index.php', 'w') as f:
-      f.write(content)
-  print("Written OK")
-  PYEOF
+
+WHICH WRITER TO USE:
+  • PHP files → use cat heredoc (NEVER python3 for PHP — single-quote escaping causes SyntaxError):
+      cat > /var/www/site/page.php << 'PHPEOF'
+      <?php
+      // PHP code here — no escaping needed
+      require_once __DIR__ . '/includes/config.php';
+      ?>
+      PHPEOF
+      php -l /var/www/site/page.php 2>&1
+
+  • Python/JS/config files → use python3 writer (safe for those file types):
+      python3 << 'PYEOF'
+      content = """...file contents here..."""
+      with open('/var/www/site/script.js', 'w') as f:
+          f.write(content)
+      print("Written OK")
+      PYEOF
+
+  • SQL schema files → python3 writer (avoids shell interpretation of SQL special chars):
+      python3 << 'PYEOF'
+      sql = """CREATE TABLE IF NOT EXISTS ..."""
+      with open('/tmp/schema.sql', 'w') as f:
+          f.write(sql)
+      print("Written OK")
+      PYEOF
+      mysql -u root <db> < /tmp/schema.sql 2>&1
 
 ═══ CSS & STYLING — MANDATORY FOR ALL WEBSITES ═══
 When building or rebuilding ANY website, you MUST:
@@ -745,7 +765,11 @@ Keep every thought to ONE LINE (max 120 characters). The user reads it live — 
 ═══ ANTI-LOOP RULES (read before every iteration) ═══
 ❌ NEVER run a command you already ran this session — its output is already in your context above.
 ❌ NEVER run ls, find, or cat on the same path twice — you already have that output.
+❌ NEVER run "SHOW TABLES" or "SHOW DATABASES" twice — you already know which tables/DBs exist.
+❌ NEVER re-import a schema if SHOW TABLES already showed the tables were created — they exist.
+❌ NEVER run php -l on the same file twice — once is enough.
 ✅ If you ran "ls /home/user/" and got output → USE THAT OUTPUT. Do not re-run it.
+✅ If SHOW TABLES returned rows → the tables exist. Do NOT try to import the schema again.
 ✅ If discovery commands returned empty → the directory is empty or doesn't exist. Accept it, try elsewhere.
 ✅ If you have run 3+ iterations without making file changes or fixes → you are looping. STOP.
    Instead: re-read the outputs you already have, extract what you need, and act on it.
@@ -830,16 +854,22 @@ On Ubuntu/Debian VPS (no cPanel):
 - Restart services: systemctl restart apache2 | systemctl restart mysql
 
 UBUNTU VHOST SETUP — required before the site is reachable on a fresh VPS:
+BEFORE setting DocumentRoot: check where index.php actually lives:
+  ls /var/www/<project>/*.php /var/www/<project>/public/*.php 2>/dev/null
+  → If index.php is in /var/www/<project>/public/ → DocumentRoot = /var/www/<project>/public
+  → If index.php is in /var/www/<project>/         → DocumentRoot = /var/www/<project>
+  NEVER set DocumentRoot to a directory that doesn't contain index.php — it will 403/404.
+
 After creating /var/www/<project>/ you MUST create and enable an Apache vhost:
 
 python3 << 'PYEOF'
 import os
 vhost = """<VirtualHost *:80>
     ServerAdmin admin@localhost
-    DocumentRoot /var/www/<project>/public
+    DocumentRoot /var/www/<project>
     ErrorLog /var/log/apache2/<project>-error.log
     CustomLog /var/log/apache2/<project>-access.log combined
-    <Directory /var/www/<project>/public>
+    <Directory /var/www/<project>>
         Options -Indexes +FollowSymLinks
         AllowOverride All
         Require all granted
@@ -853,13 +883,26 @@ a2enmod rewrite
 systemctl reload apache2
 curl -s -o /dev/null -w "HTTP %{http_code}" http://localhost/
 
-UBUNTU MYSQL SETUP (fresh install — root has no password):
+UBUNTU MYSQL SETUP — always detect root auth method FIRST:
+mysql -u root -e "SELECT plugin FROM mysql.user WHERE user='root' AND host='localhost';" 2>&1
+# If plugin = auth_socket → root login requires no password via socket: mysql -u root ...
+# If plugin = mysql_native_password → root needs a password
+# NEVER attempt mysql -u <user> -p'<pass>' until that user has been created and granted access.
+
+Then create DB and app user:
 mysql -u root << 'SQL'
 CREATE DATABASE IF NOT EXISTS <db> CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 CREATE USER IF NOT EXISTS '<user>'@'localhost' IDENTIFIED BY '<password>';
 GRANT ALL PRIVILEGES ON <db>.* TO '<user>'@'localhost';
 FLUSH PRIVILEGES;
 SQL
+
+SCHEMA IMPORT RULES — avoid column mismatch hell:
+1. Decide on column names ONCE before writing any schema file. Do NOT write two different schema files.
+2. Always use CREATE TABLE IF NOT EXISTS (never DROP TABLE).
+3. Always use INSERT IGNORE or ON DUPLICATE KEY UPDATE id=id for seed data.
+4. Before importing: check SHOW TABLES — if tables already exist with correct structure, SKIP the import entirely.
+5. If a schema import fails with "Unknown column": run DESCRIBE <table> to see actual columns, then fix the INSERT to match — do NOT re-import the whole schema.
 
 INSTALL MISSING PACKAGES on Ubuntu (apt-based, always run as root):
 apt-get update -qq && apt-get install -y php8.3 php8.3-mysql php8.3-mbstring php8.3-xml php8.3-curl php8.3-zip php8.3-gd apache2 libapache2-mod-php8.3 mysql-server 2>&1 | tail -5

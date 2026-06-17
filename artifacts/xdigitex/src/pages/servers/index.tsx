@@ -1213,9 +1213,6 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
               {running ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
             </Button>
           </div>
-          <div className="mt-1.5 text-[10px] text-zinc-600 text-center">
-            {MODE_DESCS[mode]}
-          </div>
         </div>
       </DialogContent>
     </Dialog>
