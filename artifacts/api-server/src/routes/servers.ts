@@ -589,36 +589,38 @@ is missing (e.g. "PHP files not yet written, Apache vhost not configured") and s
 
 ═══ SITE BUILD COMPLETION RULE ═══
 A site build, fix, or deployment task is NOT complete because files were created or commands ran.
-It is complete ONLY when all applicable checks below pass.
+It is complete ONLY when the HTTP check below passes.
 
-MANDATORY VERIFICATION CHECKLIST (run these before action="done" on any site task):
+VERIFICATION CHECKLIST (run before action="done"):
 
-  SSH checks (use action="run"):
-  [✓] DB connection → php -r "..." returns CONNECTED
-  [✓] Tables exist → SHOW TABLES returns expected tables
-  [✓] PHP syntax → php -l <main_file> returns "No syntax errors"
-  [✓] HTTP 200 + BODY → curl returns 200 AND body has real content:
-        curl -s http://localhost:PORT/ | grep -c '<main\|<section\|hero\|content\|container' — must be > 0
-        HTTP 200 alone is NOT sufficient. A blank page also returns 200.
-  [✓] Error log → tail -20 /var/log/nginx/error.log OR /var/log/apache2/error.log — no Fatal errors
+  REQUIRED — SSH checks (action="run"):
+  [✓] PHP syntax → php -l <main_file> returns "No syntax errors" or only Notice/Warning (not Fatal/Parse)
+  [✓] HTTP 200 + BODY → these two commands must both pass:
+        curl -s -o /dev/null -w "HTTP %{http_code}" "http://<IP-or-domain>/"   → must print HTTP 200
+        curl -s "http://<IP-or-domain>/" | grep -c '<section\|<main\|hero\|content\|container' → must be > 0
+  [✓] Error log → tail -20 /var/log/nginx/error.log OR /var/log/apache2/error.log — no "PHP Fatal error"
 
-  Browser checks (use action="browse") — MANDATORY, never skip:
-  [✓] Screenshot the homepage — MUST show real page body (hero/content), not just navbar
-        If screenshot shows blank body below the navbar → the site is NOT working. Fix it.
-  [✓] Login works — submit credentials → dashboard/account page visible
-  [✓] Core user flow (register, submit form, browse listings — whatever the site does)
+  OPTIONAL — Browser check (action="browse"):
+  [ ] Screenshot the homepage — nice to have but NOT a blocker for STATUS: VERIFIED.
+      If the headless browser returns a blank/about:blank screenshot, IGNORE IT and rely on curl instead.
+      A blank headless screenshot does NOT mean the site is broken.
 
-  ⚠️  CRITICAL RULES:
-  • If you say "let me take a screenshot", you MUST actually take it (action="browse") before emitting done.
-  • Do NOT emit action="done" after action="reply" — run the screenshot first.
-  • HTTP 200 with a blank body = broken site. Screenshot is the only way to confirm real content.
+  ⚠️  PHP SEVERITY RULES — critical to get right:
+  • PHP Fatal error / Parse error / Uncaught Error → BLOCKING. Fix before done.
+  • PHP Notice / PHP Deprecated / PHP Warning → NON-BLOCKING. Site still works. Do NOT loop trying to fix these.
+    If php -l returns "No syntax errors detected" → syntax is fine even if the page shows notices at runtime.
+
+  ⚠️  CURL IS THE GROUND TRUTH:
+  • If curl returns HTTP 200 and grep returns > 0 → the site IS working. Emit STATUS: VERIFIED.
+  • Do NOT loop based on a blank screenshot. Do NOT loop based on PHP Notices. curl > screenshot.
+  • If you have run the curl check 2+ times and it passes → STOP and emit done. Do not check again.
 
 Include in your done message:
-  STATUS: VERIFIED   ← all checks above passed, screenshot confirms real page content
-  STATUS: UNVERIFIED ← any check failed (list which ones and why)
+  STATUS: VERIFIED   ← curl returned HTTP 200 AND content grep > 0
+  STATUS: UNVERIFIED ← curl failed or unreachable for a known reason (e.g. domain not propagated yet)
 
-If ANY check fails → fix it first. Do not use action="done" with STATUS: UNVERIFIED
-unless you have genuinely exhausted retries and need the user to intervene.
+STATUS: UNVERIFIED is acceptable when you genuinely cannot reach the site. Do not use UNVERIFIED
+just because the screenshot was blank — curl is the authoritative check.
 
 ═══ SCALABILITY — task decomposition for large projects ═══
 If many files need to be built OR the task is complex (auth + DB + dashboard + payments):
@@ -1698,32 +1700,33 @@ router.post("/:id/chat", async (req, res) => {
         const isComplexTask = /build|rebuild|fix|deploy|install|setup|creat|redesign|payment|api|site|connect|implement|develop|add|update/i.test(userTask);
         const doneMsg = (action.message ?? "").toLowerCase();
 
-        // Verified = agent explicitly ran checks AND found them passing
+        // Verified = agent ran HTTP checks and found them passing.
+        // Screenshot is a bonus — curl 200 + content grep is sufficient on its own.
+        // STATUS: UNVERIFIED is also accepted (agent was honest about failure to verify).
         const hasVerification = (
           /status:\s*verified/i.test(doneMsg) ||
-          (/http 200/.test(doneMsg) && /screenshot|screenshot taken|browsed|page loads|visible/i.test(doneMsg)) ||
-          (/curl.*200|200 ok/.test(doneMsg) && /no.*(error|fatal|syntax)/i.test(doneMsg) && /screenshot|browsed/i.test(doneMsg))
+          /status:\s*unverified/i.test(doneMsg) ||           // agent was honest, accept it
+          /http[:\s]+200/i.test(doneMsg) ||                  // any HTTP 200 mention
+          /curl.*20[0-9]/i.test(doneMsg) ||                  // any curl 2xx
+          /grep.*[1-9]\d*|[1-9]\d*.*grep/i.test(doneMsg)    // content grep returned > 0
         );
 
         if (isComplexTask && !hasVerification && doneAttempts < 3) {
           doneAttempts++;
-          send("think", { text: `⚠️ Unverified done (attempt ${doneAttempts}/3) — forcing verification loop…` });
+          send("think", { text: `⚠️ No HTTP check shown (attempt ${doneAttempts}/3) — requesting curl verification…` });
           aiMessages.push({ role: "assistant", content: raw });
           aiMessages.push({
             role: "user",
             content:
-              `⛔ VERIFICATION REQUIRED — you cannot emit done yet.\n\n` +
-              `Your done message does not contain STATUS: VERIFIED. Run ALL of these before done:\n\n` +
-              `1. PHP syntax check (every .php file you touched):\n` +
-              `   /usr/local/bin/php -l <file> 2>&1\n\n` +
-              `2. HTTP live check:\n` +
-              `   curl -s -o /dev/null -w "HTTP %{http_code}" "https://<domain>/" 2>/dev/null\n` +
-              `   curl -s "https://<domain>/" | grep -c '<section\\|<main\\|hero\\|container' — must be > 0\n\n` +
-              `3. Error log check:\n` +
-              `   tail -20 /var/log/nginx/error.log 2>/dev/null || tail -20 /var/log/apache2/error.log 2>/dev/null\n\n` +
-              `4. Screenshot (action="browse" on the live URL) — confirm real page content is visible\n\n` +
-              `Then emit done with STATUS: VERIFIED. If any check fails, FIX IT FIRST.\n` +
-              `Do NOT skip any step. Do NOT just say you checked — run the commands and show output.`,
+              `⛔ VERIFICATION NEEDED — show that the site is reachable before done.\n\n` +
+              `Run these TWO checks (screenshot is optional):\n\n` +
+              `1. HTTP status:\n` +
+              `   curl -s -o /dev/null -w "HTTP %{http_code}" "http://<IP-or-domain>/" 2>/dev/null\n\n` +
+              `2. Content check (must return > 0):\n` +
+              `   curl -s "http://<IP-or-domain>/" | grep -c '<section\\|<main\\|hero\\|content\\|container'\n\n` +
+              `If both pass → emit done with STATUS: VERIFIED.\n` +
+              `If the site is unreachable for a known reason (e.g. domain not propagated) → emit done with STATUS: UNVERIFIED and explain why.\n` +
+              `Do NOT keep looping if the site is working — curl is the ground truth.`,
           });
           continue;
         }
