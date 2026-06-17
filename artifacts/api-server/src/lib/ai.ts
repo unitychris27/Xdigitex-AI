@@ -59,7 +59,15 @@ export function autoModel(role: AgentRole): string {
   if (role === "planner")  return NVIDIA_MODELS.kimi;
   if (role === "verifier") return NVIDIA_MODELS.v4flash;
   if (role === "recovery") return NVIDIA_MODELS.glm;
-  return NVIDIA_MODELS.v4pro; // builder (default)
+  return "deepseek-chat"; // builder → DeepSeek direct API
+}
+
+// Role → which provider/client to use
+// builder uses the user's paid DeepSeek API (no rate limits)
+// planner + recovery use NVIDIA NIM (Kimi, GLM)
+export function autoProvider(role: AgentRole): AIProvider {
+  if (role === "builder" || role === "verifier") return "deepseek";
+  return "nvidia";
 }
 
 // ─── Gemini image generation ────────────────────────────────────────────────

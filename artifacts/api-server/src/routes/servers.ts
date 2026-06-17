@@ -4,7 +4,7 @@ import { serversTable, activityTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { Client } from "ssh2";
-import { getAIClient, autoModel, type AgentRole } from "../lib/ai";
+import { getAIClient, autoModel, autoProvider, type AgentRole } from "../lib/ai";
 import { runBrowserSteps, type BrowserStep } from "../lib/browser";
 import AdmZip from "adm-zip";
 import multer from "multer";
@@ -1344,18 +1344,22 @@ router.post("/:id/chat", async (req, res) => {
       let iterModel = baseModel;
       let iterClient = getAIClient(baseProvider);
       if (isAuto) {
+        const prevRole: AgentRole = currentRole;
         if (iter === 0) currentRole = "planner";
         else if (currentRole === "recovery") { /* keep recovery until unstuck */ }
         else currentRole = "builder";
         iterModel  = autoModel(currentRole);
-        iterClient = getAIClient("nvidia");
-        const roleLabel: Record<AgentRole, string> = {
-          planner:  "Planning…",
-          builder:  "Building…",
-          verifier: "Verifying…",
-          recovery: "Recovering…",
-        };
-        send("think", { text: roleLabel[currentRole] ?? "Thinking…" });
+        iterClient = getAIClient(autoProvider(currentRole));
+        // Only announce role when it changes (don't repeat "Planning…" on every iter)
+        if (currentRole !== prevRole || iter === 0) {
+          const roleLabel: Record<AgentRole, string> = {
+            planner:  "Planning…",
+            builder:  "Building…",
+            verifier: "Verifying…",
+            recovery: "Recovering…",
+          };
+          send("think", { text: roleLabel[currentRole] ?? "Thinking…" });
+        }
       }
 
       // ── Retry with backoff on 429 rate-limit ───────────────────────────────
