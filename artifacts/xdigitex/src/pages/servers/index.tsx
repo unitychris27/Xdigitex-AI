@@ -488,7 +488,7 @@ const MODE_DESCS: Record<string, string> = {
   "high-power": "GPT-4o — most capable (OpenAI)",
   kimi:         "Kimi K2.6 — best planner & architect",
   v4pro:        "DeepSeek V4 Pro — best builder for large codebases",
-  auto:         "Auto — multi-agent · Kimi plans · DeepSeek builds · Grok recovers",
+  auto:         "Auto — multi-agent · Kimi plans · DeepSeek builds · GLM recovers",
 };
 
 type AgentMode = "economy" | "balanced" | "high-power" | "kimi" | "v4pro" | "auto";
