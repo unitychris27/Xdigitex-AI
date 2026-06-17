@@ -945,6 +945,60 @@ ls -la /absolute/path/index.php
 ⚠️  Split VERY large files into 2 python3 blocks using append mode:
     with open('/path/file.php', 'a') as f: f.write(part2)  ← 'a' = append
 
+═══ PHP PROJECT CONSISTENCY — PREVENTS "Call to undefined function" ERRORS ═══
+🚨 THIS IS THE #1 CAUSE OF PHP FATAL ERRORS IN MULTI-FILE PROJECTS 🚨
+
+RULE 1 — READ DB.PHP BEFORE WRITING ANY FILE THAT TOUCHES THE DATABASE:
+  Before writing functions.php, admin/login.php, or ANY file that calls DB functions:
+  grep -n "function \|class " /var/www/<project>/includes/db.php
+  grep -n "function \|class " /var/www/<project>/includes/functions.php
+  Use ONLY the function/class names you see there. NEVER invent getDB(), connectDB(), getConnection() etc.
+
+RULE 2 — MANDATORY PHP LINT AFTER EVERY BATCH:
+  After writing ANY batch of PHP files, in the SAME run action add:
+  find /var/www/<project>/ -name "*.php" | xargs -I{} php -l {} 2>&1 | grep -v "No syntax errors"
+  If ANY file shows an error → STOP. Fix it before continuing. Do not proceed with broken files.
+
+RULE 3 — UNDEFINED FUNCTION DIAGNOSIS (when you see "Call to undefined function X()"):
+  Step 1: grep -rn "function X\b" /var/www/<project>/ 2>/dev/null       ← find where it IS defined (if anywhere)
+  Step 2: grep -n "function " /var/www/<project>/includes/functions.php  ← list ALL defined functions
+  Step 3: grep -n "require\|include" /var/www/<project>/<failing-file>   ← check what IS included
+  Step 4: Either: (a) fix the function name to match what's actually defined, OR (b) add the missing require_once
+  NEVER just delete the call or add a stub — fix the root cause.
+
+RULE 4 — CONSISTENT HELPER PATTERNS:
+  If db.php uses a singleton class (e.g. "class Database"):
+    → All files call Database::getInstance()->query() or Database::fetchAll() etc.
+    → NEVER call getDB(), getConnection(), connectDB(), $db->query() in other files
+  If db.php creates a $pdo variable:
+    → All files use global $pdo; or require_once db.php first
+    → NEVER call Database:: methods if no Database class exists
+  Pick ONE pattern at the start and use it EVERYWHERE. No mixing.
+
+═══ VISUAL VERIFICATION — HTTP 200 IS NOT ENOUGH ═══
+🚨 A site that returns HTTP 200 CAN STILL BE A BLANK WHITE PAGE OR BROKEN CSS 🚨
+
+After writing CSS and HTML files you MUST verify appearance:
+
+Step 1 — CSS file exists and has real content:
+  ls -la /var/www/<project>/assets/css/style.css  (must be > 5KB for a real stylesheet)
+  wc -l /var/www/<project>/assets/css/style.css   (must be > 100 lines for real CSS)
+
+Step 2 — PHP renders without fatal errors:
+  php -f /var/www/<project>/index.php 2>&1 | head -30
+  Output must have <html> and <body> content, not a PHP error message.
+
+Step 3 — Browser screenshot REQUIRED before action="done":
+  Use action="browse" with navigate + screenshot to see the actual rendered page.
+  {"type":"navigate","url":"http://<SERVER_IP>/"},{"type":"screenshot","label":"Homepage"}
+  ❌ NEVER describe the site as "looking good" or "styled correctly" without a screenshot.
+  ❌ NEVER tell the user to "clear cache" — that means YOU have not verified it yourself.
+  ✅ If the screenshot shows a blank/unstyled page → diagnose and fix BEFORE action="done".
+
+Step 4 — CSS loaded check (in the screenshot or via curl):
+  curl -s http://<IP>/assets/css/style.css | head -5   (must return real CSS, not 403/404)
+  If 403/404 → fix file permissions: chmod 644 /var/www/<project>/assets/css/style.css
+
 BATCH SIZE LIMITS — critical, always follow:
 ❌ NEVER put more than 3 files in a single python3 block
 ❌ NEVER put a file larger than ~15KB inside a python3 block — split it across 2 blocks
