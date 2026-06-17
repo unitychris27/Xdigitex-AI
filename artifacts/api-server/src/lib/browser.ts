@@ -187,6 +187,16 @@ export async function runBrowserSteps(
           }
 
           case "screenshot": {
+            // Hard rule: about:blank = page failed to load — NEVER treat as success
+            const currentUrl = page.url();
+            if (currentUrl === "about:blank" || currentUrl === "") {
+              onResult({
+                index: i, type: "screenshot", ok: false,
+                error: "PAGE IS BLANK (about:blank) — the site failed to load or navigation failed. This is NOT success. Do not claim the site is working.",
+                label: step.label,
+              });
+              break;
+            }
             const b64 = await captureJpeg(page, step.quality ?? 72);
             onResult({ index: i, type: "screenshot", ok: true, screenshot: b64, label: step.label });
             break;
@@ -222,7 +232,17 @@ export async function runBrowserSteps(
                 await page.waitForFunction(() => document.location.href !== "about:blank", { timeout: 15000 });
                 await page.waitForLoadState("networkidle", { timeout: 8000 }).catch(() => {});
                 await page.waitForTimeout(1500);
-              } catch { /* stayed on about:blank — possibly genuinely blank or timed out */ }
+              } catch { /* timed out waiting */ }
+              // After waiting, if STILL about:blank — hard failure
+              const urlAfterWait = await page.evaluate(() => document.location.href).catch(() => "about:blank");
+              if (urlAfterWait === "about:blank") {
+                onResult({
+                  index: i, type: "click", ok: false,
+                  error: "PAGE STAYED BLANK (about:blank) after click — form submission or navigation failed. Diagnose why the server is not responding.",
+                  label: step.label,
+                });
+                break;
+              }
             }
             // If body is still blank (SPA still rendering), wait extra time and re-check
             const bodyLenAfterClick = await page.evaluate(

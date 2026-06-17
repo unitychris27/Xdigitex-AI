@@ -1,0 +1,260 @@
+For the **screenshot/browser verification problem**, the error is telling you exactly what is wrong:
+
+```text
+400 Failed to deserialize the JSON body
+unknown variant `image_url`, expected `text`
+```
+
+This is **not a website issue**.
+
+This is a **model/API compatibility issue**.
+
+Your agent tried to send:
+
+```json
+{
+  "type": "image_url",
+  "image_url": {
+    "url": "data:image/png;base64,..."
+  }
+}
+```
+
+to a model that only accepts:
+
+```json
+{
+  "role":"user",
+  "content":"text"
+}
+```
+
+So the browser verification crashed before analyzing the screenshot.
+
+---
+
+# Best Model For Screenshot Verification
+
+From the models you're using:
+
+### 1. Nemotron VL ✅ Primary
+
+```python
+nvidia/nemotron-nano-12b-v2-vl
+```
+
+Use for:
+
+* screenshots
+* browser pages
+* login forms
+* dashboards
+* error pages
+* blank screens
+
+Prompt:
+
+```python
+Analyze this screenshot.
+
+Return JSON:
+
+{
+  "page_type":"",
+  "visible_errors":[],
+  "missing_elements":[],
+  "next_action":""
+}
+```
+
+---
+
+### 2. PaliGemma ✅ Secondary
+
+```python
+google/paligemma
+```
+
+Use only for:
+
+* OCR
+* reading text
+* detecting buttons
+* reading error messages
+
+Example:
+
+```python
+Read every visible text on this screenshot.
+List all buttons and forms.
+```
+
+---
+
+### 3. DeepSeek Flash ❌ Not Directly
+
+Don't send images to:
+
+```python
+deepseek-v4-flash
+```
+
+Instead:
+
+```
+Screenshot
+    ↓
+Nemotron VL
+    ↓
+Structured Description
+    ↓
+DeepSeek Flash
+```
+
+Example:
+
+```python
+Screenshot:
+  login page
+  email field
+  password field
+  red error:
+  "Invalid CSRF token"
+
+↓
+
+DeepSeek Flash:
+Diagnose issue.
+Give exact fix.
+```
+
+---
+
+# Recommended Browser Stack
+
+For autonomous browsing:
+
+```text
+Playwright
+      ↓
+Screenshot
+      ↓
+Nemotron VL
+      ↓
+JSON Description
+      ↓
+DeepSeek Flash
+      ↓
+Decision
+      ↓
+Playwright Action
+```
+
+---
+
+# Why Your Agent Keeps Saying Sites Work
+
+Current flow:
+
+```text
+Open page
+↓
+Gets blank page
+↓
+Cannot read screenshot
+↓
+Assumes success
+↓
+Hallucinates:
+"Registration successful"
+```
+
+This is exactly what happened with:
+
+```text
+xdigitex.space
+digitexsmartsolutions.com
+```
+
+The agent saw:
+
+```text
+about:blank
+```
+
+and concluded:
+
+```text
+Registration successful
+Dashboard visible
+Balance 1420 DSC
+```
+
+even though no evidence existed.
+
+---
+
+# Add a Hard Rule
+
+Never allow:
+
+```python
+about:blank
+```
+
+to become success.
+
+```python
+if page.url == "about:blank":
+    return {
+        "status":"FAILED",
+        "reason":"blank_page"
+    }
+```
+
+Also:
+
+```python
+if screenshot_analysis.confidence < 0.8:
+    return {
+        "status":"UNKNOWN"
+    }
+```
+
+Never:
+
+```python
+status = SUCCESS
+```
+
+without proof.
+
+---
+
+# For Your Agent
+
+I would use:
+
+| Job                 | Model                            |
+| ------------------- | -------------------------------- |
+| Planning            | `moonshotai/kimi-k2.6`           |
+| File Generation     | `deepseek-ai/deepseek-v4-pro`    |
+| SSH Output Reading  | `deepseek-ai/deepseek-v4-flash`  |
+| Screenshot Analysis | `nvidia/nemotron-nano-12b-v2-vl` |
+| OCR/Text Extraction | `google/paligemma`               |
+| Recovery/Root Cause | `z-ai/glm-5.1`                   |
+| Emergency Fallback  | `openai/gpt-oss-120b`            |
+
+The biggest improvement you can make right now is **treat screenshots as a first-class verification step**. Every browser action should end with:
+
+```text
+Take Screenshot
+↓
+Vision Analysis
+↓
+Verify Expected State
+↓
+Only Then Mark Success
+```
+
+Without that verification layer, the agent will continue claiming registrations, logins, deposits, and site builds succeeded when they actually failed or landed on a blank page.

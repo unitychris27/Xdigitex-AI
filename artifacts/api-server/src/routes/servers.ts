@@ -1557,7 +1557,9 @@ router.post("/:id/chat", async (req, res) => {
       } else if (action.action === "browse" && Array.isArray(action.steps) && action.steps.length) {
         const steps = (action.steps as BrowserStep[]).slice(0, 20);
         const browseLog: string[] = [];
-        const visionParts: Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string; detail?: string } }> = [];
+        // Separate queues: text context (always) vs screenshots (sent to Nemotron VL)
+        const textParts: string[] = [];
+        const screenshotsForVision: Array<{ label: string; b64: string }> = [];
         let shotCount = 0;
 
         send("browser_start", { stepCount: steps.length });
@@ -1566,34 +1568,28 @@ router.post("/:id/chat", async (req, res) => {
           if (result.screenshot) {
             shotCount++;
             const label = result.label ?? `Screenshot ${shotCount}`;
-            // Stream screenshot to frontend
             send("browser_shot", { index: result.index, label, data: result.screenshot });
-            // Queue for vision message to AI (max 5 images to save tokens)
+            // Queue screenshot for Nemotron VL vision analysis (max 5)
             if (shotCount <= 5) {
-              visionParts.push({ type: "text", text: `[${label}]` });
-              visionParts.push({ type: "image_url", image_url: { url: `data:image/png;base64,${result.screenshot}`, detail: "low" } });
+              screenshotsForVision.push({ label, b64: result.screenshot });
             }
             browseLog.push(`step ${result.index}: screenshot — ${label}`);
           } else if (result.text) {
             const snippet = result.text.slice(0, 800);
             browseLog.push(`step ${result.index}: page text — ${snippet}`);
-            visionParts.push({ type: "text", text: `Page text: ${snippet}` });
+            textParts.push(`Page text: ${snippet}`);
             send("browser_text", { index: result.index, text: snippet });
           } else if (!result.ok) {
             browseLog.push(`step ${result.index}: ${result.type} FAILED — ${result.error}`);
-            // Auto-screenshot on failure — stream it so user can see what happened
             if (result.screenshot) {
               shotCount++;
               const label = `Error state (step ${result.index}: ${result.type})`;
               send("browser_shot", { index: result.index, label, data: result.screenshot });
-              if (shotCount <= 5) {
-                visionParts.push({ type: "text", text: `[${label}]` });
-                visionParts.push({ type: "image_url", image_url: { url: `data:image/jpeg;base64,${result.screenshot}`, detail: "low" } });
-              }
+              if (shotCount <= 5) screenshotsForVision.push({ label, b64: result.screenshot });
             }
             if (result.text) {
-              browseLog.push(`  auto-captured page text: ${result.text.slice(0, 400)}`);
-              visionParts.push({ type: "text", text: `Page state on failure: ${result.text.slice(0, 800)}` });
+              browseLog.push(`  page text on failure: ${result.text.slice(0, 400)}`);
+              textParts.push(`Page state on failure: ${result.text.slice(0, 800)}`);
             }
             send("browser_err", { index: result.index, type: result.type, error: result.error });
           } else {
@@ -1604,34 +1600,51 @@ router.post("/:id/chat", async (req, res) => {
         const resultSummary = browseLog.join("\n");
         send("browser_done", { stepsDone: steps.length });
 
-        // Vision capability map — check current model
-        const visionCapable: Record<string, boolean> = {
-          "gpt-4o":                            true,
-          "google/gemini-2.0-flash-001":       true,
-          "deepseek-chat":                     false,
-          "moonshotai/kimi-k2.6":              true,   // Kimi K2.6 supports vision
-          "deepseek-ai/deepseek-v4-pro":       false,
-          "deepseek-ai/deepseek-v4-flash":     false,
-          "z-ai/glm-5.1":                      false,
-        };
-        const hasVision = (visionCapable[iterModel] ?? false) && visionParts.length > 0;
+        // ── Screenshot Vision Pipeline ──────────────────────────────────────────
+        // Always use Nemotron VL (NVIDIA NIM) for screenshots — it's the only
+        // model in the stack that reliably handles image_url content.
+        // Other models (DeepSeek, GLM) crash with 400 on image_url inputs.
+        const visionDescriptions: string[] = [];
+        if (screenshotsForVision.length > 0) {
+          const nvClient = getAIClient("nvidia");
+          for (const shot of screenshotsForVision) {
+            try {
+              send("think", { text: `Analyzing screenshot: ${shot.label}…` });
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const vResp = await nvClient.chat.completions.create({
+                model: "nvidia/nemotron-nano-12b-v2-vl",
+                messages: [{
+                  role: "user",
+                  content: [
+                    {
+                      type: "text",
+                      text: 'Analyze this screenshot. Return ONLY JSON (no other text):\n{"page_type":"","visible_errors":[],"missing_elements":[],"css_loaded":true,"page_blank":false,"next_action":""}',
+                    },
+                    { type: "image_url", image_url: { url: `data:image/jpeg;base64,${shot.b64}` } },
+                  ] as any[],
+                }],
+                max_tokens: 512,
+                temperature: 0.1,
+              }) as any;
+              const desc = vResp.choices?.[0]?.message?.content ?? "analysis unavailable";
+              visionDescriptions.push(`[Vision: ${shot.label}]\n${desc}`);
+            } catch (e) {
+              visionDescriptions.push(`[Vision: ${shot.label}] failed: ${String(e).slice(0, 200)}`);
+            }
+          }
+        }
+
+        // Combine: step log + page text + vision analysis descriptions
+        const fullBrowserContext = [
+          `BROWSER RESULTS (${steps.length} steps done):`,
+          resultSummary,
+          ...(textParts.length ? ["\nPAGE TEXT:", ...textParts] : []),
+          ...(visionDescriptions.length ? ["\nSCREENSHOT ANALYSIS (from Nemotron VL):", ...visionDescriptions] : []),
+          "\nBased on the above, decide next steps and continue autonomously.",
+        ].join("\n");
 
         aiMessages.push({ role: "assistant", content: raw });
-        if (hasVision) {
-          aiMessages.push({
-            role: "user",
-            content: [
-              { type: "text", text: `BROWSER RESULTS (${steps.length} steps done):\n${resultSummary}\n\nScreenshots attached — analyze what you see and decide next steps. Continue autonomously.` },
-              ...visionParts,
-            ],
-          });
-        } else {
-          // No image vision: text + interactive element map gives full page awareness
-          aiMessages.push({
-            role: "user",
-            content: `BROWSER RESULTS (${steps.length} steps done):\n${resultSummary}\n\nDecide next steps and continue autonomously. Add {"type":"text"} steps to read page content when you need to understand what's on screen.`,
-          });
-        }
+        aiMessages.push({ role: "user", content: fullBrowserContext });
 
       } else if (action.action === "reply") {
         await flushTokens(action.message);
