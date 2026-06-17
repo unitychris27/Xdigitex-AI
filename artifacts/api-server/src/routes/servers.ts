@@ -1358,13 +1358,32 @@ router.post("/:id/chat", async (req, res) => {
         send("think", { text: roleLabel[currentRole] ?? "Thinking…" });
       }
 
-      const completion = await iterClient.chat.completions.create({
-        model: iterModel,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        messages: aiMessages as any[],
-        max_tokens: 8000,
-        temperature: iter === 0 ? 0.3 : 0.1,  // planner gets slightly more creativity
-      });
+      // ── Retry with backoff on 429 rate-limit ───────────────────────────────
+      const callWithRetry = async () => {
+        const delays = [8000, 20000, 40000]; // 8s → 20s → 40s
+        for (let attempt = 0; attempt <= delays.length; attempt++) {
+          try {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            return await iterClient.chat.completions.create({
+              model: iterModel,
+              messages: aiMessages as any[],
+              max_tokens: 8000,
+              temperature: iter === 0 ? 0.3 : 0.1,
+            });
+          } catch (err: unknown) {
+            const status = (err as { status?: number })?.status;
+            const msg    = String((err as { message?: string })?.message ?? err);
+            const is429  = status === 429 || msg.includes("429") || msg.toLowerCase().includes("rate limit");
+            if (!is429 || attempt >= delays.length) throw err;
+            const wait = delays[attempt];
+            send("think", { text: `Rate limit — retrying in ${wait / 1000}s…` });
+            await new Promise(r => setTimeout(r, wait));
+          }
+        }
+        throw new Error("Unreachable");
+      };
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const completion = await callWithRetry() as any;
 
       // Accumulate tokens
       if (completion.usage) {
