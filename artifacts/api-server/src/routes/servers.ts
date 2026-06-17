@@ -1359,6 +1359,7 @@ router.post("/:id/chat", async (req, res) => {
     let totalPromptTokens     = 0;
     let totalCompletionTokens = 0;
     let totalIterations       = 0;
+    let doneAttempts          = 0;  // times we've pushed back on unverified done
     const startTime = Date.now();
 
     // Guard: flushTokens must only fire ONCE per request — prevents double-emit when both
@@ -1686,25 +1687,40 @@ router.post("/:id/chat", async (req, res) => {
         break;
 
       } else if (action.action === "done") {
-        // Early-done guard: if done in <4 iters on a complex task without verifying, keep going
+        // Done guard: block unverified done on any build/fix/site task.
+        // Allows up to 3 pushbacks; on the 4th attempt we accept to avoid infinite loop.
         const userTask = (parsed.data.messages[parsed.data.messages.length - 1]?.content ?? "").toLowerCase();
-        const isComplexTask = /build|rebuild|fix|deploy|install|setup|creat|redesign|payment|api|site|connect/i.test(userTask);
+        const isComplexTask = /build|rebuild|fix|deploy|install|setup|creat|redesign|payment|api|site|connect|implement|develop|add|update/i.test(userTask);
         const doneMsg = (action.message ?? "").toLowerCase();
-        const hasVerification = /status:.*verified|http 200|verified|working|syntax.*ok|no.*error|curl.*200|screenshot|success|live|deployed/i.test(doneMsg);
 
-        if (isComplexTask && !hasVerification && totalIterations < 5) {
-          // Agent quit too early — force it to verify
-          send("think", { text: "⚠️ Checking verification before finishing…" });
+        // Verified = agent explicitly ran checks AND found them passing
+        const hasVerification = (
+          /status:\s*verified/i.test(doneMsg) ||
+          (/http 200/.test(doneMsg) && /screenshot|screenshot taken|browsed|page loads|visible/i.test(doneMsg)) ||
+          (/curl.*200|200 ok/.test(doneMsg) && /no.*(error|fatal|syntax)/i.test(doneMsg) && /screenshot|browsed/i.test(doneMsg))
+        );
+
+        if (isComplexTask && !hasVerification && doneAttempts < 3) {
+          doneAttempts++;
+          send("think", { text: `⚠️ Unverified done (attempt ${doneAttempts}/3) — forcing verification loop…` });
           aiMessages.push({ role: "assistant", content: raw });
           aiMessages.push({
             role: "user",
-            content: `You said done but haven't shown verification. You MUST complete these steps:\n` +
-                     `1. For PHP sites: /usr/local/bin/php -l <main_file> 2>&1\n` +
-                     `2. Test live: curl -s -o /dev/null -w "HTTP %{http_code}" "https://<domain>/" 2>/dev/null\n` +
-                     `3. Take a screenshot with action="browse"\n` +
-                     `Continue now — do NOT skip these steps.`,
+            content:
+              `⛔ VERIFICATION REQUIRED — you cannot emit done yet.\n\n` +
+              `Your done message does not contain STATUS: VERIFIED. Run ALL of these before done:\n\n` +
+              `1. PHP syntax check (every .php file you touched):\n` +
+              `   /usr/local/bin/php -l <file> 2>&1\n\n` +
+              `2. HTTP live check:\n` +
+              `   curl -s -o /dev/null -w "HTTP %{http_code}" "https://<domain>/" 2>/dev/null\n` +
+              `   curl -s "https://<domain>/" | grep -c '<section\\|<main\\|hero\\|container' — must be > 0\n\n` +
+              `3. Error log check:\n` +
+              `   tail -20 /var/log/nginx/error.log 2>/dev/null || tail -20 /var/log/apache2/error.log 2>/dev/null\n\n` +
+              `4. Screenshot (action="browse" on the live URL) — confirm real page content is visible\n\n` +
+              `Then emit done with STATUS: VERIFIED. If any check fails, FIX IT FIRST.\n` +
+              `Do NOT skip any step. Do NOT just say you checked — run the commands and show output.`,
           });
-          continue; // Force another iteration
+          continue;
         }
 
         await flushTokens(action.message);

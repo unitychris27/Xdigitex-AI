@@ -45,29 +45,27 @@ export function getAIClient(provider: AIProvider = "deepseek") {
   return getDeepSeekClient();
 }
 
-// ─── NVIDIA NIM model roster ────────────────────────────────────────────────
-export const NVIDIA_MODELS = {
-  kimi:    "moonshotai/kimi-k2.6",        // Planner / Architect
-  v4pro:   "deepseek-ai/deepseek-v4-pro", // Builder  / SSH code
-  v4flash: "deepseek-ai/deepseek-v4-flash",// Verifier / log reading (fast)
-  glm:     "z-ai/glm-5.1",               // Recovery / debugging
-} as const;
-
-// Role → NVIDIA model used in "auto" mode rotation
+// ─── Auto mode model roster ──────────────────────────────────────────────────
+// All non-builder roles go through OpenRouter (pooled limits, never 429).
+// Builder uses the paid DeepSeek API directly (fastest code generation).
+//
+// Role          Provider       Model
+// ─────────     ───────────    ─────────────────────────────────────────
+// planner       openrouter     google/gemini-2.5-flash  (fast, smart)
+// builder       deepseek       deepseek-chat            (paid, no limits)
+// verifier      openrouter     google/gemini-2.5-flash  (fast checks)
+// recovery      openrouter     anthropic/claude-3.5-haiku (debugger)
 export type AgentRole = "planner" | "builder" | "verifier" | "recovery";
 export function autoModel(role: AgentRole): string {
-  if (role === "planner")  return NVIDIA_MODELS.kimi;
-  if (role === "verifier") return NVIDIA_MODELS.v4flash;
-  if (role === "recovery") return NVIDIA_MODELS.glm;
+  if (role === "planner")  return "google/gemini-2.5-flash";
+  if (role === "verifier") return "google/gemini-2.5-flash";
+  if (role === "recovery") return "anthropic/claude-3.5-haiku";
   return "deepseek-chat"; // builder → DeepSeek direct API
 }
 
-// Role → which provider/client to use
-// builder uses the user's paid DeepSeek API (no rate limits)
-// planner + recovery use NVIDIA NIM (Kimi, GLM)
 export function autoProvider(role: AgentRole): AIProvider {
-  if (role === "builder" || role === "verifier") return "deepseek";
-  return "nvidia";
+  if (role === "builder") return "deepseek";  // paid API, no rate limits
+  return "openrouter";   // planner/verifier/recovery → OpenRouter pooled limits
 }
 
 // ─── Gemini vision: screenshot analysis ─────────────────────────────────────
