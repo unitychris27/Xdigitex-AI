@@ -1,0 +1,168 @@
+Great question. Long prompts are actually one of the **biggest killers** of agent reliability. Here's the honest picture:
+
+---
+
+## The Core Problem: Context Window Limits
+
+Each model on NVIDIA NIM has a hard limit:
+
+| Model | Context Window |
+|---|---|
+| Kimi K2.6 | 131,072 tokens |
+| DeepSeek V4 Pro | 65,536 tokens |
+| DeepSeek V4 Flash | 65,536 tokens |
+| GLM 5.1 | 32,768 tokens |
+| GPT-OSS 120B | 32,768 tokens |
+
+A full SaaS project prompt with roadmap + code + SSH output + logs can easily hit **50,000–100,000 tokens** in one session. That breaks everything.
+
+---
+
+## What Actually Happens With Long Prompts
+
+```
+Short prompt (< 8k tokens)
+→ Model follows instructions perfectly
+
+Medium prompt (8k–30k tokens)  
+→ Model starts forgetting early instructions
+→ Misses steps from the roadmap
+
+Long prompt (30k–60k tokens)
+→ Model ignores middle sections entirely
+→ Hallucinates completed tasks
+→ Repeats work already done
+
+Very long prompt (60k+ tokens)
+→ Hard crash / timeout
+→ Billing for failed request
+→ Agent stuck in loop
+```
+
+This is called the **"Lost in the Middle"** problem — models pay attention to the start and end of prompts, but forget the middle. Confirmed by research across all major models.
+
+---
+
+## The Fix: Never Send Long Prompts — Chunk Everything
+
+### Strategy 1 — Prompt Compression (Most Important)
+
+Never send the raw roadmap. Send only what's needed **right now**:
+
+```python
+def build_focused_prompt(project_state, current_task):
+    # Instead of sending 200-line roadmap every time...
+    # Send ONLY what's relevant to THIS task
+    
+    return f"""
+CURRENT TASK ONLY: {current_task['name']}
+WHAT'S DONE: {', '.join(project_state['completed'][-5:])}  # last 5 only
+WHAT FAILED BEFORE: {project_state['failed'][-2:]}  # last 2 only
+YOUR JOB: {current_task['instruction']}
+OUTPUT: Exact commands to run. Nothing else.
+"""
+    # Result: ~500 tokens instead of 50,000
+```
+
+### Strategy 2 — Sliding Window for SSH Output
+
+SSH output is the biggest prompt killer. Compress it before sending:
+
+```python
+def compress_ssh_output(raw_output: str, max_lines: int = 30) -> str:
+    lines = raw_output.strip().split('\n')
+    
+    if len(lines) <= max_lines:
+        return raw_output
+    
+    # Keep first 10 lines (context) + last 20 lines (result)
+    head = lines[:10]
+    tail = lines[-20:]
+    skipped = len(lines) - 30
+    
+    return '\n'.join(head) + f"\n... [{skipped} lines compressed] ...\n" + '\n'.join(tail)
+```
+
+### Strategy 3 — Role-Based Context Isolation
+
+Each agent only sees what it needs:
+
+```python
+CONTEXT_RULES = {
+    AgentRole.PLANNER:  ["roadmap", "requirements"],        # big picture only
+    AgentRole.BUILDER:  ["current_task", "last_error"],     # one task only
+    AgentRole.VERIFIER: ["ssh_output", "expected_result"],  # output only
+    AgentRole.BROWSER:  ["screenshot", "expected_page"],    # visual only
+    AgentRole.RECOVERY: ["error", "last_3_attempts"],       # failures only
+}
+
+def build_agent_context(role: AgentRole, state: dict) -> str:
+    keys = CONTEXT_RULES[role]
+    context = {k: state[k] for k in keys if k in state}
+    return json.dumps(context)  # lean, structured, no fluff
+```
+
+### Strategy 4 — Roadmap as External File, Not Prompt
+
+Never paste the full roadmap into the prompt. Store it on the server and reference tasks by ID:
+
+```python
+# On your server, save this once:
+project_state = {
+    "tasks": [
+        {"id": 1, "name": "Setup Laravel", "status": "done"},
+        {"id": 2, "name": "Auth routes", "status": "done"},
+        {"id": 3, "name": "Dashboard UI", "status": "pending"},  # ← current
+        {"id": 4, "name": "Payments", "status": "pending"},
+    ]
+}
+
+# Your prompt becomes just:
+prompt = f"Execute task ID 3: Dashboard UI. Stack: Laravel + Tailwind."
+# NOT the entire 200-line roadmap
+```
+
+### Strategy 5 — Token Budget Enforcement
+
+Hard-stop before you hit the limit:
+
+```python
+def estimate_tokens(text: str) -> int:
+    # Rough estimate: 1 token ≈ 4 characters
+    return len(text) // 4
+
+TOKEN_LIMITS = {
+    AgentRole.PLANNER:  60000,
+    AgentRole.BUILDER:  30000,
+    AgentRole.VERIFIER: 10000,
+    AgentRole.BROWSER:  8000,
+    AgentRole.RECOVERY: 20000,
+}
+
+def safe_call_model(role: AgentRole, prompt: str, **kwargs):
+    tokens = estimate_tokens(prompt)
+    limit = TOKEN_LIMITS[role]
+    
+    if tokens > limit:
+        print(f"[WARN] Prompt too long ({tokens} tokens). Compressing...")
+        # Truncate from the middle, keep start and end
+        chars = limit * 4
+        half = chars // 2
+        prompt = prompt[:half] + "\n...[compressed]...\n" + prompt[-half:]
+    
+    return call_model(role, prompt, **kwargs)
+```
+
+---
+
+## The Golden Rule
+
+```
+One task per prompt.
+One agent per task.
+One verification per action.
+Store everything in state file.
+Never repeat context already verified.
+```
+
+Your long prompt works best when it's **split into 20 small prompts** that each do one thing, verify it, save the result, and move on. That's how Replit Agent runs for 4.5 hours without breaking — not one massive prompt, but thousands of tiny focused ones chained together through a state file.

@@ -1,0 +1,154 @@
+# Fixing Your Autonomous Coding Agent
+
+Looking at your 12 core issues, the root cause is almost always the same: **one monolithic agent trying to plan, execute, verify, and recover all at once**. Here's how to fix it architecturally.
+
+---
+
+## 1. Switch to a Multi-Agent Pipeline
+
+The single biggest improvement you can make:Each agent has one job. This is the core fix for most of your 12 problems.
+
+---
+
+## 2. Persistent State File (Fixes Memory Loss)
+
+Your agent must write a `project_state.json` on the server and read it at the start of every turn. Never rely on context window for state.
+
+```json
+{
+  "project": "LinkForge",
+  "phase": "backend",
+  "completed": ["folder_structure", "database_schema", "auth_routes"],
+  "verified": ["db_connection", "users_table"],
+  "failed": ["email_service"],
+  "pending": ["dashboard_ui", "payments", "admin_panel"],
+  "last_checkpoint": "2025-01-15T10:30:00Z"
+}
+```
+
+The agent reads this first, writes after every task. If context resets, it recovers instantly.
+
+---
+
+## 3. Verification-First Execution (Fixes False Success)
+
+Every action must follow this pattern — no exceptions:
+
+```
+Execute action
+    ↓
+Wait (intelligent delay)
+    ↓
+Verify with evidence
+    ↓
+Write result to state file
+    ↓
+Only THEN report success
+```
+
+For SSH commands specifically:
+
+```bash
+# Run command AND capture exit code
+php artisan migrate && echo "EXIT:0" || echo "EXIT:1"
+
+# Verify the result directly
+mysql -e "SHOW TABLES;" mydb | grep users && echo "TABLE_EXISTS"
+```
+
+Never assume a command succeeded. Always check the exit code or query the result.
+
+---
+
+## 4. Fix Blank Page / Browser Recovery (Your #2 Issue)
+
+When the browser agent sees a blank page, it must run this exact recovery sequence:
+
+```
+1. Wait 3 seconds, refresh
+2. Check URL (are we on the right page?)
+3. Check console errors (JS exceptions, 404s)
+4. Check network tab (failed API calls?)
+5. Check session (am I still logged in?)
+6. If still blank → go back, retry navigation
+7. If 3 retries fail → escalate to Recovery agent
+```
+
+Never let it guess. Blank page = unknown state, always investigate.
+
+---
+
+## 5. Pre-Task Environment Validation (Fixes SSH Failures)
+
+Before the Builder agent runs any project commands, always run a validation block first:
+
+```bash
+echo "=== ENV CHECK ==="
+pwd && whoami && php -v && mysql --version
+echo "=== DISK ==="
+df -h | tail -1
+echo "=== PERMISSIONS ==="
+ls -la /var/www/
+echo "=== ENV OK ==="
+```
+
+If any of those fail, stop and fix the environment before touching project code.
+
+For interactive prompts (your Y/N problem), always use non-interactive flags:
+
+```bash
+apt-get install -y nginx          # -y flag
+mysql -u root -p"pass" -e "..."   # inline credentials
+DEBIAN_FRONTEND=noninteractive apt-get upgrade -y
+```
+
+---
+
+## 6. Mandatory Final Verification Checklist
+
+The agent must never say "project complete" without running every item in this checklist:
+
+```bash
+# Backend
+php -l index.php                          # syntax
+mysql -e "SHOW TABLES;" dbname            # database
+curl -s -o /dev/null -w "%{http_code}" http://localhost/api/health  # API
+
+# Frontend pages (loop all routes)
+for route in / /login /register /dashboard /admin; do
+  STATUS=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost$route")
+  echo "$route → $STATUS"
+done
+
+# ZIP integrity
+zip -r project.zip /var/www/project/
+unzip -t project.zip && echo "ZIP OK"
+```
+
+Only after all green → write `"status": "complete"` to state file → report to user.
+
+---
+
+## 7. How Claude's Own Reliability Works
+
+The patterns that make Claude reliable (which you can replicate):
+
+**Tool use is atomic** — each tool call either succeeds or fails with an error, never silently wrong. Your SSH commands should work the same way: always pipe output to a known string you can parse.
+
+**Context is short and focused** — Claude doesn't try to hold an entire codebase in one context. Your agent should chunk work: one phase per context window, with state persisted between chunks.
+
+**Explicit uncertainty** — when Claude doesn't know, it says so. Your agent should do the same: if a verification is ambiguous, escalate to the user rather than guessing.
+
+---
+
+## Quick Priority Order
+
+Fix these first, in this order, for maximum impact:
+
+1. **Persistent state file** — implement this today, stops 80% of repeated work
+2. **Verify-after-every-action** pattern — stops false success reports
+3. **Non-interactive SSH flags** — stops Y/N stalls
+4. **Blank page recovery sequence** — stops browser loops
+5. **Split Planner from Builder from Verifier** — the architectural fix that scales
+
+The multi-agent split is the biggest long-term fix, but the state file and verification pattern will give you immediate, noticeable improvement with the least rewrite.

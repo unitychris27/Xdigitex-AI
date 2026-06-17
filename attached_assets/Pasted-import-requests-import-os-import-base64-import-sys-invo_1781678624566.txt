@@ -1,0 +1,535 @@
+import requests
+
+import os
+
+import base64
+
+import sys
+
+invoke_url = "https://integrate.api.nvidia.com/v1/chat/completions"
+
+stream = False
+
+query = "Describe the scene"
+
+kApiKey = "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"
+
+# ext: {mime, media_type}
+
+kSupportedList = {
+
+    "png": ["image/png", "image_url"],
+
+    "jpg": ["image/jpeg", "image_url"],
+
+    "jpeg": ["image/jpeg", "image_url"],
+
+    "webp": ["image/webp", "image_url"],
+
+    "mp4": ["video/mp4", "video_url"],
+
+    "webm": ["video/webm", "video_url"],
+
+    "mov": ["video/mov", "video_url"]
+
+}
+
+def get_extension(filename):
+
+    _, ext = os.path.splitext(filename)
+
+    ext = ext[1:].lower()
+
+    return ext
+
+def mime_type(ext):
+
+    return kSupportedList[ext][0]
+
+def media_type(ext):
+
+    return kSupportedList[ext][1]
+
+def encode_media_base64(media_file):
+
+    """Encode media file to base64 string"""
+
+    with open(media_file, "rb") as f:
+
+        return base64.b64encode(f.read()).decode("utf-8")
+
+def chat_with_media(infer_url, media_files, query: str, stream: bool = False):
+
+    assert isinstance(media_files, list), f"{media_files}"
+
+    
+
+    has_video = False
+
+    
+
+    # Build content based on whether we have media files
+
+    if len(media_files) == 0:
+
+        # Text-only mode
+
+        content = query
+
+    else:
+
+        # Build content array with text and media
+
+        content = [{"type": "text", "text": query}]
+
+        
+
+        for media_file in media_files:
+
+            ext = get_extension(media_file)
+
+            assert ext in kSupportedList, f"{media_file} format is not supported"
+
+            
+
+            media_type_key = media_type(ext)
+
+            if media_type_key == "video_url":
+
+                has_video = True
+
+            
+
+            print(f"Encoding {media_file} as base64...")
+
+            base64_data = encode_media_base64(media_file)
+
+            
+
+            # Add media to content array
+
+            media_obj = {
+
+                "type": media_type_key,
+
+                media_type_key: {
+
+                    "url": f"data:{mime_type(ext)};base64,{base64_data}"
+
+                }
+
+            }
+
+            content.append(media_obj)
+
+        
+
+        if has_video:
+
+            assert len(media_files) == 1, "Only single video supported."
+
+    
+
+    headers = {
+
+        "Authorization": f"Bearer {kApiKey}",
+
+        "Content-Type": "application/json",
+
+        "Accept": "application/json",
+
+    }
+
+    if stream:
+
+        headers["Accept"] = "text/event-stream"
+
+    # Add system message with appropriate prompt
+
+    # Videos only support /no_think, images support both
+
+    
+
+    system_prompt = "/no_think" if has_video else "/think"
+
+    
+
+    
+
+    messages = [
+
+        {
+
+            "role": "system",
+
+            "content": system_prompt,
+
+        },
+
+        {
+
+            "role": "user",
+
+            "content": content,
+
+        }
+
+    ]
+
+    payload = {
+
+        "max_tokens": 4096,
+
+        "temperature": 1,
+
+        "top_p": 1,
+
+        "frequency_penalty": 0,
+
+        "presence_penalty": 0,
+
+        "messages": messages,
+
+        "stream": stream,
+
+        "model": "nvidia/nemotron-nano-12b-v2-vl",
+
+    }
+
+    response = requests.post(infer_url, headers=headers, json=payload, stream=stream)
+
+    if stream:
+
+        for line in response.iter_lines():
+
+            if line:
+
+                print(line.decode("utf-8"))
+
+    else:
+
+        print(response.json())
+
+if __name__ == "__main__":
+
+    """ Usage:
+
+        python test.py                                    # Text-only
+
+        python test.py sample.mp4                         # Single video
+
+        python test.py sample1.png sample2.png            # Multiple images
+
+    """
+
+    media_samples = list(sys.argv[1:])
+
+    chat_with_media(invoke_url, media_samples, query, stream)    import requests, base64
+
+invoke_url = "https://integrate.api.nvidia.com/v1/chat/completions"
+
+stream = False
+
+def read_b64(path):
+
+  with open(path, "rb") as f:
+
+    return base64.b64encode(f.read()).decode()
+
+headers = {
+
+  "Authorization": "Bearer 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",
+
+  "Accept": "text/event-stream" if stream else "application/json"
+
+}
+
+payload = {
+
+  "model": "moonshotai/kimi-k2.6",
+
+  "messages": [{"role":"user","content":""}],
+
+  "max_tokens": 16384,
+
+  "temperature": 1.00,
+
+  "top_p": 1.00,
+
+  "stream": stream,
+
+  
+
+}
+
+response = requests.post(invoke_url, headers=headers, json=payload, stream=stream)
+
+if stream:
+
+    for line in response.iter_lines():
+
+        if line:
+
+            print(line.decode("utf-8"))
+
+else:
+
+    print(response.json())    add kimi2.6      from openai import OpenAI
+
+client = OpenAI(
+
+  base_url = "https://integrate.api.nvidia.com/v1",
+
+  api_key = "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"
+
+)
+
+completion = client.chat.completions.create(
+
+  model="openai/gpt-oss-120b",
+
+  messages=[{"role":"user","content":""}],
+
+  temperature=1,
+
+  top_p=1,
+
+  max_tokens=4096,
+
+  stream=False
+
+)
+
+reasoning = getattr(completion.choices[0].message, "reasoning_content", None)
+
+if reasoning:
+
+  print(reasoning)
+
+print(completion.choices[0].message.content)  for emage screenshorts  
+
+import requests, base64
+
+invoke_url = "https://ai.api.nvidia.com/v1/vlm/google/paligemma"
+
+stream = True
+
+with open("dog.jpeg", "rb") as f:
+
+    image_b64 = base64.b64encode(f.read()).decode()
+
+assert len(image_b64) < 180_000, \
+
+  "To upload larger images, use the assets API (see docs)"
+
+headers = {
+
+  "Authorization": "Bearer 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",
+
+  "Accept": "text/event-stream" if stream else "application/json"
+
+}
+
+payload = {
+
+  "messages": [
+
+    {
+
+      "role": "user",
+
+      "content": f'Describe the image. <img src="data:image/jpeg;base64,{image_b64}" />'
+
+    }
+
+  ],
+
+  "max_tokens": 512,
+
+  "temperature": 1.00,
+
+  "top_p": 0.70,
+
+  "stream": stream
+
+}
+
+response = requests.post(invoke_url, headers=headers, json=payload)
+
+if stream:
+
+    for line in response.iter_lines():
+
+        if line:
+
+            print(line.decode("utf-8"))
+
+else:
+
+    print(response.json())   ,,,,,,,,,,,,,from openai import OpenAI
+
+import os
+
+import sys
+
+_USE_COLOR = sys.stdout.isatty() and os.getenv("NO_COLOR") is None
+
+_REASONING_COLOR = "\033[90m" if _USE_COLOR else ""
+
+_RESET_COLOR = "\033[0m" if _USE_COLOR else ""
+
+client = OpenAI(
+
+  base_url = "https://integrate.api.nvidia.com/v1",
+
+  api_key = "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"
+
+)
+
+completion = client.chat.completions.create(
+
+  model="z-ai/glm-5.1",
+
+  messages=[{"role":"user","content":""}],
+
+  temperature=1,
+
+  top_p=1,
+
+  max_tokens=16384,
+
+  
+
+  stream=True
+
+)
+
+for chunk in completion:
+
+  if not getattr(chunk, "choices", None):
+
+    continue
+
+  if len(chunk.choices) == 0 or getattr(chunk.choices[0], "delta", None) is None:
+
+    continue
+
+  delta = chunk.choices[0].delta
+
+  if getattr(delta, "content", None) is not None:
+
+    print(delta.content, end=""),,,,,,,,,,,,,from openai import OpenAI
+
+client = OpenAI(
+
+  base_url = "https://integrate.api.nvidia.com/v1",
+
+  api_key = "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"
+
+)
+
+completion = client.chat.completions.create(
+
+  model="deepseek-ai/deepseek-v4-flash",
+
+  messages=[{"role":"user","content":""}],
+
+  temperature=1,
+
+  top_p=0.95,
+
+  max_tokens=16384,
+
+  extra_body={"chat_template_kwargs":{"thinking":True,"reasoning_effort":"high"}},
+
+  stream=False
+
+)
+
+reasoning = getattr(completion.choices[0].message, "reasoning", None) or getattr(completion.choices[0].message, "reasoning_content", None)
+
+if reasoning:
+
+  print(reasoning)
+
+print(completion.choices[0].message.content),,,,,from openai import OpenAI
+
+client = OpenAI(
+
+  base_url = "https://integrate.api.nvidia.com/v1",
+
+  api_key = "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"
+
+)
+
+completion = client.chat.completions.create(
+
+  model="deepseek-ai/deepseek-v4-pro",
+
+  messages=[{"role":"user","content":""}],
+
+  temperature=1,
+
+  top_p=0.95,
+
+  max_tokens=16384,
+
+  extra_body={"chat_template_kwargs":{"thinking":False}},
+
+  stream=False
+
+)
+
+print(completion.choices[0].message.content),,,,,,,,from openai import OpenAI
+
+import os
+
+import sys
+
+_USE_COLOR = sys.stdout.isatty() and os.getenv("NO_COLOR") is None
+
+_REASONING_COLOR = "\033[90m" if _USE_COLOR else ""
+
+_RESET_COLOR = "\033[0m" if _USE_COLOR else ""
+
+client = OpenAI(
+
+  base_url = "https://integrate.api.nvidia.com/v1",
+
+  api_key = "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"
+
+)
+
+completion = client.chat.completions.create(
+
+  model="z-ai/glm-5.1",
+
+  messages=[{"role":"user","content":""}],
+
+  temperature=1,
+
+  top_p=1,
+
+  max_tokens=16384,
+
+  
+
+  stream=True
+
+)
+
+for chunk in completion:
+
+  if not getattr(chunk, "choices", None):
+
+    continue
+
+  if len(chunk.choices) == 0 or getattr(chunk.choices[0], "delta", None) is None:
+
+    continue
+
+  delta = chunk.choices[0].delta
+
+  if getattr(delta, "content", None) is not None:
+
+    print(delta.content, end=""),,,,, so how do we rotate this models for agent, to ssh build browse do everything 

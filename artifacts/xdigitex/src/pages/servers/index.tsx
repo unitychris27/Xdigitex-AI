@@ -447,11 +447,27 @@ function TerminalDialog({ server, onClose }: { server: ServerRow; onClose: () =>
 
 // ─── AI Coding Agent Chat Dialog ──────────────────────────────────────────────
 
-const MODE_LABELS: Record<string, string> = { economy: "Fast", balanced: "Smart", "high-power": "Max" };
-const MODE_DESCS:  Record<string, string> = { economy: "Fastest — good for simple tasks", balanced: "Balanced speed and power", "high-power": "Most capable — best for complex builds" };
+const MODE_LABELS: Record<string, string> = {
+  economy:      "Fast",
+  balanced:     "Smart",
+  "high-power": "Max",
+  kimi:         "Kimi",
+  v4pro:        "V4 Pro",
+  auto:         "Auto",
+};
+const MODE_DESCS: Record<string, string> = {
+  economy:      "Gemini Flash — fastest, good for simple tasks",
+  balanced:     "DeepSeek V3 — balanced speed and power",
+  "high-power": "GPT-4o — most capable (OpenAI)",
+  kimi:         "Kimi K2.6 — best planner & architect (NVIDIA NIM)",
+  v4pro:        "DeepSeek V4 Pro — best builder for large codebases (NVIDIA NIM)",
+  auto:         "Auto — Kimi plans → V4 Pro builds → GLM recovers (NVIDIA NIM)",
+};
+
+type AgentMode = "economy" | "balanced" | "high-power" | "kimi" | "v4pro" | "auto";
 
 function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: () => void }) {
-  const [mode, setMode]         = useState<"economy" | "balanced" | "high-power">("balanced");
+  const [mode, setMode]         = useState<AgentMode>("auto");
   const [input, setInput]       = useState("");
   const [running, setRunning]   = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -764,16 +780,17 @@ function CodingAgentDialog({ server, onClose }: { server: ServerRow; onClose: ()
               )}
             </div>
           </div>
-          {/* Mode selector — abbreviated on mobile */}
-          <div className="flex gap-0.5 shrink-0">
-            {(["economy", "balanced", "high-power"] as const).map(m => (
+          {/* Mode selector */}
+          <div className="flex gap-0.5 shrink-0 flex-wrap">
+            {(["economy", "balanced", "high-power", "kimi", "v4pro", "auto"] as const).map(m => (
               <button key={m} onClick={() => setMode(m)}
                 title={MODE_DESCS[m]}
                 className={`px-1.5 py-1 rounded text-[10px] font-medium transition-colors ${
-                  mode === m ? "bg-purple-600 text-white" : "bg-muted text-muted-foreground hover:bg-muted/80"
+                  mode === m
+                    ? m === "auto" ? "bg-gradient-to-r from-violet-600 to-blue-500 text-white" : "bg-purple-600 text-white"
+                    : "bg-muted text-muted-foreground hover:bg-muted/80"
                 }`}>
-                <span className="hidden sm:inline">{MODE_LABELS[m]}</span>
-                <span className="sm:hidden">{MODE_LABELS[m].slice(0,3).toUpperCase()}</span>
+                {MODE_LABELS[m]}
               </button>
             ))}
           </div>

@@ -4,7 +4,7 @@ import { serversTable, activityTable } from "@workspace/db";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { Client } from "ssh2";
-import { getAIClient } from "../lib/ai";
+import { getAIClient, autoModel, type AgentRole } from "../lib/ai";
 import { runBrowserSteps, type BrowserStep } from "../lib/browser";
 import AdmZip from "adm-zip";
 import multer from "multer";
@@ -260,7 +260,7 @@ EXAMPLE for "fix novaspack.com its index.php":
 router.post("/:id/agent", async (req, res) => {
   const parsed = z.object({
     task: z.string().min(1).max(3000),
-    mode: z.enum(["economy", "balanced", "high-power"]).default("balanced"),
+    mode: z.enum(["economy", "balanced", "high-power", "kimi", "v4pro", "auto"]).default("balanced"),
   }).safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid input" });
 
@@ -294,10 +294,13 @@ router.post("/:id/agent", async (req, res) => {
     }
   };
 
-  const modelMap: Record<string, { provider: "openrouter" | "deepseek" | "openai"; model: string }> = {
+  const modelMap: Record<string, { provider: "openrouter" | "deepseek" | "openai" | "nvidia"; model: string }> = {
     "economy":    { provider: "openrouter", model: "google/gemini-2.0-flash-001" },
     "balanced":   { provider: "deepseek",   model: "deepseek-chat" },
     "high-power": { provider: "openai",     model: "gpt-4o" },
+    "kimi":       { provider: "nvidia",     model: "moonshotai/kimi-k2.6" },
+    "v4pro":      { provider: "nvidia",     model: "deepseek-ai/deepseek-v4-pro" },
+    "auto":       { provider: "nvidia",     model: "moonshotai/kimi-k2.6" },
   };
 
   try {
@@ -1225,7 +1228,7 @@ router.post("/:id/chat", async (req, res) => {
       role:    z.enum(["user", "assistant"]),
       content: z.string().max(20000),
     })).min(1).max(60),
-    mode: z.enum(["economy", "balanced", "high-power"]).default("high-power"),
+    mode: z.enum(["economy", "balanced", "high-power", "kimi", "v4pro", "auto"]).default("high-power"),
   });
   const parsed = schema.safeParse(req.body);
   if (!parsed.success) return res.status(400).json({ error: "Invalid input" });
@@ -1240,10 +1243,13 @@ router.post("/:id/chat", async (req, res) => {
   const send = (type: string, payload: Record<string, unknown>) =>
     res.write(`data: ${JSON.stringify({ type, ...payload })}\n\n`);
 
-  const modelMap: Record<string, { provider: "openrouter" | "deepseek" | "openai"; model: string }> = {
+  const modelMap: Record<string, { provider: "openrouter" | "deepseek" | "openai" | "nvidia"; model: string }> = {
     "economy":    { provider: "openrouter", model: "google/gemini-2.0-flash-001" },
     "balanced":   { provider: "deepseek",   model: "deepseek-chat" },
     "high-power": { provider: "openai",     model: "gpt-4o" },
+    "kimi":       { provider: "nvidia",     model: "moonshotai/kimi-k2.6" },
+    "v4pro":      { provider: "nvidia",     model: "deepseek-ai/deepseek-v4-pro" },
+    "auto":       { provider: "nvidia",     model: "moonshotai/kimi-k2.6" }, // starts as planner; rotates per loop
   };
 
   const ssh = async (cmd: string): Promise<{ out: string; code: number }> => {
@@ -1284,8 +1290,8 @@ router.post("/:id/chat", async (req, res) => {
   };
 
   try {
-    const { provider, model } = modelMap[parsed.data.mode];
-    const client = getAIClient(provider);
+    const { provider: baseProvider, model: baseModel } = modelMap[parsed.data.mode];
+    const isAuto = parsed.data.mode === "auto";
     const systemPrompt = CHAT_AGENT_SYSTEM(s.username, parsed.data.messages.length, s.githubToken);
 
     type AIContent = string | Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string; detail?: string } }>;
@@ -1309,30 +1315,49 @@ router.post("/:id/chat", async (req, res) => {
       tokensFlushed = true;
       const durationMs = Date.now() - startTime;
       const total = totalPromptTokens + totalCompletionTokens;
+      const reportModel = isAuto ? "auto (Kimi→V4Pro→V4Flash)" : baseModel;
       send("tokens", {
         prompt: totalPromptTokens, completion: totalCompletionTokens,
-        total, iters: totalIterations, model, durationMs,
+        total, iters: totalIterations, model: reportModel, durationMs,
       });
       // Persist to history DB
       const userTask = parsed.data.messages[parsed.data.messages.length - 1]?.content?.slice(0, 1000) ?? "";
       await db.insert(serverTaskHistoryTable).values({
         serverId: s.id, task: userTask, summary: summary?.slice(0, 2000) ?? "",
-        model, promptTokens: totalPromptTokens, completionTokens: totalCompletionTokens,
+        model: reportModel, promptTokens: totalPromptTokens, completionTokens: totalCompletionTokens,
         totalTokens: total, iterations: totalIterations, durationMs,
       }).catch(() => {});
     };
 
     // Track commands run this session to detect infinite loops
     const cmdRunCount = new Map<string, number>();
+    // For auto mode: track current agent role
+    let currentRole: AgentRole = "planner";
 
     // Agentic loop — max 40 iterations per user turn (complex builds need more steps)
     for (let iter = 0; iter < 40; iter++) {
-      const completion = await client.chat.completions.create({
-        model,
+      // ── Auto mode: role rotation ───────────────────────────────────────────
+      // iter 0 → Kimi K2.6 (planner: breaks down task)
+      // iter 1+ → DeepSeek V4 Pro (builder: writes code, runs commands)
+      // loop detected → GLM 5.1 (recovery: new approach)
+      // (verifier role is used as a quick post-command check, not the main loop model)
+      let iterModel = baseModel;
+      let iterClient = getAIClient(baseProvider);
+      if (isAuto) {
+        if (iter === 0) currentRole = "planner";
+        else if (currentRole === "recovery") { /* keep recovery until unstuck */ }
+        else currentRole = "builder";
+        iterModel  = autoModel(currentRole);
+        iterClient = getAIClient("nvidia");
+        send("think", { text: `🤖 Auto mode: ${currentRole} → ${iterModel.split("/").pop()}` });
+      }
+
+      const completion = await iterClient.chat.completions.create({
+        model: iterModel,
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         messages: aiMessages as any[],
         max_tokens: 8000,
-        temperature: 0.1,
+        temperature: iter === 0 ? 0.3 : 0.1,  // planner gets slightly more creativity
       });
 
       // Accumulate tokens
@@ -1372,6 +1397,11 @@ router.post("/:id/chat", async (req, res) => {
 
         if (allRepeats && cmds.length > 0) {
           // Every command in this batch has already been run — agent is looping
+          // In auto mode: escalate to GLM 5.1 (recovery specialist) for next iteration
+          if (isAuto && currentRole !== "recovery") {
+            currentRole = "recovery";
+            send("think", { text: "🔄 Auto mode: loop detected — escalating to GLM 5.1 (recovery specialist)" });
+          }
           const loopWarning =
             `⚠️ LOOP DETECTED: Every command in this batch has already been run this session:\n` +
             cmds.map(c => `  • ${normCmd(c.cmd)} (run ${cmdRunCount.get(normCmd(c.cmd))}x)`).join("\n") + `\n\n` +
@@ -1493,11 +1523,15 @@ router.post("/:id/chat", async (req, res) => {
 
         // Vision capability map — check current model
         const visionCapable: Record<string, boolean> = {
-          "gpt-4o":                      true,
-          "google/gemini-2.0-flash-001": true,
-          "deepseek-chat":               false,  // DeepSeek-V3 has no image vision
+          "gpt-4o":                            true,
+          "google/gemini-2.0-flash-001":       true,
+          "deepseek-chat":                     false,
+          "moonshotai/kimi-k2.6":              true,   // Kimi K2.6 supports vision
+          "deepseek-ai/deepseek-v4-pro":       false,
+          "deepseek-ai/deepseek-v4-flash":     false,
+          "z-ai/glm-5.1":                      false,
         };
-        const hasVision = (visionCapable[model] ?? false) && visionParts.length > 0;
+        const hasVision = (visionCapable[iterModel] ?? false) && visionParts.length > 0;
 
         aiMessages.push({ role: "assistant", content: raw });
         if (hasVision) {

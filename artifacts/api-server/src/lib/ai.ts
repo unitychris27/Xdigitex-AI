@@ -1,6 +1,6 @@
 import OpenAI from "openai";
 
-export type AIProvider = "deepseek" | "openrouter" | "openai";
+export type AIProvider = "deepseek" | "openrouter" | "openai" | "nvidia";
 
 export interface GenerateOptions {
   prompt: string;
@@ -32,10 +32,34 @@ function getOpenAIClient() {
   return new OpenAI({ apiKey });
 }
 
+function getNVIDIAClient() {
+  const apiKey = process.env["NVIDIA_API_KEY"];
+  if (!apiKey) throw new Error("NVIDIA_API_KEY is not set — add it in the Secrets tab");
+  return new OpenAI({ baseURL: "https://integrate.api.nvidia.com/v1", apiKey });
+}
+
 export function getAIClient(provider: AIProvider = "deepseek") {
   if (provider === "openrouter") return getOpenRouterClient();
   if (provider === "openai")    return getOpenAIClient();
+  if (provider === "nvidia")    return getNVIDIAClient();
   return getDeepSeekClient();
+}
+
+// ─── NVIDIA NIM model roster ────────────────────────────────────────────────
+export const NVIDIA_MODELS = {
+  kimi:    "moonshotai/kimi-k2.6",        // Planner / Architect
+  v4pro:   "deepseek-ai/deepseek-v4-pro", // Builder  / SSH code
+  v4flash: "deepseek-ai/deepseek-v4-flash",// Verifier / log reading (fast)
+  glm:     "z-ai/glm-5.1",               // Recovery / debugging
+} as const;
+
+// Role → NVIDIA model used in "auto" mode rotation
+export type AgentRole = "planner" | "builder" | "verifier" | "recovery";
+export function autoModel(role: AgentRole): string {
+  if (role === "planner")  return NVIDIA_MODELS.kimi;
+  if (role === "verifier") return NVIDIA_MODELS.v4flash;
+  if (role === "recovery") return NVIDIA_MODELS.glm;
+  return NVIDIA_MODELS.v4pro; // builder (default)
 }
 
 // ─── Gemini image generation ────────────────────────────────────────────────
@@ -68,6 +92,7 @@ export async function generateImageWithGemini(prompt: string): Promise<string> {
 export function getDefaultModel(provider: AIProvider): string {
   if (provider === "openrouter") return "deepseek/deepseek-chat";
   if (provider === "openai")     return "gpt-4o";
+  if (provider === "nvidia")     return NVIDIA_MODELS.kimi;
   return "deepseek-chat";
 }
 

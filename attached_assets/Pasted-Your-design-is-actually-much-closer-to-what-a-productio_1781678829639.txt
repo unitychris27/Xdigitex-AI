@@ -1,0 +1,339 @@
+Your design is actually much closer to what a production autonomous agent should look like than "one model does everything."
+
+A few improvements I'd make:
+
+## 1. Don't Let Models Decide Success
+
+This is the biggest issue from all the examples you showed.
+
+Current flow:
+
+```text
+Browser
+↓
+Model says:
+"Registration successful"
+↓
+Agent continues
+```
+
+Correct flow:
+
+```text
+Browser submits form
+↓
+Verify URL changed
+Verify session cookie exists
+Verify dashboard element exists
+Verify screenshot matches dashboard
+↓
+Only then mark success
+```
+
+Success should be determined by **rules**, not by the LLM.
+
+Example:
+
+```python
+success = (
+    "/dashboard" in current_url and
+    find_element("Logout") and
+    not find_element("Login")
+)
+```
+
+Then ask the model:
+
+```python
+"Explain what happened"
+```
+
+Not:
+
+```python
+"Did it succeed?"
+```
+
+---
+
+## 2. Add a State Machine
+
+Your agent currently looks stateless.
+
+Instead:
+
+```python
+TASK_CREATED
+↓
+PLANNING
+↓
+CODING
+↓
+DEPLOYING
+↓
+VERIFYING
+↓
+COMPLETED
+```
+
+If verification fails:
+
+```python
+VERIFYING
+↓
+RECOVERY
+↓
+VERIFYING
+```
+
+Never:
+
+```python
+VERIFYING
+↓
+COMPLETED
+```
+
+without proof.
+
+---
+
+## 3. Separate Browser Vision from Browser Automation
+
+I would use:
+
+### Browser Engine
+
+Playwright
+
+Handles:
+
+```python
+click()
+fill()
+navigate()
+wait_for()
+```
+
+### Vision Model
+
+Nemotron VL
+
+Handles:
+
+```python
+what is visible?
+is there an error?
+is login visible?
+```
+
+Never let the vision model click things.
+
+---
+
+## 4. Add a Log Analyzer
+
+You currently have:
+
+```python
+Planner
+Builder
+Verifier
+Browser
+Recovery
+```
+
+Add:
+
+```python
+LOG_ANALYZER
+```
+
+using DeepSeek Flash.
+
+Feed:
+
+```bash
+tail -200 error.log
+tail -200 php.log
+tail -200 nginx.log
+```
+
+Prompt:
+
+```text
+Find root cause only.
+Do not suggest fixes yet.
+```
+
+This dramatically improves debugging.
+
+---
+
+## 5. Add a Project Memory Layer
+
+Many autonomous agents fail because after 50–100 steps they forget.
+
+Store:
+
+```json
+{
+  "project": "LinkForge",
+  "completed_tasks": [...],
+  "files_created": [...],
+  "database_tables": [...],
+  "known_errors": [...]
+}
+```
+
+SQLite is enough.
+
+Then every model receives:
+
+```python
+memory_context
+```
+
+before the task.
+
+---
+
+## 6. Add a Verification Checklist
+
+For website builds:
+
+```python
+checklist = [
+    "homepage loads",
+    "login works",
+    "register works",
+    "database connected",
+    "404 page works",
+    "admin login works",
+    "dashboard loads",
+    "no PHP fatal errors"
+]
+```
+
+The task isn't done until every item passes.
+
+This alone solves the "it built the site but half the features are broken" problem.
+
+---
+
+## 7. Use GPT-OSS More Sparingly
+
+I would slightly change your routing:
+
+| Role             | Model             |
+| ---------------- | ----------------- |
+| Planner          | Kimi K2.6         |
+| Builder          | DeepSeek V4 Pro   |
+| Verifier         | DeepSeek V4 Flash |
+| Vision           | Nemotron VL       |
+| Recovery         | GLM 5.1           |
+| Audit / Final QA | GPT-OSS 120B      |
+
+Use GPT-OSS only when:
+
+```text
+Project finished
+```
+
+or
+
+```text
+Agent stuck after 3 recovery attempts
+```
+
+Otherwise it becomes expensive and slow.
+
+---
+
+## 8. Add Failure Budgets
+
+For example:
+
+```python
+MAX_RECOVERY_ATTEMPTS = 5
+```
+
+Flow:
+
+```text
+Build
+↓
+Verify
+↓
+Fail
+↓
+Recover
+↓
+Verify
+↓
+Fail
+↓
+Recover
+...
+```
+
+After 5 attempts:
+
+```text
+Escalate to GPT-OSS
+```
+
+instead of looping forever.
+
+---
+
+## 9. Your Biggest Missing Component
+
+From all the failures you showed, the missing component isn't another model.
+
+It's a **Verifier Controller**.
+
+Something like:
+
+```python
+class Verifier:
+    def website_loaded(self): ...
+    def login_worked(self): ...
+    def db_connected(self): ...
+    def page_not_blank(self): ...
+    def screenshot_matches(self): ...
+```
+
+Every task must pass verifier checks before the agent can continue.
+
+That would have prevented:
+
+* "Registration successful" when it wasn't.
+* "Login successful" when it wasn't.
+* Blank-page success claims.
+* Declaring sites complete without checking routes.
+* Claiming deployment worked without HTTP verification.
+
+## One More Important Point
+
+You pasted multiple NVIDIA API keys in your message. Treat those as compromised now because they've been exposed in plaintext.
+
+You should:
+
+1. Revoke the exposed keys in your NVIDIA account.
+2. Generate new keys.
+3. Store them in environment variables:
+
+```bash
+export NVIDIA_API_KEY=...
+```
+
+or
+
+```env
+NVIDIA_API_KEY=...
+```
+
+4. Never hard-code them into prompts, logs, screenshots, or source code repositories.
+
+For the type of autonomous SaaS-building agent you're creating, the architecture (verification, recovery, memory, state management) will have a much larger impact on reliability than switching from one frontier model to another.

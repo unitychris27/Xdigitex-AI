@@ -1,0 +1,267 @@
+The idea is correct, but there's a major trap for website-building agents:
+
+**Parallel file generation is easy. Parallel code integration is hard.**
+
+For example, imagine 5 builders:
+
+```text
+Builder A → User model
+Builder B → Auth system
+Builder C → API
+Builder D → Dashboard
+Builder E → Payments
+```
+
+Each one independently decides:
+
+```php
+users.name
+users.full_name
+users.username
+```
+
+Now you merge everything and nothing works.
+
+---
+
+### Better Architecture
+
+Don't parallelize by feature.
+
+Parallelize by layer.
+
+```text
+Phase 1
+├── Database Agent
+├── Routes Agent
+├── UI Agent
+├── Config Agent
+└── Documentation Agent
+```
+
+Then:
+
+```text
+Phase 2
+├── Auth Agent
+├── Dashboard Agent
+├── API Agent
+└── Admin Agent
+```
+
+All of them consume the same specification.
+
+---
+
+### What Replit and Devin do
+
+They don't usually spawn 20 coders writing random files.
+
+Instead:
+
+```text
+Planner
+    ↓
+Creates task graph
+
+Task Graph
+    ↓
+Workers claim tasks
+
+Worker
+    ↓
+Creates file
+
+Verifier
+    ↓
+Checks file
+
+Merger
+    ↓
+Updates state
+```
+
+The state is the important part.
+
+---
+
+### For your SaaS builder
+
+I would do:
+
+```text
+Project State
+```
+
+```json
+{
+  "tables": [
+    "users",
+    "links",
+    "plans"
+  ],
+  "routes": [
+    "/login",
+    "/register"
+  ],
+  "completed": [],
+  "current_phase": "database"
+}
+```
+
+Every worker reads this.
+
+Every worker updates this.
+
+No worker invents its own schema.
+
+---
+
+### File Ownership
+
+The biggest rule:
+
+```text
+One file
+One owner
+```
+
+Bad:
+
+```text
+Agent A -> User.php
+
+Agent B -> User.php
+
+Agent C -> User.php
+```
+
+Good:
+
+```text
+Agent A owns models/*
+Agent B owns controllers/*
+Agent C owns views/*
+Agent D owns api/*
+```
+
+No collisions.
+
+---
+
+### For 100-page SaaS projects
+
+I would run something like:
+
+```text
+Planner (Kimi)
+
+├── Database Worker
+├── Frontend Worker
+├── Backend Worker
+├── API Worker
+├── Documentation Worker
+```
+
+Then:
+
+```text
+Verifier Pool
+
+├── PHP Syntax Checker
+├── Route Checker
+├── Browser Checker
+├── Database Checker
+```
+
+Then:
+
+```text
+Recovery Agent
+```
+
+only if verification fails.
+
+---
+
+### The real bottleneck isn't file generation
+
+Your models can generate:
+
+```text
+100 files
+500 files
+1000 files
+```
+
+fairly quickly.
+
+The bottleneck is:
+
+```text
+Can they all compile together?
+
+Can they all run together?
+
+Can they all deploy together?
+```
+
+That's where most autonomous agents fail.
+
+---
+
+### What I would build if I were making your agent
+
+```text
+1. Planner
+   ↓
+
+2. Task Graph
+
+   ├── DB Worker
+   ├── Backend Worker
+   ├── Frontend Worker
+   ├── API Worker
+
+   (parallel)
+
+   ↓
+
+3. File Merger
+
+   ↓
+
+4. SSH Executor
+
+   ↓
+
+5. Automated Tests
+
+   ↓
+
+6. Browser Screenshots
+
+   ↓
+
+7. Vision Verification
+
+   ↓
+
+8. Recovery Loop
+
+   ↓
+
+9. Final Acceptance Test
+
+   ↓
+
+10. ZIP + Deploy + Screenshot + Report
+```
+
+Notice something important:
+
+**Parallel generation. Sequential verification.**
+
+That's the pattern that scales.
+
+The reason your current agent keeps breaking is not because it can't write files. It's because it jumps from "files generated" straight to "success" without a strong integration, verification, and recovery pipeline. That's why you see blank screens, false positives, half-finished sites, and claims that features work when they haven't actually been tested end-to-end.

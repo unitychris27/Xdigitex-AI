@@ -1,0 +1,209 @@
+Looking at your code, you're using **NVIDIA NIM** as your API provider, which gives you access to all these models through one endpoint. Smart choice. Here's how to rotate them for your agent:
+
+---
+
+## Your Model Roster (from your code)
+
+| Model | API String | Best Role |
+|---|---|---|
+| Kimi K2.6 | `moonshotai/kimi-k2.6` | Planner / Architect |
+| DeepSeek V4 Pro | `deepseek-ai/deepseek-v4-pro` | Builder / SSH commands |
+| DeepSeek V4 Flash | `deepseek-ai/deepseek-v4-flash` | Verifier / Log reading |
+| GLM 5.1 | `z-ai/glm-5.1` | Recovery / Debugging |
+| GPT-OSS 120B | `openai/gpt-oss-120b` | Fallback / Hard reasoning |
+| Nemotron VL | `nvidia/nemotron-nano-12b-v2-vl` | Browser screenshots |
+| PaliGemma | `google/paligemma` | Screenshot verification |
+
+---
+
+## The Unified Agent Router
+
+Here's a single file that wraps all your scattered snippets into one clean router:
+
+```python
+import requests
+import base64
+import json
+import os
+from enum import Enum
+
+NVIDIA_API_KEY = "nvapi-zYy4rvnfWZm-..."  # your key
+BASE_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
+
+class AgentRole(Enum):
+    PLANNER   = "planner"
+    BUILDER   = "builder"
+    VERIFIER  = "verifier"
+    BROWSER   = "browser"
+    RECOVERY  = "recovery"
+
+# Map each role to the right model
+MODEL_MAP = {
+    AgentRole.PLANNER:  {
+        "model": "moonshotai/kimi-k2.6",
+        "max_tokens": 16384,
+        "temperature": 0.7,
+        "thinking": False  # planning needs determinism
+    },
+    AgentRole.BUILDER: {
+        "model": "deepseek-ai/deepseek-v4-pro",
+        "max_tokens": 16384,
+        "temperature": 0.3,  # low temp for code writing
+        "thinking": False
+    },
+    AgentRole.VERIFIER: {
+        "model": "deepseek-ai/deepseek-v4-flash",
+        "max_tokens": 4096,
+        "temperature": 0.1,  # very low, just reading logs
+        "thinking": True,    # flash supports thinking mode
+        "reasoning_effort": "high"
+    },
+    AgentRole.BROWSER: {
+        "model": "nvidia/nemotron-nano-12b-v2-vl",
+        "max_tokens": 4096,
+        "temperature": 0.5,
+        "vision": True       # flag: needs image input
+    },
+    AgentRole.RECOVERY: {
+        "model": "z-ai/glm-5.1",
+        "max_tokens": 16384,
+        "temperature": 0.6,
+        "thinking": True
+    },
+}
+
+# Fallback chain: if primary fails, try next
+FALLBACK_CHAIN = {
+    AgentRole.PLANNER:  ["moonshotai/kimi-k2.6", "openai/gpt-oss-120b"],
+    AgentRole.BUILDER:  ["deepseek-ai/deepseek-v4-pro", "moonshotai/kimi-k2.6"],
+    AgentRole.VERIFIER: ["deepseek-ai/deepseek-v4-flash", "deepseek-ai/deepseek-v4-pro"],
+    AgentRole.BROWSER:  ["nvidia/nemotron-nano-12b-v2-vl"],
+    AgentRole.RECOVERY: ["z-ai/glm-5.1", "openai/gpt-oss-120b"],
+}
+
+
+def call_model(role: AgentRole, prompt: str, screenshot_path: str = None):
+    config = MODEL_MAP[role]
+    headers = {
+        "Authorization": f"Bearer {NVIDIA_API_KEY}",
+        "Content-Type": "application/json",
+        "Accept": "application/json"
+    }
+
+    # Build message content
+    if config.get("vision") and screenshot_path:
+        with open(screenshot_path, "rb") as f:
+            b64 = base64.b64encode(f.read()).decode()
+        content = [
+            {"type": "text", "text": prompt},
+            {"type": "image_url", "image_url": {
+                "url": f"data:image/png;base64,{b64}"
+            }}
+        ]
+    else:
+        content = prompt
+
+    messages = [{"role": "user", "content": content}]
+
+    # Add system prompt for thinking models
+    if config.get("thinking"):
+        messages.insert(0, {"role": "system", "content": "/think"})
+
+    payload = {
+        "model": config["model"],
+        "messages": messages,
+        "max_tokens": config["max_tokens"],
+        "temperature": config["temperature"],
+        "top_p": 0.95,
+        "stream": False
+    }
+
+    # DeepSeek thinking extra params
+    if config.get("thinking") and "deepseek" in config["model"]:
+        payload["extra_body"] = {
+            "chat_template_kwargs": {
+                "thinking": True,
+                "reasoning_effort": config.get("reasoning_effort", "high")
+            }
+        }
+
+    # Try primary, then fallback
+    models_to_try = FALLBACK_CHAIN[role]
+    for model in models_to_try:
+        payload["model"] = model
+        try:
+            response = requests.post(BASE_URL, headers=headers, json=payload, timeout=120)
+            result = response.json()
+
+            if "choices" not in result:
+                print(f"[WARN] {model} failed: {result.get('error', 'unknown')}, trying fallback...")
+                continue
+
+            msg = result["choices"][0]["message"]
+            reasoning = getattr(msg, "reasoning_content", None) or result.get("reasoning")
+            content_out = msg.get("content", "") if isinstance(msg, dict) else msg.content
+
+            return {
+                "model_used": model,
+                "role": role.value,
+                "reasoning": reasoning,
+                "content": content_out
+            }
+
+        except Exception as e:
+            print(f"[ERROR] {model} exception: {e}, trying fallback...")
+            continue
+
+    raise Exception(f"All models failed for role {role.value}")
+```
+
+---
+
+## How Your Agent Calls It Per Task
+
+```python
+# 1. PLANNER breaks the project into tasks
+plan = call_model(
+    AgentRole.PLANNER,
+    "Build a SaaS link shortener. Break it into atomic tasks with dependencies. Output JSON."
+)
+
+# 2. BUILDER writes and runs the code via SSH
+code = call_model(
+    AgentRole.BUILDER,
+    f"Write the Laravel auth controller for this task: {current_task}. Output only code."
+)
+
+# 3. VERIFIER reads logs and checks results
+verify = call_model(
+    AgentRole.VERIFIER,
+    f"Here is the SSH output: {ssh_output}\nDid the migration succeed? Check for errors. Be precise."
+)
+
+# 4. BROWSER analyzes screenshots
+analysis = call_model(
+    AgentRole.BROWSER,
+    "Is the login page showing correctly? Is there any error visible?",
+    screenshot_path="/tmp/screenshot.png"
+)
+
+# 5. RECOVERY diagnoses failures
+fix = call_model(
+    AgentRole.RECOVERY,
+    f"The following error occurred:\n{error}\nTrace the root cause and give exact fix commands."
+)
+```
+
+---
+
+## The Key Rotation Rules
+
+**Use cheap/fast models for high-frequency tasks** — verification runs after every single command, so DeepSeek Flash saves you money there.
+
+**Use strong reasoning models only when stuck** — Kimi K2.6 and GLM 5.1 with `/think` mode for planning and recovery, not for routine file writing.
+
+**Always have a fallback** — if DeepSeek V4 Pro times out mid-build, your agent silently retries with Kimi K2.6 without crashing.
+
+**Low temperature for code, higher for planning** — Builder at 0.3 means consistent, predictable code. Planner at 0.7 allows creative problem decomposition.
+
+**Vision models only for screenshots** — Nemotron VL is your eyes. Call it every time you take a browser screenshot to get a structured description before deciding next action.
