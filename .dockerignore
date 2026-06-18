@@ -11,6 +11,5 @@ node_modules
 attached_assets
 .local
 .agents
-docker/nginx.conf
 README.md
 LICENSE
