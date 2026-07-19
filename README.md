@@ -226,6 +226,21 @@ pnpm --filter @workspace/api-server run build   # Build API server
 ```
 
 ---
+## How OpenAI Codex & GPT-5.6 Were Used
+This project was built with extensive assistance from OpenAI Codex and GPT-5.6 throughout development.
+## Codex
+Generated production-ready code.
+Refactored and optimized existing code.
+Fixed bugs and implementation issues.
+Created project components and utilities.
+Assisted with debugging and repository improvements.
+## GPT-5.6
+Designed agent architecture and workflows.
+Generated prompts and reasoning logic.
+Improved documentation and README files.
+Helped plan automation features and user experience.
+Assisted with testing strategies, feature planning, and technical explanations.
+The combination of Codex for implementation and GPT-5.6 for planning, reasoning, debugging, and documentation significantly accelerated development and reduced engineering time.
 
 ## License
 
